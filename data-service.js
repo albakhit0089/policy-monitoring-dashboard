@@ -65,3 +65,14 @@ export function groupCount(records, keyFn) {
 export function monthKey(record) {
   return record.date ? record.date.slice(0, 7) : null;
 }
+
+export const FOOD_DATA_URL = "./data/food-indicators.json";
+let foodIndicatorsPromise = null;
+
+export function loadFoodIndicators() {
+  foodIndicatorsPromise ||= fetch(FOOD_DATA_URL, { cache: "no-cache" }).then((response) => {
+    if (!response.ok) throw new Error(`Food indicator request failed (${response.status})`);
+    return response.json();
+  }).catch((error) => { foodIndicatorsPromise = null; throw error; });
+  return foodIndicatorsPromise;
+}

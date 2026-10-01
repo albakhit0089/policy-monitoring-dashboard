@@ -5,10 +5,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'data/gcc-yemen-measures.json'];
+const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'food-analysis.js', 'prices.js', 'network.js', 'reports.js', 'data/gcc-yemen-measures.json', 'data/food-indicators.json'];
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
 if (missing.length) throw new Error(`Required static files are missing: ${missing.join(', ')}`);
-for (const file of ['app.js', 'data-service.js', 'api/policy-ai.js', 'scripts/build-data.cjs', 'scripts/test-ai-api.mjs']) {
+for (const file of ['app.js', 'data-service.js', 'food-analysis.js', 'prices.js', 'network.js', 'reports.js', 'scripts/build-indicators.cjs', 'api/policy-ai.js', 'scripts/build-data.cjs', 'scripts/test-ai-api.mjs']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`${file} syntax check failed:\n${result.stderr}`);
 }
@@ -26,4 +26,10 @@ if (source) {
   if (payload.records.some((record) => !sourceIds.has(record.id))) throw new Error('Regional record not present in the preserved source dataset.');
 }
 if (new Set(payload.records.map((record) => record.country)).size !== 7) throw new Error('Regional dataset does not contain all seven target countries.');
-console.log(`Static dashboard check passed: ${payload.recordCount.toLocaleString()} GCC/Yemen records, seven countries; ${source ? `preserved ${source.recordCount.toLocaleString()} source records` : 'full source dataset not present (skipped cross-check)'}; JavaScript syntax valid.`);
+const food = JSON.parse(fs.readFileSync(path.join(root, 'data/food-indicators.json'), 'utf8'));
+const foodCountries = [...food.prices.series.map((series) => series.country), ...food.diet.countries];
+if (foodCountries.some((country) => !allowed.has(country))) throw new Error('Non-GCC/Yemen country found in food indicators.');
+const itemCodes = new Set(food.prices.items.map((item) => item.code));
+if (food.prices.series.some((series) => !itemCodes.has(series.code))) throw new Error('Food price series references an unknown item code.');
+if (!food.diet.countries.length || !food.prices.series.length) throw new Error('Food indicators dataset is empty.');
+console.log(`Static dashboard check passed: ${payload.recordCount.toLocaleString()} GCC/Yemen records, seven countries; ${source ? `preserved ${source.recordCount.toLocaleString()} source records` : 'full source dataset not present (skipped cross-check)'}; ${food.prices.series.length} food price series; JavaScript syntax valid.`);

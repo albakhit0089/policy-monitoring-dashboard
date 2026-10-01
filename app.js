@@ -1,4 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadRegionalData, monthKey } from "./data-service.js";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js";
+import { renderNetworkPage } from "./network.js";
+import { renderPricesPage } from "./prices.js";
+import { renderReportsPage } from "./reports.js";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -419,54 +422,6 @@ function emptyMarkup(title = "No matching policy measures", body = "Adjust your 
 }
 function wireEmptyActions() { $$("[data-reset-empty]").forEach((button) => button.addEventListener("click", resetFilters)); }
 
-function renderNetworkPage() {
-  const records = filtered();
-  $("#page-content").innerHTML = `${heading("Policy network", "Trace how monitored countries connect to policy families, domains and institutions.", "RELATIONSHIPS", `<label class="network-mode-label">Network mode<select id="network-mode"><option value="country-domain">Country ↔ Policy domain</option><option value="country-family">Country ↔ Policy family</option><option value="country-institution">Country ↔ Institution</option><option value="institution-domain">Institution ↔ Policy domain</option></select></label><button class="button button-outline" id="network-reset">${icon("rotate-ccw")}Reset view</button>`)}<div class="content-grid"><section class="card span-12"><div class="card-header"><div><h2 class="card-title">Regional policy relationships</h2><p class="card-subtitle">Select a node to filter the workspace. Hover for counts and linked records.</p></div><span class="heading-meta">${records.length.toLocaleString()} measures</span></div><div class="card-body"><div class="network-container" id="network-container"><div id="regional-network"></div><div class="network-legend" id="network-legend"></div><div class="network-controls"><button class="icon-button" id="network-zoom-in" title="Zoom in" aria-label="Zoom in">${icon("plus")}</button><button class="icon-button" id="network-zoom-out" title="Zoom out" aria-label="Zoom out">${icon("minus")}</button><button class="icon-button" id="network-fullscreen" title="Fullscreen" aria-label="Fullscreen">${icon("maximize")}</button></div></div></div></section>${card("Selected records", "Latest records in the filtered network selection.", `<div class="record-list">${records.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,6).map(recordCard).join("")||emptyMarkup()}</div>`, "span-12")}</div>`;
-  $("#network-mode").value = state.networkMode;
-  $("#network-mode").addEventListener("change", (event) => { state.networkMode = event.target.value; renderNetworkPage(); });
-  $("#network-reset").addEventListener("click", () => { state.group = "all"; state.country = "all"; state.domain = "all"; state.family = "all"; state.institution = "all"; syncFilters(); renderNetworkPage(); });
-  drawPolicyNetwork(records);
-  refreshIcons();
-}
-function drawPolicyNetwork(records) {
-  const host = $("#regional-network");
-  const width = Math.max(330, host.clientWidth || 900), height = Math.min(610, Math.max(410, width * .56));
-  const nodes = [], links = [];
-  const leftField = state.networkMode.startsWith("country-");
-  const leftKey = state.networkMode.startsWith("institution-") ? "institution" : "country";
-  const rightKey = state.networkMode.endsWith("family") ? "family" : state.networkMode.endsWith("institution") ? "institution" : state.networkMode.endsWith("domain") ? "domain" : "domain";
-  const pairCounts = d3.rollups(records.filter((record) => record[leftKey] && record[rightKey]), (values) => values.length, (record) => record[leftKey], (record) => record[rightKey]);
-  const leftNames = leftKey === "country" ? COUNTRIES.filter((country) => pairCounts.some(([name]) => name === country)) : pairCounts.map(([name]) => name).slice(0, 14);
-  const rightNames = [...new Set(pairCounts.flatMap(([, entries]) => entries.map(([name]) => name)))].slice(0, 18);
-  const leftX = width * .22, rightX = width * .78;
-  const positions = new Map();
-  leftNames.forEach((name, i) => { const y = 34 + (height - 68) * (i + .5) / Math.max(leftNames.length, 1); const id = `left:${name}`; positions.set(id, { x: leftX, y }); nodes.push({ id, name, side: "left", x: leftX, y, count: records.filter((record) => record[leftKey] === name).length }); });
-  rightNames.forEach((name, i) => { const y = 34 + (height - 68) * (i + .5) / Math.max(rightNames.length, 1); const id = `right:${name}`; positions.set(id, { x: rightX, y }); nodes.push({ id, name, side: "right", x: rightX, y, count: records.filter((record) => record[rightKey] === name).length }); });
-  pairCounts.forEach(([left, entries]) => entries.forEach(([right, value]) => {
-    if (!positions.has(`left:${left}`) || !positions.has(`right:${right}`)) return;
-    links.push({ source: positions.get(`left:${left}`), target: positions.get(`right:${right}`), value });
-  }));
-  const svg = d3.select(host).html("").append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img").attr("aria-label", "Interactive policy relationship network");
-  svg.append("g").selectAll("path").data(links).join("path").attr("d", (link) => `M${link.source.x},${link.source.y} C${width/2},${link.source.y} ${width/2},${link.target.y} ${link.target.x},${link.target.y}`).attr("fill", "none").attr("stroke", "#9bb4c2").attr("stroke-opacity", (link) => .12 + .47 * link.value / (d3.max(links, (item) => item.value) || 1)).attr("stroke-width", (link) => 1 + 4 * link.value / (d3.max(links, (item) => item.value) || 1));
-  const node = svg.append("g").selectAll("g").data(nodes).join("g").attr("transform", (item) => `translate(${item.x},${item.y})`).attr("class", "policy-network-node").attr("tabindex", 0).attr("role", "button").attr("aria-label", (item) => `${item.name}, ${item.count} measures. Filter by this ${item.side === "left" ? leftKey : rightKey}.`).on("click", (_, item) => selectNetworkNode(item, leftKey, rightKey)).on("keydown", (event, item) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); selectNetworkNode(item, leftKey, rightKey); } });
-  node.append("circle").attr("r", (item) => item.side === "left" ? 9 : 5 + 8 * Math.sqrt(item.count / (d3.max(nodes, (n) => n.count) || 1))).attr("fill", (item) => item.side === "left" ? "#116aab" : familyColor(item.name)).attr("stroke", "white").attr("stroke-width", 2);
-  node.append("text").attr("x", (item) => item.side === "left" ? -15 : 15).attr("y", 4).attr("text-anchor", (item) => item.side === "left" ? "end" : "start").attr("fill", "#354f60").attr("font-size", 12).text((item) => item.name.length > 30 ? `${item.name.slice(0, 27)}…` : item.name);
-  node.append("title").text((item) => `${item.name}: ${item.count} records`);
-  $("#network-legend").innerHTML = `<span>COUNTRY / INSTITUTION</span><span>POLICY DOMAIN / FAMILY</span>`;
-  let zoom = d3.zoom().scaleExtent([.7, 3]).on("zoom", (event) => svg.selectAll("g").attr("transform", event.transform));
-  svg.call(zoom);
-  $("#network-zoom-in").onclick = () => svg.transition().call(zoom.scaleBy, 1.2);
-  $("#network-zoom-out").onclick = () => svg.transition().call(zoom.scaleBy, .8);
-  $("#network-fullscreen").onclick = () => $("#network-container").requestFullscreen?.();
-}
-function selectNetworkNode(item, leftKey, rightKey) {
-  if (item.side === "left" && leftKey === "country") state.country = item.name;
-  else if (item.side === "right" && rightKey === "domain") state.domain = item.name;
-  else if (item.side === "right" && rightKey === "family") state.family = item.name;
-  else if (item.side === "left" && leftKey === "institution" || item.side === "right" && rightKey === "institution") state.institution = item.name;
-  syncFilters(); render();
-}
-
 function renderRecordsPage() {
   const records = filtered().slice().sort((a, b) => {
     const av = a[state.sortKey] ?? "", bv = b[state.sortKey] ?? "";
@@ -518,40 +473,10 @@ function exportXlsx(records) {
 function downloadBlob(blob, filename) { const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 
 function renderCountryRecordsPage() { renderRecordsPage(); }
-function renderReportsPage() {
-  const options = getOptions(state.records);
-  $("#page-content").innerHTML = `${heading("Reports", "Generate a transparent brief from the currently filtered policy records.", "REPORTING & EXPORT")}<div class="content-grid"><section class="card span-7"><div class="card-header"><div><h2 class="card-title">Policy brief builder</h2><p class="card-subtitle">Counts, domains and source records are calculated directly from the current selection.</p></div></div><div class="card-body"><div class="report-form"><label>Report type<select id="report-type"><option>Country Policy Brief</option><option>Monthly Policy Monitoring Report</option><option>Regional GCC & Yemen Summary</option><option>Policy Domain Report</option><option>Selected Records Report</option></select></label><label>Audience<select id="report-audience"><option>Senior Government Officials</option><option>FAO Management</option><option>Technical Specialists</option><option>General Policy Audience</option></select></label><label>Length<select id="report-length"><option value="short">Brief</option><option value="standard">Standard</option><option value="extended">Detailed</option></select></label><div class="report-actions"><button class="button button-primary" id="generate-report">${icon("file-plus-2")}Generate brief</button><button class="button button-outline" id="print-report">${icon("printer")}Print / Save PDF</button><button class="button button-outline" id="report-xlsx">${icon("sheet")}Excel</button></div></div></div></section>${card("Report evidence", "The brief uses only the current filter selection.", `<div class="report-evidence"><strong>${filtered().length.toLocaleString()}</strong><span>records in current selection</span><p>${new Set(filtered().map((record) => record.country)).size} countries · ${new Set(filtered().map((record) => record.domain)).size} domains · ${new Set(filtered().map((record) => record.institution).filter(Boolean)).size} institutions</p><div class="method-note">Summary statements are computed from source-record counts. No unverified regional indicators are added.</div></div>`, "span-5")}${card("Generated brief", "Content is derived from current records and includes source links.", `<div class="report-tools"><button class="button button-outline" id="copy-brief" disabled>${icon("copy")}Copy</button><button class="button button-outline" id="word-brief" disabled>${icon("file-text")}Word</button></div><article class="generated-report" id="generated-report"><p class="heading-meta">Choose brief options and select “Generate brief”.</p></article>`, "span-12")}</div>`;
-  $("#generate-report").onclick = generateBrief;
-  $("#print-report").onclick = () => window.print();
-  $("#report-xlsx").onclick = () => exportXlsx(filtered());
-  $("#copy-brief").onclick = async () => { try { await navigator.clipboard.writeText($("#generated-report").innerText); showToast("Brief copied."); } catch { showToast("Clipboard access is unavailable.", "error"); } };
-  $("#word-brief").onclick = exportBriefWord;
-  refreshIcons();
-}
-function generateBrief() {
-  const records = filtered();
-  if (!records.length) { $("#generated-report").innerHTML = emptyMarkup(); wireEmptyActions(); return; }
-  const type = $("#report-type").value, audience = $("#report-audience").value;
-  const domains = groupCount(records, (record) => record.domain).slice(0, 5);
-  const countryCounts = groupCount(records, (record) => record.country);
-  const periods = aggregateMonthly(records);
-  const recent = [...records].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0, 12);
-  $("#generated-report").innerHTML = `<div class="report-document"><div class="eyebrow">POLICY INTELLIGENCE · ${escapeHtml(type.toUpperCase())}</div><h2>${escapeHtml(type)}: GCC States &amp; Yemen</h2><p class="heading-meta">Prepared for ${escapeHtml(audience)} · Evidence through ${escapeHtml(formatDate(latestDate(records)))}</p><h3>Executive summary</h3><p>This selection contains <strong>${records.length.toLocaleString()} monitored policy measures</strong> across ${countryCounts.length} countries. The dataset includes ${totalCount(records,"decision").toLocaleString()} short-term policy decisions and ${totalCount(records,"framework").toLocaleString()} long-term policy frameworks.</p><h3>Key policy areas</h3><ol>${domains.map(([domain,count])=>`<li><strong>${escapeHtml(domain)}</strong>: ${count} records (${percentage(count,records.length)}).</li>`).join("")}</ol><h3>Country coverage</h3><p>${countryCounts.map(([country,count])=>`${escapeHtml(country)} (${count})`).join(" · ")}</p><h3>Activity over time</h3><p>${periods.length ? `${periods.length} reporting months contain dated records. The most active month in the selection was ${escapeHtml(periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][0])} with ${periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][1].total} measures.` : "No dated measures in this selection."}</p><h3>Selected developments and sources</h3><ol>${recent.map((record)=>`<li><strong>${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}.</strong> ${escapeHtml(record.title)} ${safeUrl(record.source)?`<a href="${escapeHtml(record.source)}">Source ↗</a>`:""}</li>`).join("")}</ol><p class="method-note">This brief is a data summary of short policy records compiled from public sources. It is not a legal interpretation. Always consult each original source.</p></div>`;
-  $("#copy-brief").disabled = false;
-  $("#word-brief").disabled = false;
-  $("#generated-report").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-function exportBriefWord() {
-  const content = $("#generated-report")?.innerHTML;
-  if (!content || content.includes("Choose brief options")) return;
-  const documentHtml = `<!doctype html><html><head><meta charset="utf-8"><title>GCC & Yemen Policy Brief</title><style>body{font:15px Arial,sans-serif;color:#263b4a;line-height:1.55}h2,h3{color:#153f59}a{color:#116aab}</style></head><body>${content}</body></html>`;
-  downloadBlob(new Blob([documentHtml], { type: "application/msword;charset=utf-8" }), "gcc-yemen-policy-brief.doc");
-}
-
 function renderMethodologyPage() {
   const latest = latestDate(state.records);
   const noAi = !$("meta[name='policy-ai-endpoint']")?.content;
-  $("#page-content").innerHTML = `${heading("Methodology & sources", "How the monitored records are classified, filtered and interpreted.", "ABOUT THIS PLATFORM")}<div class="content-grid">${card("Purpose and coverage", "The dashboard supports monitoring and analysis, not legal interpretation.", `<p>This platform organises reported food and agriculture policy developments for <strong>the six GCC member states and Yemen</strong>: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen.</p><p>Current source coverage: <strong>${state.records.length.toLocaleString()} unique records</strong> spanning ${Math.min(...state.records.map((record)=>record.year||2023))}–${Math.max(...state.records.map((record)=>record.year||2026))}. Latest dated record: <strong>${escapeHtml(formatDate(latest))}</strong>.</p>`, "span-6")}${card("Classification", "Families and groups follow the source workbook coding.", `<h3>Short-term policy decisions</h3><p>Decision records use the leading code digits to classify Consumer-oriented, Producer-oriented or Trade-oriented measures and their groups.</p><h3>Long-term policy frameworks</h3><p>Framework records are grouped under development planning, food security and nutrition, agriculture and rural development, social protection and employment, natural resources and climate, trade and value chains, disaster risk management, and gender.</p><p>Domains and institutions are shown as supplied in the source record.</p>`, "span-6")}${card("Data processing and limitations", "No missing values are inferred as facts.", `<ul class="method-list"><li>Duplicate records are removed by type, country, date and the first 160 characters of description.</li><li>Excel serial dates are converted to ISO dates.</li><li>Country aliases are normalised in the source-generation script.</li><li>Rows with Excel error values in the country field are excluded rather than assigned an inferred country.</li><li>Record summaries may omit context from their original source; review the source before using a finding.</li></ul>`, "span-6")}${card("AI methodology and limitations", "Secure backend configuration is required for model-generated answers.", `<p>${noAi ? "AI responses are not enabled on this GitHub Pages deployment. The assistant can show locally matched evidence records, but it does not claim that these are model-generated answers." : "AI requests are sent to the configured server endpoint, which retrieves records server-side and returns traceable record citations."}</p><p>Any generated analysis should be treated as a research aid. Verify material claims against cited original sources. The API key is not stored in this static site.</p>`, "span-6")}${card("Disclaimer", "Policy monitoring, not legal advice.", `<p>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</p>`, "span-12")}</div>`;
+  $("#page-content").innerHTML = `${heading("Methodology & sources", "How the monitored records are classified, filtered and interpreted.", "ABOUT THIS PLATFORM")}<div class="content-grid">${card("Purpose and coverage", "The dashboard supports monitoring and analysis, not legal interpretation.", `<p>This platform organises reported food and agriculture policy developments for <strong>the six GCC member states and Yemen</strong>: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen.</p><p>Current source coverage: <strong>${state.records.length.toLocaleString()} unique records</strong> spanning ${Math.min(...state.records.map((record)=>record.year||2023))}–${Math.max(...state.records.map((record)=>record.year||2026))}. Latest dated record: <strong>${escapeHtml(formatDate(latest))}</strong>.</p>`, "span-6")}${card("Classification", "Families and groups follow the source workbook coding.", `<h3>Short-term policy decisions</h3><p>Decision records use the leading code digits to classify Consumer-oriented, Producer-oriented or Trade-oriented measures and their groups.</p><h3>Long-term policy frameworks</h3><p>Framework records are grouped under development planning, food security and nutrition, agriculture and rural development, social protection and employment, natural resources and climate, trade and value chains, disaster risk management, and gender.</p><p>Domains and institutions are shown as supplied in the source record.</p>`, "span-6")}${card("Data processing and limitations", "No missing values are inferred as facts.", `<ul class="method-list"><li>Duplicate records are removed by type, country, date and the first 160 characters of description.</li><li>Excel serial dates are converted to ISO dates.</li><li>Country aliases are normalised in the source-generation script.</li><li>Rows with Excel error values in the country field are excluded rather than assigned an inferred country.</li><li>Record summaries may omit context from their original source; review the source before using a finding.</li></ul>`, "span-6")}${card("AI methodology and limitations", "Secure backend configuration is required for model-generated answers.", `<p>${noAi ? "AI responses are not enabled on this GitHub Pages deployment. The assistant can show locally matched evidence records, but it does not claim that these are model-generated answers." : "AI requests are sent to the configured server endpoint, which retrieves records server-side and returns traceable record citations."}</p><p>Any generated analysis should be treated as a research aid. Verify material claims against cited original sources. The API key is not stored in this static site.</p>`, "span-6")}${card("Food price and healthy diet indicators", "FAOSTAT annual indicators shown on the Food Prices & Diets page and in reports.", `<ul class="method-list"><li><strong>Producer prices</strong> (FAOSTAT PP): annual farm-gate prices per tonne in USD and local currency, 2020–2024. Live-weight meat duplicates and non-food items are excluded; USD values inconsistent with official currency pegs are recomputed from local-currency prices.</li><li><strong>Cost and affordability of a healthy diet</strong> (FAOSTAT CAHD): PPP dollars per person per day, 2020–2025, with food-group costs for 2021 and unaffordability where reported.</li><li>Series that repeat one value every year are treated as carried-forward estimates and excluded from change statistics; year-on-year swings above 60% are flagged for verification.</li><li>Coverage gaps: no producer prices for the United Arab Emirates and no healthy diet estimates for Yemen.</li></ul>`, "span-12")}${card("Disclaimer", "Policy monitoring, not legal advice.", `<p>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</p>`, "span-12")}</div>`;
   refreshIcons();
 }
 
@@ -662,17 +587,18 @@ function renderDashboardPage() {
   else if (state.page === "trends") renderTrendsPage();
   else if (state.page === "areas") renderAreasPage();
   else if (state.page === "compare") renderComparePage();
-  else if (state.page === "network") renderNetworkPage();
+  else if (state.page === "network") renderNetworkPage(ui);
+  else if (state.page === "prices") withFoodData(renderPricesPage);
   else if (state.page === "records") renderRecordsPage();
   else if (state.page === "ai") renderAiPage();
-  else if (state.page === "reports") renderReportsPage();
+  else if (state.page === "reports") withFoodData(renderReportsPage);
   else if (state.page === "methodology") renderMethodologyPage();
   else renderOverviewPage();
   renderActiveFilters();
   refreshIcons();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
-const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", records: "Policy Records", ai: "AI Policy Analyst", reports: "Reports", methodology: "Methodology & Sources" };
+const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", ai: "AI Policy Analyst", reports: "Reports", methodology: "Methodology & Sources" };
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
 function setFilter(key, value) { state[key] = value || "all"; state.pageNumber = 1; syncFilters(); render(); }
 function render() { renderDashboardPage(); }
@@ -701,9 +627,19 @@ function bindShell() {
   document.addEventListener("click", (event) => { const explain = event.target.closest("[data-explain]"); if (explain) openAssistant(`Explain ${explain.dataset.explain} using the current filters and cite supporting records.`); });
   document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeAssistant(); closeRecordDrawer(); closeMobileSidebar(); } });
   let resizeTimer;
-  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (["overview","trends","country","areas","network","compare"].includes(state.page)) renderDashboardPage(); }, 180); });
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (["overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage(); }, 180); });
   window.addEventListener("popstate", () => { const page = location.hash.slice(1); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
 }
+// Pages that also need FAOSTAT food indicators load them once, then render.
+function withFoodData(renderPage) {
+  const page = state.page;
+  $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading food price indicators…</span></div>`;
+  loadFoodIndicators().then((food) => { if (state.page === page) { renderPage(ui, food); renderActiveFilters(); } }).catch((error) => {
+    $("#page-content").innerHTML = emptyMarkup("Food indicators could not be loaded", `${error.message}. Reload the page to try again.`);
+    wireEmptyActions();
+  });
+}
+const ui = { state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, openAssistant, downloadBlob, exportXlsx };
 function initialize() {
   bindShell();
   $("#assistant-config").hidden = !!$("meta[name='policy-ai-endpoint']")?.content.trim();
