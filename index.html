@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=pi-20261001" />
+    <link rel="stylesheet" href="./styles.css?v=pi-20261002" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>
     <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
@@ -60,8 +60,8 @@
 
         <main class="main-content" id="main-content">
           <section class="global-filters" aria-label="Global policy filters">
-            <div class="filter-heading"><div><i data-lucide="sliders-horizontal"></i><strong>Global filters</strong></div><button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i>Reset filters</button></div>
-            <div class="filter-grid">
+            <div class="filter-heading"><button class="filter-toggle" id="toggle-filters" type="button" aria-expanded="true" aria-controls="filter-grid"><i data-lucide="sliders-horizontal"></i><strong>Filters</strong><span class="filter-count" id="filter-count" hidden></span><i class="filter-chevron" data-lucide="chevron-down"></i></button><button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i>Reset filters</button></div>
+            <div class="filter-grid" id="filter-grid">
               <label>Country<select id="filter-country"><option value="all">All countries</option></select></label>
               <label>Year<select id="filter-year"><option value="all">All years</option></select></label>
               <label>Month<select id="filter-month"><option value="all">All months</option></select></label>
