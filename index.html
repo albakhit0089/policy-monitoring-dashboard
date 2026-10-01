@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071626" />
+    <meta name="description" content="An interactive view of monthly food and agriculture policy monitoring across the Near East and North Africa." />
+    <title>Policy Monitoring – Food &amp; Agriculture · NENA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="wheat-mark" viewBox="0 0 32 40" fill="none" aria-hidden="true"><path d="M16 37V5M16 16C10 16 8 12 8 9C14 9 16 12 16 16ZM16 23C22 23 24 19 24 16C18 16 16 19 16 23ZM16 10C11 10 10 6 10 3C15 3 16 6 16 10ZM16 30C10 30 8 26 8 23C14 23 16 26 16 30ZM16 29C22 29 24 25 24 22C18 22 16 25 16 29Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <div class="brand-title"><strong>Monthly Monitoring</strong><span>Policy Monitoring – Food &amp; agriculture · Near East and North Africa</span></div>
+      </div>
+      <nav class="view-switch" aria-label="Dashboard view"><button type="button" data-view="network" aria-pressed="true">Network</button><button type="button" data-view="countries" aria-pressed="false">Countries</button><button type="button" data-view="records" aria-pressed="false">Records</button></nav>
+      <div class="top-controls" aria-label="Monitoring filters">
+        <div class="segmented" id="type-filter" role="group" aria-label="Policy measure type"><button type="button" data-type="all" aria-pressed="true">All</button><button type="button" data-type="decision" aria-pressed="false">Short-term</button><button type="button" data-type="framework" aria-pressed="false">Long-term</button></div>
+        <label class="sr-only" for="year-filter">Filter by year</label><select id="year-filter" aria-label="Filter by year"><option value="all">All years</option></select>
+        <label class="sr-only" for="country-filter">Filter by country</label><select id="country-filter" aria-label="Filter by country"><option value="all">All countries</option></select>
+        <button type="button" class="reset-button" id="reset-filters" title="Reset all filters"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8m0-5v5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>Reset</button>
+      </div>
+    </header>
+
+    <main id="app-content">
+      <section class="view-panel network-layout" id="network-view" aria-label="Policy network view">
+        <article class="glass-panel network-stage"><div class="stage-caption"><div class="panel-overline">POLICY NETWORK</div><strong>Connected policy domains</strong><span>Orb size reflects the number of measures</span></div><svg class="network-svg" id="network-svg" role="img" aria-label="Interactive network of policy groups and monitored countries"></svg><div class="legend" id="family-legend" aria-label="Policy group families"></div></article>
+        <aside class="glass-panel detail-panel" id="detail-panel" aria-label="Selected policy group details"></aside>
+      </section>
+
+      <section class="view-panel glass-panel countries-panel" id="countries-view" aria-label="Country view" hidden><div class="view-heading"><div><div class="panel-overline">COUNTRY LANDSCAPE</div><h2>Measures by country</h2><p>Country totals and changes against the previous calendar year in the loaded records.</p></div><span class="panel-overline" id="record-count-total">0 measures loaded</span></div><svg class="countries-svg" id="countries-svg" role="img" aria-label="Countries arranged on a policy monitoring arc"></svg></section>
+
+      <section class="view-panel glass-panel records-panel" id="records-view" aria-label="Policy measure records" hidden>
+        <div class="records-toolbar"><div><div class="panel-overline">RECORD EXPLORER</div><h2>Policy measures</h2><p id="record-count">0 measures</p></div><button type="button" class="export-button" id="export-csv" title="Export current filtered records as CSV"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>Export CSV</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Date</th><th>Country</th><th>Type</th><th>Domain</th><th>Measure</th><th>Source link</th></tr></thead><tbody id="records-body"></tbody></table></div>
+        <div class="pagination"><span id="page-status">Page 1 of 1</span><div class="pagination-controls"><button type="button" id="previous-page" aria-label="Previous page" title="Previous page"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg></button><button type="button" id="next-page" aria-label="Next page" title="Next page"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg></button></div></div>
+      </section>
+
+      <section class="bottom-dock glass-panel" aria-label="Monitoring summary and search">
+        <div class="pulse-section"><div class="dock-heading"><span>Monthly pulse</span><span>Click a bar to filter by year</span></div><div class="pulse-strip" id="pulse-strip" aria-label="Monthly policy measures January 2023 to December 2026"></div><div class="pulse-labels"><span>2023</span><span>2024</span><span>2025</span><span>2026</span></div></div>
+        <div class="kpi-row" aria-live="polite"><div class="kpi"><strong id="kpi-measures">0</strong><span>POLICY MEASURES</span></div><div class="kpi"><strong id="kpi-countries">0</strong><span>COUNTRIES</span></div><div class="kpi"><strong id="kpi-short">0</strong><span>SHORT-TERM</span></div><div class="kpi"><strong id="kpi-long">0</strong><span>LONG-TERM</span></div></div>
+        <label class="search-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.7" /><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg><span class="sr-only">Search policy measures</span><input id="search-input" type="search" placeholder="Search policy measures, e.g. wheat, subsidy, fisheries, Egypt" autocomplete="off" /><button class="search-clear" type="button" id="clear-search" aria-label="Clear search" title="Clear search"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg></button></label>
+      </section>
+      <footer><span>Monthly monitoring · Food and agriculture · NENA</span><span>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</span></footer>
+    </main>
+  </body>
+</html>

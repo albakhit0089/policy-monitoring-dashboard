@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+*.xlsx
+*.xls
+*.xlsm
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+.DS_Store
+Thumbs.db
