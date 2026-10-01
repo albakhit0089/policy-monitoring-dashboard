@@ -1,5 +1,17 @@
 // Pure calculations over data/food-indicators.json, shared by the prices page and reports.
 
+export const CURRENCY = { Bahrain: "BHD", Kuwait: "KWD", Oman: "OMR", Qatar: "QAR", "Saudi Arabia": "SAR", "United Arab Emirates": "AED", Yemen: "YER" };
+const DAYS_PER_MONTH = 30.4;
+
+// Format a local-currency amount with sensible precision (BHD/KWD/OMR use small units).
+export function formatLocal(value, country, { digits } = {}) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "–";
+  const code = CURRENCY[country] || "";
+  const places = digits ?? (["BHD", "KWD", "OMR"].includes(code) ? 3 : value >= 100 ? 0 : 2);
+  return `${code} ${value.toLocaleString("en-GB", { minimumFractionDigits: places, maximumFractionDigits: places })}`;
+}
+export const perMonth = (daily) => daily * DAYS_PER_MONTH;
+
 const pctChange = (from, to) => (from && to !== undefined && to !== null) ? (to - from) / from * 100 : null;
 const median = (values) => {
   const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
@@ -21,7 +33,8 @@ export function dietSummary(food) {
     const first = byYear[firstYear]?.ppp, latest = byYear[latestYear]?.ppp;
     const pua = food.diet.pua[country] || {};
     const puaYears = Object.keys(pua).map(Number).sort((a, b) => a - b);
-    return { country, firstYear, latestYear, first, latest, change: pctChange(first, latest), points: years.map((year) => [year, byYear[year].ppp]), puaLatest: puaYears.length ? { year: puaYears.at(-1), value: pua[puaYears.at(-1)] } : null };
+    const lcuFirst = byYear[firstYear]?.lcu, lcuLatest = byYear[latestYear]?.lcu;
+    return { country, firstYear, latestYear, first, latest, change: pctChange(first, latest), lcuFirst, lcuLatest, lcuChange: pctChange(lcuFirst, lcuLatest), points: years.map((year) => [year, byYear[year].ppp]), puaLatest: puaYears.length ? { year: puaYears.at(-1), value: pua[puaYears.at(-1)] } : null };
   });
   const years = [...new Set(rows.flatMap((row) => row.points.map(([year]) => year)))].sort((a, b) => a - b);
   const regional = years.map((year) => {
@@ -89,3 +102,11 @@ export function priceCountries(food) {
 }
 
 export { median, pctChange };
+
+// Latest available producer price per kg for one series, in USD and local currency.
+export function latestPricePerKg(series) {
+  const years = Object.keys(series.usd).map(Number).sort((x, y) => x - y);
+  const year = years.at(-1);
+  if (!year) return null;
+  return { year, usd: series.usd[year] / 1000, lcu: series.lcu[year] !== undefined ? series.lcu[year] / 1000 : null };
+}

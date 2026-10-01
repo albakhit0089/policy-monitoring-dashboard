@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js";
-import { renderNetworkPage } from "./network.js";
-import { renderPricesPage } from "./prices.js";
-import { renderReportsPage } from "./reports.js";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261004";
+import { renderNetworkPage } from "./network.js?v=pi-20261004";
+import { renderPricesPage } from "./prices.js?v=pi-20261004";
+import { renderReportsPage } from "./reports.js?v=pi-20261004";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };

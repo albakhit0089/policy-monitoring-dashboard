@@ -26,10 +26,10 @@ function trend(records, periods) {
   const previous = records.filter((record) => time(record) > periods.previousStart && time(record) <= periods.recentStart).length;
   return { recent, previous, change: previous ? (recent - previous) / previous * 100 : null };
 }
-function trendPill(t) {
-  if (t.change === null) return t.recent ? `<span class="pn-pill pn-new" title="No records in the previous 12 months">NEW</span>` : `<span class="pn-pill pn-flat" title="No records in the last 24 months">–</span>`;
-  const cls = t.change > 5 ? "pn-up" : t.change < -5 ? "pn-down" : "pn-flat";
-  return `<span class="pn-pill ${cls}" title="Last 12 months: ${t.recent} · previous 12 months: ${t.previous}">${t.change > 0 ? "▲" : t.change < 0 ? "▼" : "■"} ${Math.abs(t.change).toFixed(0)}%</span>`;
+// Plain-language activity comparison, no arrows or percentages.
+function activityText(t) {
+  if (!t.recent && !t.previous) return "No measures in the last 24 months";
+  return `${t.recent.toLocaleString()} in the last 12 months · ${t.previous.toLocaleString()} in the 12 months before`;
 }
 function monthlyBars(records, periods, months = 24) {
   const counts = [];
@@ -66,7 +66,7 @@ export function renderNetworkPage(ui) {
   }).join("");
   const cards = dims.map((key) => `<button type="button" class="pn-card${key === dim ? " active" : ""}" data-pn-dim="${key}"><span class="pn-card-icon">${ui.icon(DIMENSIONS[key].icon, 15)}</span><strong>${new Set(records.map((record) => record[key]).filter(Boolean)).size.toLocaleString()}</strong><span>${DIMENSIONS[key].label}</span></button>`).join("");
   const maxCount = Math.max(1, ...items.map((item) => item.count));
-  const fan = items.length ? items.map((item, i) => `<button type="button" class="pn-item${item.name === state.networkItem ? " active" : ""}" data-pn-item="${escapeHtml(item.name)}" style="--offset:${(Math.sin(Math.PI * (i + .5) / items.length) * 46).toFixed(1)}px" title="${escapeHtml(item.name)}"><span class="pn-dot"></span><span class="pn-item-body"><span class="pn-item-name">${escapeHtml(truncate(item.name, 38))}</span><span class="pn-item-meta"><span class="pn-count">${item.count.toLocaleString()}</span>${trendPill(item.trend)}<span class="pn-share"><i style="width:${(item.count / maxCount * 100).toFixed(0)}%"></i></span></span></span></button>`).join("") : `<div class="pn-empty">No measures match the current filters.</div>`;
+  const fan = items.length ? items.map((item, i) => `<button type="button" class="pn-item${item.name === state.networkItem ? " active" : ""}" data-pn-item="${escapeHtml(item.name)}" style="--offset:${(Math.sin(Math.PI * (i + .5) / items.length) * 46).toFixed(1)}px" title="${escapeHtml(item.name)}: ${escapeHtml(activityText(item.trend))}"><span class="pn-dot"></span><span class="pn-item-body"><span class="pn-item-name">${escapeHtml(truncate(item.name, 38))}</span><span class="pn-item-meta"><span class="pn-count">${item.count.toLocaleString()} measures</span><span class="pn-share"><i style="width:${(item.count / maxCount * 100).toFixed(0)}%"></i></span></span></span></button>`).join("") : `<div class="pn-empty">No measures match the current filters.</div>`;
 
   $("#page-content").innerHTML = `${ui.heading("Policy network", "Trace how countries connect to policy domains, institutions and instruments. Select an orb, a card or a linked item.", "RELATIONSHIPS")}
   <section class="pn-stage" id="pn-stage" aria-label="Policy relationship network">
@@ -77,10 +77,10 @@ export function renderNetworkPage(ui) {
         <div class="pn-ring"></div><div class="pn-ring pn-ring-2"></div>
         ${satellites}
         <button type="button" class="pn-orb" id="pn-orb" title="${focus ? "Show the whole region" : "Region"}"><span class="pn-orb-core"></span></button>
-        <div class="pn-focus"><strong>${escapeHtml(focus || "GCC States & Yemen")}</strong><span>${records.length.toLocaleString()} measures ${trendPill(focusTrend)}</span></div>
+        <div class="pn-focus"><strong>${escapeHtml(focus || "GCC States & Yemen")}</strong><span>${records.length.toLocaleString()} measures · ${focusTrend.recent.toLocaleString()} in the last 12 months</span></div>
       </div>
       <div class="pn-cards" id="pn-cards">${cards}</div>
-      <div class="pn-legend"><span class="pn-legend-title">LEGEND</span><span><i class="lg-orb"></i>Focus</span><span><i class="lg-sat"></i>Countries</span><span><i class="lg-card"></i>Dimension</span><span><i class="lg-up"></i>Rising 12m</span><span><i class="lg-down"></i>Falling 12m</span><span><i class="lg-new"></i>New</span></div>
+      <div class="pn-legend"><span class="pn-legend-title">LEGEND</span><span><i class="lg-orb"></i>Focus</span><span><i class="lg-sat"></i>Countries</span><span><i class="lg-card"></i>Dimension</span><span><i class="lg-link"></i>Selected link</span></div>
     </div>
     <div class="pn-col pn-fan" id="pn-fan">${fan}</div>
     <aside class="pn-col pn-detail" id="pn-detail">${selected ? detailPanel(ui, { dim, focus, records, selected, periods }) : ""}</aside>
@@ -107,13 +107,13 @@ function detailPanel(ui, { dim, focus, records, selected, periods }) {
   const topDomain = dim !== "domain" ? ui.groupCount(rows, (record) => record.domain)[0] : null;
   const t = selected.trend;
   const insight = [
-    `${escapeHtml(selected.name)} accounts for ${share.toFixed(1)}% of ${escapeHtml(focus || "regional")} measures in the current selection (${selected.count.toLocaleString()} of ${records.length.toLocaleString()}).`,
-    t.change === null ? (t.recent ? `All ${t.recent} of its measures from the last 24 months fall in the latest 12 months.` : "No measures were recorded in the last 24 months.") : `Activity ${t.change >= 0 ? "rose" : "fell"} ${Math.abs(t.change).toFixed(0)}% in the latest 12 months (${t.recent} vs ${t.previous}).`,
+    `${escapeHtml(selected.name)} accounts for ${share.toFixed(0)}% of ${escapeHtml(focus || "regional")} measures in the current selection (${selected.count.toLocaleString()} of ${records.length.toLocaleString()}).`,
+    !t.recent && !t.previous ? "No measures were recorded in the last 24 months." : `${t.recent.toLocaleString()} measures were recorded in the last 12 months, ${t.recent > t.previous ? "more than" : t.recent < t.previous ? "fewer than" : "the same as"} the ${t.previous.toLocaleString()} recorded in the 12 months before.`,
     topDomain ? `Its leading policy domain is ${escapeHtml(topDomain[0])} (${topDomain[1]} measures).` : "",
   ].filter(Boolean).join(" ");
   const recent = rows.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 3);
   return `<div class="pn-detail-head"><span class="pn-kicker">${ui.icon(DIMENSIONS[dim].icon, 14)}${DIMENSIONS[dim].singular}${focus ? ` · ${escapeHtml(focus)}` : ""}</span><h2>${escapeHtml(selected.name)}</h2><div class="pn-status"><span class="pn-chip ${active ? "on" : ""}">${active ? "Active" : "Quiet"}</span><span>Latest record ${escapeHtml(ui.formatDate(latest))}</span></div></div>
-    <div class="pn-metric"><div><span class="pn-metric-label">Share of measures</span><strong>${share.toFixed(0)}%</strong><span class="pn-metric-delta">${trendPill(t)} <small>vs previous 12 months</small></span></div>${monthlyBars(rows, periods)}</div>
+    <div class="pn-metric"><div><span class="pn-metric-label">Share of measures</span><strong>${share.toFixed(0)}%</strong><span class="pn-metric-delta">${escapeHtml(activityText(t))}</span></div>${monthlyBars(rows, periods)}</div>
     <div class="pn-tiles"><div><strong>${selected.count.toLocaleString()}</strong><span>Measures</span></div><div><strong>${ui.totalCount(rows, "decision").toLocaleString()}</strong><span>Short-term decisions</span></div><div><strong>${ui.totalCount(rows, "framework").toLocaleString()}</strong><span>Long-term frameworks</span></div><div><strong>${breadth.toLocaleString()}</strong><span>${breadthKey === "country" ? "Countries involved" : "Institutions involved"}</span></div></div>
     <div class="pn-analysis"><span class="pn-kicker">${ui.icon("sparkles", 14)}Analysis</span><p>${insight}</p></div>
     <div class="pn-recent"><span class="pn-kicker">${ui.icon("clock-3", 14)}Latest developments</span>${recent.map((record) => `<a ${ui.safeUrl(record.source) ? `href="${escapeHtml(record.source)}" target="_blank" rel="noopener noreferrer"` : ""}><small>${escapeHtml(record.country)} · ${escapeHtml(ui.formatDate(record.date))}</small>${escapeHtml(truncate(record.title, 110))}</a>`).join("")}</div>
