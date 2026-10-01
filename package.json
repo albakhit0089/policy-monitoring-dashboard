@@ -9,6 +9,7 @@
     "test:ai": "node scripts/test-ai-api.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "exceljs": "^4.4.0"
   },
   "overrides": {

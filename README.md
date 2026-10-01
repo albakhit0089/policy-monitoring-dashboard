@@ -37,9 +37,9 @@ The generator rewrites the complete `data/measures.json` and a separate GCC/Yeme
 
 ## GitHub Pages and AI
 
-GitHub Pages hosts the static dashboard at the repository root. It cannot execute `api/policy-ai.js`. To enable generated AI answers, deploy this repository to Vercel, configure `OPENAI_API_KEY` and optionally `OPENAI_MODEL` and comma-separated `ALLOWED_ORIGINS` as server-side environment variables, then set the `policy-ai-endpoint` meta content in `index.html` to the deployed `/api/policy-ai` URL. The browser never receives the API key. Until configured, the assistant clearly labels results as local evidence matches rather than AI-generated analysis.
+GitHub Pages hosts the static dashboard at the repository root. It cannot execute `api/policy-ai.js`. To enable generated AI answers, deploy this repository to Vercel, configure `ANTHROPIC_API_KEY` and optionally `CLAUDE_MODEL` (defaults to `claude-opus-5-5`) and comma-separated `ALLOWED_ORIGINS` as server-side environment variables, then set the `policy-ai-endpoint` meta content in `index.html` to the deployed `/api/policy-ai` URL. The browser never receives the API key. Until configured, the assistant clearly labels results as local evidence matches rather than AI-generated analysis.
 
-The API performs allowlisted record retrieval on the server and asks the OpenAI Responses API to answer only from the retrieved records with source IDs. Lexical retrieval is currently used; semantic embeddings/vector search are not configured. Verify generated analysis against the cited source links.
+The API performs allowlisted record retrieval on the server and asks Claude (via the official `@anthropic-ai/sdk`, streaming, with server-side refusal fallback) to answer only from the retrieved records with source IDs. Lexical retrieval is currently used; semantic embeddings/vector search are not configured. Verify generated analysis against the cited source links.
 
 ## Methodology
 

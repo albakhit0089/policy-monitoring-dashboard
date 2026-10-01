@@ -16,10 +16,29 @@ function mockResponse() {
   };
 }
 
-const originalKey = process.env.OPENAI_API_KEY;
+// Minimal Claude Messages API payloads for the stubbed fetch.
+function claudeMessage(text, stopReason = "end_turn") {
+  const message = { id: "msg_test", type: "message", role: "assistant", model: "claude-opus-5-5", content: stopReason === "refusal" ? [] : [{ type: "text", text }], stop_reason: stopReason, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 10 } };
+  return new Response(JSON.stringify(message), { status: 200, headers: { "content-type": "application/json", "request-id": "req_test" } });
+}
+function claudeStream(text) {
+  const events = [
+    ["message_start", { type: "message_start", message: { id: "msg_test", type: "message", role: "assistant", model: "claude-opus-5-5", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 0 } } }],
+    ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }],
+    ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } }],
+    ["content_block_stop", { type: "content_block_stop", index: 0 }],
+    ["message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 10 } }],
+    ["message_stop", { type: "message_stop" }],
+  ];
+  const sse = events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
+  return new Response(sse, { status: 200, headers: { "content-type": "text/event-stream", "request-id": "req_test" } });
+}
+const retrievedFrom = (request) => JSON.parse(request.messages[0].content.split("Retrieved source records:\n")[1]);
+
+const originalKey = process.env.ANTHROPIC_API_KEY;
 const originalFetch = globalThis.fetch;
 try {
-  delete process.env.OPENAI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
   const options = mockResponse();
   await handler({ method: "OPTIONS", headers: { origin: "http://localhost:4173" } }, options);
   assert.equal(options.statusCode, 204);
@@ -37,16 +56,22 @@ try {
   const payload = JSON.parse(await readFile(new URL("../data/gcc-yemen-measures.json", import.meta.url), "utf8"));
   const omanRecord = payload.records.find((record) => record.country === "Oman" && /water|irrigation/i.test(`${record.domain} ${record.description}`));
   assert.ok(omanRecord, "Expected an Oman water-related source record.");
-  process.env.OPENAI_API_KEY = "test-only-key";
-  let openAiCalls = 0;
+  process.env.ANTHROPIC_API_KEY = "test-only-key";
+  let claudeCalls = 0;
   let retrievedRecords = [];
-  globalThis.fetch = async (_url, options) => {
-    openAiCalls += 1;
+  globalThis.fetch = async (url, options) => {
+    claudeCalls += 1;
+    assert.match(String(url), /\/v1\/messages/);
+    const headers = new Headers(options.headers);
+    assert.equal(headers.get("x-api-key"), "test-only-key");
+    assert.match(headers.get("anthropic-beta") || "", /server-side-fallback-2026-07-01/);
     const request = JSON.parse(options.body);
-    retrievedRecords = JSON.parse(request.input.split("Retrieved source records:\n")[1]);
+    assert.equal(request.model, "claude-opus-5-5");
+    assert.equal(request.fallbacks, "default");
+    retrievedRecords = retrievedFrom(request);
     assert.ok(retrievedRecords.length > 0);
     assert.ok(retrievedRecords.every((record) => record.country === "Oman"));
-    return { ok: true, json: async () => ({ output_text: `A supported Oman policy finding [${retrievedRecords[0].id}]. Unsupported claim [0000000000000000].` }) };
+    return claudeMessage(`A supported Oman policy finding [${retrievedRecords[0].id}]. Unsupported claim [0000000000000000].`);
   };
 
   const grounded = mockResponse();
@@ -55,31 +80,32 @@ try {
   const answer = JSON.parse(grounded.body);
   assert.equal(answer.sources.length, retrievedRecords.length);
   assert.equal(answer.sources[0].id, retrievedRecords[0].id);
+  assert.match(answer.answer, new RegExp(retrievedRecords[0].id));
   assert.doesNotMatch(answer.answer, /0000000000000000/);
-  assert.equal(openAiCalls, 1);
+  assert.equal(claudeCalls, 1);
 
   const outOfScope = mockResponse();
   await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { question: "What policies did Egypt adopt?" } }, outOfScope);
   assert.equal(outOfScope.statusCode, 200);
   assert.match(JSON.parse(outOfScope.body).answer, /covers GCC States and Yemen/i);
-  assert.equal(openAiCalls, 1, "Out-of-scope questions must not reach the model.");
+  assert.equal(claudeCalls, 1, "Out-of-scope questions must not reach the model.");
 
-  globalThis.fetch = async (_url, options) => {
-    const retrieved = JSON.parse(JSON.parse(options.body).input.split("Retrieved source records:\n")[1]);
-    return { ok: true, json: async () => ({ output_text: `UAE finding [${retrieved[0].id}].` }) };
-  };
+  globalThis.fetch = async (_url, options) => claudeMessage(`UAE finding [${retrievedFrom(JSON.parse(options.body))[0].id}].`);
   const arabicHamza = mockResponse();
   await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { question: "الإمارات" } }, arabicHamza);
   assert.equal(arabicHamza.statusCode, 200, arabicHamza.body);
   assert.ok(JSON.parse(arabicHamza.body).sources.length > 0, "Hamza-spelled Arabic country names must expand to their English synonyms.");
 
+  globalThis.fetch = async () => claudeMessage("", "refusal");
+  const refused = mockResponse();
+  await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { question: "Oman water policy measures" } }, refused);
+  assert.equal(refused.statusCode, 200, refused.body);
+  assert.match(JSON.parse(refused.body).answer, /declined/i);
+
   globalThis.fetch = async (_url, options) => {
     const request = JSON.parse(options.body);
     assert.equal(request.stream, true);
-    const retrieved = JSON.parse(request.input.split("Retrieved source records:\n")[1]);
-    const delta = `Streaming policy finding [${retrieved[0].id}].`;
-    const chunk = `event: response.output_text.delta\ndata: ${JSON.stringify({ type: "response.output_text.delta", delta })}\n\nevent: response.completed\ndata: {}\n\n`;
-    return { ok: true, body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(chunk)); controller.close(); } }) };
+    return claudeStream(`Streaming policy finding [${retrievedFrom(request)[0].id}].`);
   };
   const streamed = mockResponse();
   await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { question: "Oman water policy measures", filters: { country: "Oman" }, stream: true } }, streamed);
@@ -87,12 +113,13 @@ try {
   assert.equal(streamed.statusCode, 200);
   assert.match(streamed.headers["Content-Type"], /text\/event-stream/);
   assert.match(streamBody, /event: sources/);
-  assert.match(streamBody, /event: delta/);
+  assert.match(streamBody, /event: delta\ndata: \{"text":"Streaming policy finding/);
+  assert.doesNotMatch(streamBody, /event: error/);
   assert.match(streamBody, /event: done/);
 
-  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, Arabic synonyms, citations, out-of-scope refusal, and streaming.");
+  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, Arabic synonyms, citations, out-of-scope refusal, model refusal, and Claude streaming.");
 } finally {
   globalThis.fetch = originalFetch;
-  if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
-  else process.env.OPENAI_API_KEY = originalKey;
+  if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+  else process.env.ANTHROPIC_API_KEY = originalKey;
 }

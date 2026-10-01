@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import Anthropic from "@anthropic-ai/sdk";
+
+const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 
 const COUNTRIES = new Set(["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"]);
 const OUTSIDE_COUNTRIES = ["Algeria", "Egypt", "Iraq", "Jordan", "Lebanon", "Libya", "Mauritania", "Morocco", "Palestine", "Sudan", "Syrian Arab Republic", "Syria", "Tunisia"];
@@ -76,42 +79,43 @@ async function getRecords() {
 function response(res, status, body) {
   res.status(status).setHeader("Content-Type", "application/json; charset=utf-8").send(JSON.stringify(body));
 }
-async function pipeResponseStream(upstream, res, evidence, permittedIds) {
+function claudeClient() {
+  // Resolve fetch per call so tests can stub globalThis.fetch.
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, fetch: (...args) => globalThis.fetch(...args), timeout: 25_000, maxRetries: 1 });
+}
+function claudeParams(instructions, question, evidence) {
+  return {
+    model: MODEL,
+    max_tokens: 8000,
+    // Retry policy declines on Anthropic's recommended fallback model instead of failing the request.
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    output_config: { effort: "low" },
+    system: instructions,
+    messages: [{ role: "user", content: `Question:\n${question}\n\nRetrieved source records:\n${JSON.stringify(evidence)}` }],
+  };
+}
+const REFUSAL_MESSAGE = "The analysis service declined to answer this question. Please rephrase it or review the supporting records directly.";
+const keepPermittedCitations = (text, permittedIds) => text.replace(/\[([a-f0-9]{16})\]/gi, (citation, id) => permittedIds.has(id) ? citation : "");
+async function pipeResponseStream(stream, res, evidence, permittedIds) {
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.write(`event: sources\ndata: ${JSON.stringify(evidence.map(sourceRecord))}\n\n`);
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "";
   let answer = "";
-  const consume = (block) => {
-    const data = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
-    if (!data || data === "[DONE]") return;
-    try {
-      const event = JSON.parse(data);
-      if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
-        const safeDelta = event.delta.replace(/\[([a-f0-9]{16})\]/gi, (citation, id) => permittedIds.has(id) ? citation : "");
+  try {
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        const safeDelta = keepPermittedCitations(event.delta.text, permittedIds);
         answer += safeDelta;
         res.write(`event: delta\ndata: ${JSON.stringify({ text: safeDelta })}\n\n`);
-      } else if (event.type === "response.failed" || event.type === "error") {
-        res.write(`event: error\ndata: ${JSON.stringify({ error: "The policy analysis service ended unexpectedly." })}\n\n`);
       }
-    } catch { /* Ignore non-JSON keepalive frames. */ }
-  };
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      pending += decoder.decode(value || new Uint8Array(), { stream: !done });
-      const blocks = pending.split(/\r?\n\r?\n/);
-      pending = blocks.pop() || "";
-      blocks.forEach(consume);
-      if (done) break;
     }
-    if (pending.trim()) consume(pending);
-    if (!answer) res.write(`event: error\ndata: ${JSON.stringify({ error: "The analysis service returned no answer." })}\n\n`);
+    const message = await stream.finalMessage();
+    if (message.stop_reason === "refusal") res.write(`event: error\ndata: ${JSON.stringify({ error: REFUSAL_MESSAGE })}\n\n`);
+    else if (!answer) res.write(`event: error\ndata: ${JSON.stringify({ error: "The analysis service returned no answer." })}\n\n`);
     res.write("event: done\ndata: {}\n\n");
     res.end();
   } catch {
@@ -131,7 +135,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return response(res, 405, { error: "Use POST for policy questions." });
-  if (!process.env.OPENAI_API_KEY) return response(res, 503, { error: "Secure AI is not configured on this service." });
+  if (!process.env.ANTHROPIC_API_KEY) return response(res, 503, { error: "Secure AI is not configured on this service." });
   let body = req.body;
   if (!body || typeof body !== "object") {
     let rawBody = "";
@@ -157,23 +161,27 @@ export default async function handler(req, res) {
     "Respond in the language used in the question, including Arabic when the user asks in Arabic.",
     "Politely decline non-agriculture-policy questions and questions about countries outside Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, United Arab Emirates, and Yemen.",
   ].join(" ");
+  const permittedIds = new Set(evidence.map((record) => record.id));
+  const client = claudeClient();
+  const params = claudeParams(instructions, question, evidence);
   try {
-    const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4.1-mini", instructions, input: `Question:\n${question}\n\nRetrieved source records:\n${JSON.stringify(evidence)}`, max_output_tokens: 900, stream: body.stream === true }),
-      signal: AbortSignal.timeout(25_000),
-    });
-    if (!openAiResponse.ok) return response(res, 502, { error: "The policy analysis service is temporarily unavailable." });
-    const permittedIds = new Set(evidence.map((record) => record.id));
-    if (body.stream === true) return await pipeResponseStream(openAiResponse, res, evidence, permittedIds);
-    const result = await openAiResponse.json();
-    let answer = result.output_text || result.output?.flatMap((item) => item.content || []).map((part) => part.text || "").join("\n").trim();
+    if (body.stream === true) {
+      const stream = client.beta.messages.stream(params);
+      // Surface connection/API errors as JSON before any SSE headers are written.
+      await stream.withResponse();
+      return await pipeResponseStream(stream, res, evidence, permittedIds);
+    }
+    const message = await client.beta.messages.create(params);
+    if (message.stop_reason === "refusal") return response(res, 200, { answer: REFUSAL_MESSAGE, sources: evidence.map(sourceRecord) });
+    let answer = message.content.filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
     if (!answer) return response(res, 502, { error: "The analysis service returned no answer." });
-    answer = answer.replace(/\[([a-f0-9]{16})\]/gi, (citation, id) => permittedIds.has(id) ? citation : "");
+    answer = keepPermittedCitations(answer, permittedIds);
     if (!/\[[a-f0-9]{16}\]/i.test(answer)) answer += `\n\nSupporting records: ${evidence.map((record) => `[${record.id}]`).join(" ")}`;
     return response(res, 200, { answer, sources: evidence.map(sourceRecord) });
-  } catch {
-    return response(res, 502, { error: "The policy analysis request timed out or could not connect." });
+  } catch (error) {
+    if (error instanceof Anthropic.RateLimitError) return response(res, 429, { error: "The policy analysis service is busy. Please try again shortly." });
+    if (error instanceof Anthropic.APIConnectionTimeoutError) return response(res, 504, { error: "The policy analysis request timed out." });
+    if (error instanceof Anthropic.APIError) return response(res, 502, { error: "The policy analysis service is temporarily unavailable." });
+    return response(res, 502, { error: "The policy analysis request could not connect." });
   }
 }
