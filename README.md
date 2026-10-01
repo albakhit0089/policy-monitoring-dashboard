@@ -1,37 +1,46 @@
-# Monthly Monitoring Dashboard
+# GCC States & Yemen Policy Intelligence
 
-Interactive static dashboard for short-term policy decisions and long-term policy frameworks across food and agriculture in the Near East and North Africa. The application uses D3 v7 from cdnjs and runs directly from GitHub Pages. No server-side processing is used.
+Static evidence-led dashboard for food and agriculture policy monitoring across Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates, and Yemen. The dashboard keeps the original full source dataset in `data/measures.json` and loads only `data/gcc-yemen-measures.json`. The shared `data-service.js` applies the regional allowlist before filtering or aggregation.
 
-## Data generation
+## Local development
 
-Raw Excel workbooks are not stored in this repository. To regenerate `data/measures.json` from local workbook folders:
-
-1. Install Node.js 18 or later.
-2. From this directory, install the one-time workbook parser dependency with `npm install`.
-3. Pass one or more folders containing the monthly `.xlsx` files:
-
-```sh
-npm run build-data -- --roots "../Monthly Monitoring 2023" "../Monthly Monitoring 2024" "../Monthly Monitoring 2025" "../Monthly Monitoring 2026"
-```
-
-The script scans nested folders, reads only the `Policy Decisions (short term)` and `Policy Frameworks (long term)` sheets, finds fields from their header labels, converts Excel dates to ISO format, applies the country-name fixes and policy group mappings, and deduplicates matching records. It omits comments, FAPDA identifiers, lookup sheets, empty rows, and rows whose country cell contains an Excel error. The generated JSON is included with the static site so visitors do not need the original workbooks.
-
-To verify the data, inspect the generated record count and compare the source workbook folders selected for the run. Duplicate monthly, annual, copied, and subject workbooks are expected and are deduplicated by type, country, date, and the first 160 characters of the description.
-
-## Run locally
-
-Open this directory with a static web server, for example:
+Use a static HTTP server (the site fetches local JSON):
 
 ```sh
 npx serve .
 ```
 
-The dashboard fetches `data/measures.json`, so opening `index.html` as a `file://` URL may be blocked by browser fetch security. No bundler or build step is used for the site.
+Run the validation build:
 
-## GitHub Pages
+```sh
+npm run build
+npm run test:ai
+```
 
-The repository is configured to deploy from `main` / root. In repository settings, choose **Pages > Build and deployment > Deploy from a branch**, select `main`, and select `/ (root)`.
+This validates required static files, JavaScript syntax, unique IDs, and that the published dataset contains exactly the permitted countries. There is no client bundler or TypeScript project; this site is intentionally plain HTML/CSS/JavaScript with D3.
 
-## Data and wording
+## Regenerate data
 
-Only numeric counts, dates, shares, and year-over-year changes calculated from the included records are shown. No compliance or gap scores are produced. Records are presented as policy measures, not laws, legislation, or legal texts. The on-page disclaimer explains the scope and limits of the summaries.
+Install the local workbook parser once:
+
+```sh
+npm install
+```
+
+Then supply the local workbook folders:
+
+```sh
+npm run build-data -- --roots "../Monthly Monitoring 2023" "../Monthly Monitoring 2024" "../Monthly Monitoring 2025" "../Monthly Monitoring 2026"
+```
+
+The generator rewrites the complete `data/measures.json` and a separate GCC/Yemen-only `data/gcc-yemen-measures.json`. It does not delete or edit the Excel workbooks. Workbook files are ignored by Git. Deduplication, date conversion, country normalisation and classification are handled in `scripts/build-data.cjs`.
+
+## GitHub Pages and AI
+
+GitHub Pages hosts the static dashboard at the repository root. It cannot execute `api/policy-ai.js`. To enable generated AI answers, deploy this repository to Vercel, configure `OPENAI_API_KEY` and optionally `OPENAI_MODEL` and comma-separated `ALLOWED_ORIGINS` as server-side environment variables, then set the `policy-ai-endpoint` meta content in `index.html` to the deployed `/api/policy-ai` URL. The browser never receives the API key. Until configured, the assistant clearly labels results as local evidence matches rather than AI-generated analysis.
+
+The API performs allowlisted record retrieval on the server and asks the OpenAI Responses API to answer only from the retrieved records with source IDs. Lexical retrieval is currently used; semantic embeddings/vector search are not configured. Verify generated analysis against the cited source links.
+
+## Methodology
+
+Counts and trends are calculated from the included records and current filters. There are no compliance scores or fabricated comparisons. Policy measures are summaries for monitoring and analysis, not legal texts or legal interpretations. Always consult the original source.

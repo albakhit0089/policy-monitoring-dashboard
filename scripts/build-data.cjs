@@ -3,7 +3,18 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const ExcelJS = require('exceljs');
+
+const REGIONAL_COUNTRIES = new Set([
+  'Bahrain',
+  'Kuwait',
+  'Oman',
+  'Qatar',
+  'Saudi Arabia',
+  'United Arab Emirates',
+  'Yemen',
+]);
 
 const DECISION_GROUPS = {
   '11': 'Tax',
@@ -217,11 +228,18 @@ async function main() {
     }
   }
   const records = [...unique.values()].sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.country.localeCompare(b.country) || a.title.localeCompare(b.title));
+  records.forEach((record) => {
+    record.id = createHash('sha256').update(dedupeKey(record)).digest('hex').slice(0, 16);
+  });
   const output = path.resolve(__dirname, '..', 'data', 'measures.json');
+  const regionalOutput = path.resolve(__dirname, '..', 'data', 'gcc-yemen-measures.json');
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, `${JSON.stringify({ recordCount: records.length, records })}\n`, 'utf8');
+  const regionalRecords = records.filter((record) => REGIONAL_COUNTRIES.has(record.country));
+  fs.writeFileSync(regionalOutput, `${JSON.stringify({ recordCount: regionalRecords.length, records: regionalRecords })}\n`, 'utf8');
   const countries = new Set(records.map((record) => record.country));
   console.log(`Read ${files.length} workbooks; parsed ${parsedRows.toLocaleString()} rows; wrote ${records.length.toLocaleString()} unique records across ${countries.size} countries.`);
+  console.log(`Wrote ${regionalRecords.length.toLocaleString()} GCC and Yemen records to ${regionalOutput}.`);
   console.log(`Output: ${output}`);
   if (failures.length) {
     console.warn(`${failures.length} workbook(s) could not be read:`);
