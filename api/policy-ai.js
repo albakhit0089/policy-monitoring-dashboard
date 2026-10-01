@@ -33,7 +33,7 @@ const SYNONYMS = {
 let cachedRecords;
 
 function tokenize(text) {
-  return String(text || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 2 && !STOP_WORDS.has(token));
+  return String(text || "").toLocaleLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 2 && !STOP_WORDS.has(token));
 }
 function applyRecordFilters(records, filters = {}) {
   return records.filter((record) => {

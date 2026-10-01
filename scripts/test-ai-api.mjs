@@ -65,6 +65,15 @@ try {
   assert.equal(openAiCalls, 1, "Out-of-scope questions must not reach the model.");
 
   globalThis.fetch = async (_url, options) => {
+    const retrieved = JSON.parse(JSON.parse(options.body).input.split("Retrieved source records:\n")[1]);
+    return { ok: true, json: async () => ({ output_text: `UAE finding [${retrieved[0].id}].` }) };
+  };
+  const arabicHamza = mockResponse();
+  await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { question: "الإمارات" } }, arabicHamza);
+  assert.equal(arabicHamza.statusCode, 200, arabicHamza.body);
+  assert.ok(JSON.parse(arabicHamza.body).sources.length > 0, "Hamza-spelled Arabic country names must expand to their English synonyms.");
+
+  globalThis.fetch = async (_url, options) => {
     const request = JSON.parse(options.body);
     assert.equal(request.stream, true);
     const retrieved = JSON.parse(request.input.split("Retrieved source records:\n")[1]);
@@ -81,7 +90,7 @@ try {
   assert.match(streamBody, /event: delta/);
   assert.match(streamBody, /event: done/);
 
-  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, citations, out-of-scope refusal, and streaming.");
+  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, Arabic synonyms, citations, out-of-scope refusal, and streaming.");
 } finally {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
