@@ -53,7 +53,9 @@ function renderLegend() {
 }
 
 function shortGroupLabel(value) {
-  return value.replace("Agriculture & rural development", "Agriculture & rural dev.")
+  return value.replace("Production support", "Production")
+    .replace("Natural resources management", "Resources mgmt.")
+    .replace("Agriculture & rural development", "Agriculture & rural dev.")
     .replace("Social protection & employment", "Social protection")
     .replace("Disaster risk management", "Disaster risk")
     .replace("Natural resources & climate", "Natural resources")
@@ -67,6 +69,8 @@ function shortGroupLabel(value) {
 
 function renderNetwork() {
   const filtered = getFilteredRecords({ ignoreGroup: true });
+  const countryLabel = state.country === "all" ? "all monitored countries" : state.country;
+  $("#stage-summary").textContent = `${filtered.length.toLocaleString()} policy measures · ${countryLabel}`;
   const groups = createGroupStats(filtered);
   const selected = groups.find((item) => item.key === state.group);
   if (!selected && state.group) state.group = null;
@@ -75,24 +79,30 @@ function renderNetwork() {
   const compact = window.matchMedia("(max-width: 620px)").matches;
   const width = compact ? 390 : 1100;
   const height = compact ? 1100 : 700;
-  const center = compact ? { x: 195, y: 550 } : { x: 550, y: 347 };
-  const radiusX = 412;
-  const radiusY = 260;
+  const center = compact ? { x: 195, y: 550 } : { x: 360, y: 347 };
+  const orbitCenter = compact ? center : { x: 675, y: 347 };
+  const radiusX = compact ? 152 : 230;
+  const radiusY = compact ? 470 : 230;
   svg.attr("viewBox", `0 0 ${width} ${height}`);
   const defs = svg.append("defs");
   const hubFill = defs.append("radialGradient").attr("id", "hub-fill");
-  hubFill.append("stop").attr("offset", "0%").attr("stop-color", "#184d76");
-  hubFill.append("stop").attr("offset", "63%").attr("stop-color", "#0d2b46");
-  hubFill.append("stop").attr("offset", "100%").attr("stop-color", "#091a2c");
+  hubFill.append("stop").attr("offset", "0%").attr("stop-color", "#f0d58e");
+  hubFill.append("stop").attr("offset", "12%").attr("stop-color", "#9b7640");
+  hubFill.append("stop").attr("offset", "38%").attr("stop-color", "#17364d");
+  hubFill.append("stop").attr("offset", "100%").attr("stop-color", "#081728");
   groups.forEach((group, index) => {
     const gradient = defs.append("linearGradient").attr("id", `link-${index}`).attr("x1", "0").attr("y1", "0").attr("x2", "1").attr("y2", "0");
-    gradient.append("stop").attr("offset", "0%").attr("stop-color", "#3B8FD9").attr("stop-opacity", .1);
+    gradient.append("stop").attr("offset", "0%").attr("stop-color", "#E3B44B").attr("stop-opacity", .28);
     gradient.append("stop").attr("offset", "100%").attr("stop-color", group.color).attr("stop-opacity", .9);
+    const orbGradient = defs.append("radialGradient").attr("id", `orb-fill-${index}`).attr("cx", ".32").attr("cy", ".27").attr("r", ".82");
+    orbGradient.append("stop").attr("offset", "0%").attr("stop-color", "#f2f6fa").attr("stop-opacity", .78);
+    orbGradient.append("stop").attr("offset", "18%").attr("stop-color", group.color).attr("stop-opacity", .72);
+    orbGradient.append("stop").attr("offset", "100%").attr("stop-color", "#081728").attr("stop-opacity", .92);
   });
   if (compact) {
     svg.append("ellipse").attr("class", "orbit-guide").attr("cx", center.x).attr("cy", center.y).attr("rx", 152).attr("ry", 470);
   } else {
-    svg.append("ellipse").attr("class", "orbit-guide").attr("cx", center.x).attr("cy", center.y).attr("rx", radiusX - 20).attr("ry", radiusY - 18);
+    svg.append("ellipse").attr("class", "orbit-guide").attr("cx", orbitCenter.x).attr("cy", orbitCenter.y).attr("rx", radiusX + 16).attr("ry", radiusY + 8);
   }
 
   const maxCount = d3.max(groups, (group) => group.count) || 1;
@@ -102,8 +112,8 @@ function renderNetwork() {
     const row = compact ? Math.floor(index / 2) : 0;
     const angle = compact ? (column === 0 ? 0 : Math.PI) : -Math.PI / 2 + index * (2 * Math.PI / Math.max(groups.length, 1));
     const r = compact ? 13 + 9 * Math.sqrt(group.count / maxCount) : 20 + 21 * Math.sqrt(group.count / maxCount);
-    const x = compact ? (column === 0 ? 50 : 340) : center.x + radiusX * Math.cos(angle);
-    const y = compact ? 95 + row * (910 / Math.max(perColumn - 1, 1)) : center.y + radiusY * Math.sin(angle);
+    const x = compact ? (column === 0 ? 50 : 340) : orbitCenter.x + radiusX * Math.cos(angle);
+    const y = compact ? 95 + row * (910 / Math.max(perColumn - 1, 1)) : orbitCenter.y + radiusY * Math.sin(angle);
     return { ...group, index, r, x, y, angle, column };
   });
   const links = svg.append("g");
@@ -128,8 +138,8 @@ function renderNetwork() {
     return [center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle)].join(",");
   }).join(" ");
   hub.append("polygon").attr("class", "hub-spike").attr("points", spikePoints).style("transform-origin", `${center.x}px ${center.y}px`);
-  hub.append("circle").attr("class", "hub-ring").attr("cx", center.x).attr("cy", center.y).attr("r", 77);
-  hub.append("circle").attr("class", "hub-core").attr("cx", center.x).attr("cy", center.y).attr("r", 65);
+  hub.append("circle").attr("class", "hub-ring").attr("cx", center.x).attr("cy", center.y).attr("r", 84);
+  hub.append("circle").attr("class", "hub-core").attr("cx", center.x).attr("cy", center.y).attr("r", 69);
   hub.append("text").attr("class", "hub-label").attr("x", center.x).attr("y", center.y - 16).text(state.country === "all" ? "All monitored" : state.country);
   hub.append("text").attr("class", "hub-label").attr("x", center.x).attr("y", center.y - 3).text(state.country === "all" ? "countries" : "country");
   hub.append("text").attr("class", "hub-count").attr("x", center.x).attr("y", center.y + 24).text(filtered.length.toLocaleString());
@@ -139,14 +149,9 @@ function renderNetwork() {
   const nodeLayer = svg.append("g");
   const selection = nodeLayer.selectAll("g.network-node").data(nodes).join("g")
     .attr("class", (node) => `network-node${state.group === node.key ? " is-selected" : ""}${state.group && state.group !== node.key ? " is-dimmed" : ""}`)
-    .attr("transform", (node) => `translate(${node.x},${node.y})`)
-    .attr("role", "button").attr("tabindex", 0)
-    .attr("aria-label", (node) => `${node.group}, ${node.count} measures, ${((node.count / Math.max(filtered.length, 1)) * 100).toFixed(1)} percent share. Select group.`)
-    .attr("aria-pressed", (node) => node.key === state.group)
-    .on("click", (event, node) => { state.group = state.group === node.key ? null : node.key; render(); })
-    .on("keydown", (event, node) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); state.group = state.group === node.key ? null : node.key; render(); } });
+    .attr("transform", (node) => `translate(${node.x},${node.y})`);
   selection.append("title").text((node) => `${node.group}: ${node.count} measures (${(node.count / Math.max(filtered.length, 1) * 100).toFixed(1)}%). Top countries: ${node.countries.slice(0, 3).map(([name, count]) => `${name} ${count}`).join(", ")}`);
-  selection.append("circle").attr("class", "orb").attr("r", (node) => node.r).attr("fill", (node) => `${node.color}26`).attr("stroke", (node) => node.color).attr("color", (node) => node.color);
+  selection.append("circle").attr("class", "orb").attr("r", (node) => node.r).attr("fill", (node) => `url(#orb-fill-${node.index})`).attr("stroke", (node) => node.color).attr("color", (node) => node.color);
   selection.append("circle").attr("class", "orb-ring").attr("r", (node) => node.r + 5).attr("stroke", (node) => node.color);
   selection.each(function (node) {
     const group = d3.select(this);
@@ -166,6 +171,15 @@ function renderNetwork() {
     group.append("text").attr("class", "orb-label").attr("x", labelX).attr("y", labelY).attr("text-anchor", anchor).text(shortGroupLabel(node.group));
     group.append("text").attr("class", "orb-meta").attr("x", labelX).attr("y", labelY + 11).attr("text-anchor", anchor).text(`${node.count.toLocaleString()} · ${(node.count / Math.max(filtered.length, 1) * 100).toFixed(1)}%`);
   });
+  const hitTargets = svg.append("g").attr("class", "network-hit-layer").selectAll("circle.orb-hit").data(nodes).join("circle")
+    .attr("class", "orb-hit").attr("cx", (node) => node.x).attr("cy", (node) => node.y).attr("r", (node) => node.r + 2)
+    .attr("fill", "transparent").attr("pointer-events", "all")
+    .attr("role", "button").attr("tabindex", 0)
+    .attr("aria-label", (node) => `${node.group}, ${node.count} measures, ${((node.count / Math.max(filtered.length, 1)) * 100).toFixed(1)} percent share. Select group.`)
+    .attr("aria-pressed", (node) => node.key === state.group)
+    .on("click", (event, node) => { state.group = state.group === node.key ? null : node.key; render(); })
+    .on("keydown", (event, node) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); state.group = state.group === node.key ? null : node.key; render(); } });
+  hitTargets.append("title").text((node) => `${node.group}: ${node.count} measures (${(node.count / Math.max(filtered.length, 1) * 100).toFixed(1)}%). Top countries: ${node.countries.slice(0, 3).map(([name, count]) => `${name} ${count}`).join(", ")}`);
   renderLegend();
   renderDetail(selected || (state.group ? null : groups[0]), filtered);
 }
