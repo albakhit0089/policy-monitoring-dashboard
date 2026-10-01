@@ -11,3 +11,4 @@ dist/
 ~$*.xlsm
 .DS_Store
 Thumbs.db
+data/measures.json

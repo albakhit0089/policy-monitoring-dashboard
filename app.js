@@ -16,6 +16,7 @@ const formatDate = (date, options = {}) => date ? new Date(`${date}T00:00:00Z`).
 const filtered = () => filterRecords(state.records, { country: state.country, year: state.year, month: state.month, from: state.from, to: state.to, type: state.type, family: state.family, domain: state.domain, group: state.group, institution: state.institution, keyword: state.keyword });
 const totalCount = (items, type = null) => type ? items.filter((record) => record.type === type).length : items.length;
 const percentage = (part, whole) => whole ? `${(part / whole * 100).toFixed(1)}%` : "0%";
+const latestDate = (records) => records.map((record) => record.date).filter(Boolean).sort().at(-1);
 const appShell = $("#app-shell");
 let worldTopologyPromise = null;
 let mapRenderGeneration = 0;
@@ -94,15 +95,15 @@ function kpi(label, value, meta, iconName, tone = "") {
 }
 function renderOverview() {
   const items = filtered();
-  const period = periodCompare(state.records);
+  const period = periodCompare(items);
   const latestLabel = period ? formatDate(`${period.latestKey}-01`, { month: "short", year: "numeric", day: undefined }) : "Not available";
-  const lastDate = [...items].map((record) => record.date).filter(Boolean).sort().at(-1);
+  const lastDate = latestDate(items);
   const countryCount = new Set(items.map((record) => record.country)).size;
   const institutionCount = new Set(items.map((record) => record.institution).filter(Boolean)).size;
   const monthly = aggregateMonthly(items);
   const monthsInYear = items.filter((record) => record.year === (period ? Number(period.latestKey.slice(0, 4)) : null));
   const intro = `<div class="hero-strip"><div class="hero-copy"><div class="eyebrow">FOOD &amp; AGRICULTURE · GCC STATES &amp; YEMEN</div><h1 class="page-title">Policy Intelligence</h1><p class="page-subtitle">Monitor food, agriculture, trade, water and food security developments across the region, grounded in the policy record.</p></div><div class="hero-asof"><span>DATA THROUGH</span><strong>${escapeHtml(formatDate(lastDate, { day: "2-digit", month: "short", year: "numeric" }))}</strong></div></div>`;
-  const kpis = `<div class="kpi-grid">${kpi("Policy measures", items.length.toLocaleString(), "In the current selection", "files", "kpi-primary")}${kpi("Countries covered", countryCount.toString(), "GCC States and Yemen", "map-pinned", "kpi-teal")}${kpi("Latest month in data", period?.latestCount.toLocaleString() || "0", latestLabel, "calendar-days", "kpi-gold")}${kpi("Short-term decisions", totalCount(items, "decision").toLocaleString(), `${totalCount(items, "framework").toLocaleString()} long-term frameworks`, "scale")}${kpi("Long-term frameworks", totalCount(items, "framework").toLocaleString(), "Records classified as frameworks", "book-open")}${kpi("Institutions monitored", institutionCount.toLocaleString(), "Distinct names in source records", "building-2")}${kpi("Policy domains", new Set(items.map((record) => record.domain)).size.toLocaleString(), "Domains represented in selection", "shapes")}${kpi("Latest update", lastDate ? formatDate(lastDate, { day: "2-digit", month: "short", year: "numeric" }) : "Not available", "Latest dated policy measure", "clock-3")}</div>`;
+  const kpis = `<div class="kpi-grid">${kpi("Policy measures", items.length.toLocaleString(), "In the current selection", "files", "kpi-primary")}${kpi("Countries covered", countryCount.toString(), "GCC States and Yemen", "map-pinned", "kpi-teal")}${kpi("Measures in latest month", period?.latestCount.toLocaleString() || "0", latestLabel, "calendar-days", "kpi-gold")}${kpi("Short-term decisions", totalCount(items, "decision").toLocaleString(), `${totalCount(items, "framework").toLocaleString()} long-term frameworks`, "scale")}${kpi("Long-term frameworks", totalCount(items, "framework").toLocaleString(), "Records classified as frameworks", "book-open")}${kpi("Institutions monitored", institutionCount.toLocaleString(), "Distinct names in source records", "building-2")}${kpi("Policy domains", new Set(items.map((record) => record.domain)).size.toLocaleString(), "Domains represented in selection", "shapes")}${kpi("Latest update", lastDate ? formatDate(lastDate, { day: "2-digit", month: "short", year: "numeric" }) : "Not available", "Latest dated policy measure", "clock-3")}</div>`;
   const activity = `<div class="chart-toolbar" id="activity-mode"><button type="button" data-activity="all" aria-pressed="true">Total</button><button type="button" data-activity="decision" aria-pressed="false">Short-term</button><button type="button" data-activity="framework" aria-pressed="false">Long-term</button></div><div class="chart-wrap chart-tall" id="activity-chart"></div><div class="legend-row"><span class="legend-item"><i style="background:#116aab"></i>Total measures</span><span class="legend-item"><i style="background:#49806a"></i>Short-term decisions</span><span class="legend-item"><i style="background:#b7852f"></i>Long-term frameworks</span></div>`;
   const countryBars = `<div class="rank-list" id="country-rank"></div>`;
   const typeBars = `<div class="chart-wrap" id="type-by-country-chart"></div>`;
@@ -209,10 +210,10 @@ function renderEmerging(records) {
   const latestKey = [...records].map(monthKey).filter(Boolean).sort().at(-1);
   if (!latestKey) return `<div class="empty-state">No dated records to compare.</div>`;
   const [year, month] = latestKey.split("-").map(Number);
-  const end = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1));
   const startRecent = new Date(Date.UTC(year, month - 12, 1));
   const startPrevious = new Date(Date.UTC(year, month - 24, 1));
-  const recent = records.filter((record) => record.date && new Date(`${record.date}T00:00:00Z`) >= startRecent && new Date(`${record.date}T00:00:00Z`) <= end);
+  const recent = records.filter((record) => record.date && new Date(`${record.date}T00:00:00Z`) >= startRecent && new Date(`${record.date}T00:00:00Z`) < end);
   const previous = records.filter((record) => record.date && new Date(`${record.date}T00:00:00Z`) >= startPrevious && new Date(`${record.date}T00:00:00Z`) < startRecent);
   const themes = groupCount(recent, (record) => record.domain).slice(0, 16).map(([domain, count]) => {
     const prior = previous.filter((record) => record.domain === domain).length;
@@ -240,7 +241,7 @@ async function renderMap(records) {
     const color = d3.scaleSequential([0, max], d3.interpolateBlues);
     const svg = d3.select(target).html("").append("svg").attr("class", "map-svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img").attr("aria-label", "Map of policy measures in the GCC and Yemen");
     const polygons = svg.selectAll("path").data(features).join("path").attr("d", path).attr("class", "map-country").attr("fill", (feature) => { const country = COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0")); return color(counts[country] || 0); }).attr("tabindex", 0).attr("role", "button").attr("aria-label", (feature) => { const country = COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0")); return `${country}: ${counts[country] || 0} measures`; }).on("click keydown", (event, feature) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); const country = COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0")); setFilter("country", country); });
-    polygons.append("title").text((feature) => { const country = COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0")); const countryRecords = records.filter((record) => record.country === country); const latest = [...countryRecords].map((record) => record.date).sort().at(-1); const topDomain = groupCount(countryRecords, (record) => record.domain)[0]?.[0] || "No domain records"; const monthCounts = groupCount(countryRecords, monthKey); return `${country}\n${countryRecords.length} measures\n${topDomain}\nMost active month: ${monthCounts[0]?.[0] || "Not available"}\nLatest: ${latest ? formatDate(latest) : "Not available"}`; });
+    polygons.append("title").text((feature) => { const country = COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0")); const countryRecords = records.filter((record) => record.country === country); const latest = latestDate(countryRecords); const topDomain = groupCount(countryRecords, (record) => record.domain)[0]?.[0] || "No domain records"; const monthCounts = groupCount(countryRecords, monthKey); return `${country}\n${countryRecords.length} measures\n${topDomain}\nMost active month: ${monthCounts[0]?.[0] || "Not available"}\nLatest: ${latest ? formatDate(latest) : "Not available"}`; });
     const geometryCountries = new Set(features.map((feature) => COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0"))).filter(Boolean));
     if (!geometryCountries.has("Bahrain")) {
       const [x, y] = projection([50.55, 26.07]);
@@ -313,7 +314,7 @@ function renderAreasPage() {
   $("#page-content").innerHTML = `${heading("Policy areas", "Explore recorded policy domains and their distribution across the seven countries.", "POLICY TAXONOMY")}<div class="kpi-grid">${kpi("Policy domains", domains.length.toLocaleString(), "Distinct source categories", "shapes")}${kpi("Policy groups", new Set(records.map((record) => record.group)).size.toLocaleString(), "Mapped policy groups", "layers")}${kpi("Policy families", new Set(records.map((record) => record.family)).size.toLocaleString(), "Classification families", "folder-tree")}${kpi("Records in selection", records.length.toLocaleString(), "Current filter selection", "files", "kpi-primary")}</div><div class="content-grid">${card("Policy domains by volume", "Click a domain to filter all views.", `<div class="chart-wrap chart-tall" id="area-domain-chart"></div>`, "span-7")}${card("Policy family distribution", "Recorded classification families.", `<div class="chart-wrap" id="area-family-chart"></div><div class="legend-row" id="area-family-legend"></div>`, "span-5")}${card("Policy group breakdown", "Short-term group codes and long-term framework groupings.", `<div class="rank-list" id="group-rank"></div>`, "span-12")}</div>`;
   drawHorizontalBars("#area-domain-chart", domains.slice(0, 20), (domain) => { state.domain = domain; syncFilters(); render(); });
   drawFamilyDonutInto("#area-family-chart", "#area-family-legend", records);
-  renderCountryRank(records, "#group-rank");
+  renderRankEntries(groupCount(records, (record) => record.group).slice(0, 20), "#group-rank", (group) => setFilter("group", group));
   refreshIcons();
 }
 function drawHorizontalBars(selector, entries, onClick = null) {
@@ -529,7 +530,7 @@ function generateBrief() {
   const countryCounts = groupCount(records, (record) => record.country);
   const periods = aggregateMonthly(records);
   const recent = [...records].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0, 12);
-  $("#generated-report").innerHTML = `<div class="report-document"><div class="eyebrow">POLICY INTELLIGENCE · ${escapeHtml(type.toUpperCase())}</div><h2>${escapeHtml(type)}: GCC States &amp; Yemen</h2><p class="heading-meta">Prepared for ${escapeHtml(audience)} · Evidence through ${escapeHtml(formatDate(records.map((record)=>record.date).sort().at(-1)))}</p><h3>Executive summary</h3><p>This selection contains <strong>${records.length.toLocaleString()} monitored policy measures</strong> across ${countryCounts.length} countries. The dataset includes ${totalCount(records,"decision").toLocaleString()} short-term policy decisions and ${totalCount(records,"framework").toLocaleString()} long-term policy frameworks.</p><h3>Key policy areas</h3><ol>${domains.map(([domain,count])=>`<li><strong>${escapeHtml(domain)}</strong>: ${count} records (${percentage(count,records.length)}).</li>`).join("")}</ol><h3>Country coverage</h3><p>${countryCounts.map(([country,count])=>`${escapeHtml(country)} (${count})`).join(" · ")}</p><h3>Activity over time</h3><p>${periods.length ? `${periods.length} reporting months contain dated records. The most active month in the selection was ${escapeHtml(periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][0])} with ${periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][1].total} measures.` : "No dated measures in this selection."}</p><h3>Selected developments and sources</h3><ol>${recent.map((record)=>`<li><strong>${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}.</strong> ${escapeHtml(record.title)} ${safeUrl(record.source)?`<a href="${escapeHtml(record.source)}">Source ↗</a>`:""}</li>`).join("")}</ol><p class="method-note">This brief is a data summary of short policy records compiled from public sources. It is not a legal interpretation. Always consult each original source.</p></div>`;
+  $("#generated-report").innerHTML = `<div class="report-document"><div class="eyebrow">POLICY INTELLIGENCE · ${escapeHtml(type.toUpperCase())}</div><h2>${escapeHtml(type)}: GCC States &amp; Yemen</h2><p class="heading-meta">Prepared for ${escapeHtml(audience)} · Evidence through ${escapeHtml(formatDate(latestDate(records)))}</p><h3>Executive summary</h3><p>This selection contains <strong>${records.length.toLocaleString()} monitored policy measures</strong> across ${countryCounts.length} countries. The dataset includes ${totalCount(records,"decision").toLocaleString()} short-term policy decisions and ${totalCount(records,"framework").toLocaleString()} long-term policy frameworks.</p><h3>Key policy areas</h3><ol>${domains.map(([domain,count])=>`<li><strong>${escapeHtml(domain)}</strong>: ${count} records (${percentage(count,records.length)}).</li>`).join("")}</ol><h3>Country coverage</h3><p>${countryCounts.map(([country,count])=>`${escapeHtml(country)} (${count})`).join(" · ")}</p><h3>Activity over time</h3><p>${periods.length ? `${periods.length} reporting months contain dated records. The most active month in the selection was ${escapeHtml(periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][0])} with ${periods.slice().sort((a,b)=>b[1].total-a[1].total)[0][1].total} measures.` : "No dated measures in this selection."}</p><h3>Selected developments and sources</h3><ol>${recent.map((record)=>`<li><strong>${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}.</strong> ${escapeHtml(record.title)} ${safeUrl(record.source)?`<a href="${escapeHtml(record.source)}">Source ↗</a>`:""}</li>`).join("")}</ol><p class="method-note">This brief is a data summary of short policy records compiled from public sources. It is not a legal interpretation. Always consult each original source.</p></div>`;
   $("#copy-brief").disabled = false;
   $("#word-brief").disabled = false;
   $("#generated-report").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -542,7 +543,7 @@ function exportBriefWord() {
 }
 
 function renderMethodologyPage() {
-  const latest = state.records.map((record) => record.date).sort().at(-1);
+  const latest = latestDate(state.records);
   const noAi = !$("meta[name='policy-ai-endpoint']")?.content;
   $("#page-content").innerHTML = `${heading("Methodology & sources", "How the monitored records are classified, filtered and interpreted.", "ABOUT THIS PLATFORM")}<div class="content-grid">${card("Purpose and coverage", "The dashboard supports monitoring and analysis, not legal interpretation.", `<p>This platform organises reported food and agriculture policy developments for <strong>the six GCC member states and Yemen</strong>: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen.</p><p>Current source coverage: <strong>${state.records.length.toLocaleString()} unique records</strong> spanning ${Math.min(...state.records.map((record)=>record.year||2023))}–${Math.max(...state.records.map((record)=>record.year||2026))}. Latest dated record: <strong>${escapeHtml(formatDate(latest))}</strong>.</p>`, "span-6")}${card("Classification", "Families and groups follow the source workbook coding.", `<h3>Short-term policy decisions</h3><p>Decision records use the leading code digits to classify Consumer-oriented, Producer-oriented or Trade-oriented measures and their groups.</p><h3>Long-term policy frameworks</h3><p>Framework records are grouped under development planning, food security and nutrition, agriculture and rural development, social protection and employment, natural resources and climate, trade and value chains, disaster risk management, and gender.</p><p>Domains and institutions are shown as supplied in the source record.</p>`, "span-6")}${card("Data processing and limitations", "No missing values are inferred as facts.", `<ul class="method-list"><li>Duplicate records are removed by type, country, date and the first 160 characters of description.</li><li>Excel serial dates are converted to ISO dates.</li><li>Country aliases are normalised in the source-generation script.</li><li>Rows with Excel error values in the country field are excluded rather than assigned an inferred country.</li><li>Record summaries may omit context from their original source; review the source before using a finding.</li></ul>`, "span-6")}${card("AI methodology and limitations", "Secure backend configuration is required for model-generated answers.", `<p>${noAi ? "AI responses are not enabled on this GitHub Pages deployment. The assistant can show locally matched evidence records, but it does not claim that these are model-generated answers." : "AI requests are sent to the configured server endpoint, which retrieves records server-side and returns traceable record citations."}</p><p>Any generated analysis should be treated as a research aid. Verify material claims against cited original sources. The API key is not stored in this static site.</p>`, "span-6")}${card("Disclaimer", "Policy monitoring, not legal advice.", `<p>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</p>`, "span-12")}</div>`;
   refreshIcons();
@@ -586,6 +587,7 @@ async function consumeAssistantStream(response, message) {
   const decoder = new TextDecoder();
   let buffer = "";
   let sources = [];
+  message.textContent = "";
   const consume = (block) => {
     const eventName = block.split(/\r?\n/).find((line) => line.startsWith("event:"))?.slice(6).trim();
     const data = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
@@ -616,7 +618,7 @@ async function askAssistant(question, container, pageContext = false) {
   const pending = $('[data-response="pending"]', container);
   try {
     if (endpoint) {
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: cleanQuestion, stream: true, filters: activeFilterEntries().map((entry) => ({ key: entry[0], value: entry[2] })) }) });
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: cleanQuestion, stream: true, filters: { country: state.country, year: state.year, month: state.month, type: state.type, family: state.family, group: state.group, domain: state.domain, institution: state.institution, from: state.from, to: state.to } }) });
       if (response.headers.get("content-type")?.includes("text/event-stream")) {
         await consumeAssistantStream(response, pending);
         pending.removeAttribute("data-response");
@@ -644,7 +646,7 @@ async function askAssistant(question, container, pageContext = false) {
   if (!pageContext) $("#assistant-input").value = "";
   refreshIcons();
 }
-function renderCitations(sources) { return `<div class="chat-sources"><strong>Supporting records</strong>${sources.map((source) => `<a href="${escapeHtml(source.url || source.source)}" target="_blank" rel="noopener noreferrer">[${escapeHtml(source.id)}] ${escapeHtml(source.country)} · ${escapeHtml(formatDate(source.date))} · ${escapeHtml(source.title)}</a>`).join("")}</div>`; }
+function renderCitations(sources) { return `<div class="chat-sources"><strong>Supporting records</strong>${sources.map((source) => `<a href="${escapeHtml(safeUrl(source.url || source.source) || "#")}" target="_blank" rel="noopener noreferrer">[${escapeHtml(source.id)}] ${escapeHtml(source.country)} · ${escapeHtml(formatDate(source.date))} · ${escapeHtml(source.title)}</a>`).join("")}</div>`; }
 
 function renderDashboardPage() {
   $("#current-page-label").textContent = pageLabels[state.page] || "Overview";
@@ -684,8 +686,8 @@ function bindShell() {
   $("#panel-scrim").addEventListener("click", () => { closeAssistant(); closeRecordDrawer(); });
   $("#assistant-form").addEventListener("submit", (event) => { event.preventDefault(); askAssistant($("#assistant-input").value, $("#assistant-messages")); });
   $$("[data-question]").forEach((button) => button.addEventListener("click", () => { if ($("#ai-page-input")) { $("#ai-page-input").value = button.dataset.question; askAssistant(button.dataset.question,$("#ai-page-messages"),true); } else openAssistant(button.dataset.question); }));
-  $("#top-export").addEventListener("click", () => { state.page = "reports"; renderDashboardPage(); });
-  $("#updates-button").addEventListener("click", () => showToast(`Dataset includes records through ${formatDate(state.records.map((record)=>record.date).sort().at(-1))}.`));
+  $("#top-export").addEventListener("click", () => setPage("reports"));
+  $("#updates-button").addEventListener("click", () => showToast(`Dataset includes records through ${formatDate(latestDate(state.records))}.`));
   document.addEventListener("click", (event) => { const explain = event.target.closest("[data-explain]"); if (explain) openAssistant(`Explain ${explain.dataset.explain} using the current filters and cite supporting records.`); });
   document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeAssistant(); closeRecordDrawer(); closeMobileSidebar(); } });
   let resizeTimer;
@@ -699,7 +701,7 @@ function initialize() {
   loadRegionalData().then((records) => {
     state.records = records;
     initializeFilters(records);
-    const last = records.map((record) => record.date).sort().at(-1);
+    const last = latestDate(records);
     $("#data-status").textContent = `${records.length.toLocaleString()} records · through ${formatDate(last, { day: "2-digit", month: "short", year: "numeric" })}`;
     state.page = pageLabels[location.hash.slice(1)] ? location.hash.slice(1) : "overview";
     renderDashboardPage();

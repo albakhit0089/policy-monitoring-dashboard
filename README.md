@@ -1,6 +1,6 @@
 # GCC States & Yemen Policy Intelligence
 
-Static evidence-led dashboard for food and agriculture policy monitoring across Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates, and Yemen. The dashboard keeps the original full source dataset in `data/measures.json` and loads only `data/gcc-yemen-measures.json`. The shared `data-service.js` applies the regional allowlist before filtering or aggregation.
+Static evidence-led dashboard for food and agriculture policy monitoring across Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates, and Yemen. The dashboard publishes and loads only `data/gcc-yemen-measures.json`; the full multi-country source dataset (`data/measures.json`) is generated locally and is not committed or published. The shared `data-service.js` applies the regional allowlist before filtering or aggregation.
 
 ## Local development
 
@@ -33,7 +33,7 @@ Then supply the local workbook folders:
 npm run build-data -- --roots "../Monthly Monitoring 2023" "../Monthly Monitoring 2024" "../Monthly Monitoring 2025" "../Monthly Monitoring 2026"
 ```
 
-The generator rewrites the complete `data/measures.json` and a separate GCC/Yemen-only `data/gcc-yemen-measures.json`. It does not delete or edit the Excel workbooks. Workbook files are ignored by Git. Deduplication, date conversion, country normalisation and classification are handled in `scripts/build-data.cjs`.
+The generator rewrites the complete `data/measures.json` and a separate GCC/Yemen-only `data/gcc-yemen-measures.json`. It does not delete or edit the Excel workbooks. Workbook files and `data/measures.json` are ignored by Git. When `data/measures.json` is present locally, `npm run build` also cross-checks the regional records against it. Deduplication, date conversion, country normalisation and classification are handled in `scripts/build-data.cjs`.
 
 ## GitHub Pages and AI
 
