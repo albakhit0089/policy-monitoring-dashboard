@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261004";
-import { renderNetworkPage } from "./network.js?v=pi-20261004";
-import { renderPricesPage } from "./prices.js?v=pi-20261004";
-import { renderReportsPage } from "./reports.js?v=pi-20261004";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261006";
+import { renderNetworkPage } from "./network.js?v=pi-20261006";
+import { renderPricesPage } from "./prices.js?v=pi-20261006";
+import { renderReportsPage } from "./reports.js?v=pi-20261006";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -579,7 +579,10 @@ async function askAssistant(question, container, pageContext = false) {
 }
 function renderCitations(sources) { return `<div class="chat-sources"><strong>Supporting records</strong>${sources.map((source) => `<a href="${escapeHtml(safeUrl(source.url || source.source) || "#")}" target="_blank" rel="noopener noreferrer">[${escapeHtml(source.id)}] ${escapeHtml(source.country)} · ${escapeHtml(formatDate(source.date))} · ${escapeHtml(source.title)}</a>`).join("")}</div>`; }
 
-function renderDashboardPage() {
+// Navigation starts at the top; re-renders (filters, cross-filters, resizes) keep the reader's place.
+function renderDashboardPage({ keepScroll = false } = {}) {
+  const scrollY = window.scrollY;
+  state.pendingScroll = keepScroll ? scrollY : null;
   $("#current-page-label").textContent = pageLabels[state.page] || "Overview";
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
   if (state.page === "overview") renderOverviewPage();
@@ -596,12 +599,12 @@ function renderDashboardPage() {
   else renderOverviewPage();
   renderActiveFilters();
   refreshIcons();
-  window.scrollTo({ top: 0, behavior: "instant" });
+  window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
 const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", ai: "AI Policy Analyst", reports: "Reports", methodology: "Methodology & Sources" };
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
 function setFilter(key, value) { state[key] = value || "all"; state.pageNumber = 1; syncFilters(); render(); }
-function render() { renderDashboardPage(); }
+function render() { renderDashboardPage({ keepScroll: true }); }
 function resetFilters() { state.country = state.year = state.month = state.type = state.family = state.domain = state.group = state.institution = "all"; state.keyword = state.from = state.to = ""; state.pageNumber = 1; syncFilters(); render(); }
 function closeMobileSidebar() { $("#sidebar").classList.remove("mobile-open"); $("#sidebar-scrim").classList.remove("visible"); }
 function bindShell() {
@@ -626,22 +629,46 @@ function bindShell() {
   $("#updates-button").addEventListener("click", () => showToast(`Dataset includes records through ${formatDate(latestDate(state.records))}.`));
   document.addEventListener("click", (event) => { const explain = event.target.closest("[data-explain]"); if (explain) openAssistant(`Explain ${explain.dataset.explain} using the current filters and cite supporting records.`); });
   document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeAssistant(); closeRecordDrawer(); closeMobileSidebar(); } });
+  // Mobile browsers fire resize when the address bar shows or hides; only a width change needs charts redrawn.
   let resizeTimer;
-  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (["overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage(); }, 180); });
+  let lastWidth = window.innerWidth;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      if (["overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage({ keepScroll: true });
+    }, 180);
+  });
   window.addEventListener("popstate", () => { const page = location.hash.slice(1); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
 }
 // Pages that also need FAOSTAT food indicators load them once, then render.
 function withFoodData(renderPage) {
   const page = state.page;
   $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading food price indicators…</span></div>`;
-  loadFoodIndicators().then((food) => { if (state.page === page) { renderPage(ui, food); renderActiveFilters(); } }).catch((error) => {
+  loadFoodIndicators().then((food) => {
+    if (state.page !== page) return;
+    renderPage(ui, food);
+    renderActiveFilters();
+    if (state.pendingScroll !== null && state.pendingScroll !== undefined) window.scrollTo({ top: state.pendingScroll, behavior: "instant" });
+    state.pendingScroll = null;
+  }).catch((error) => {
     $("#page-content").innerHTML = emptyMarkup("Food indicators could not be loaded", `${error.message}. Reload the page to try again.`);
     wireEmptyActions();
   });
 }
 const ui = { state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, openAssistant, downloadBlob, exportXlsx };
+// Stop the page behind an open menu, assistant or record drawer from scrolling on touch devices.
+function watchScrollLock() {
+  const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || $("#assistant-panel").classList.contains("open") || !!$("#record-drawer"));
+  const observer = new MutationObserver(sync);
+  observer.observe($("#sidebar"), { attributes: true, attributeFilter: ["class"] });
+  observer.observe($("#assistant-panel"), { attributes: true, attributeFilter: ["class"] });
+  observer.observe(document.body, { childList: true });
+}
 function initialize() {
   bindShell();
+  watchScrollLock();
   $("#assistant-config").hidden = !!$("meta[name='policy-ai-endpoint']")?.content.trim();
   $("#assistant-messages").addEventListener("click", (event) => { const button = event.target.closest("[data-question]"); if (button) openAssistant(button.dataset.question); });
   loadRegionalData().then((records) => {

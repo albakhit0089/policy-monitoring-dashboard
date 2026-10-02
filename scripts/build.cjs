@@ -5,10 +5,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'food-analysis.js', 'prices.js', 'network.js', 'reports.js', 'data/gcc-yemen-measures.json', 'data/food-indicators.json'];
+const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'food-analysis.js', 'policy-analysis.js', 'prices.js', 'network.js', 'reports.js', 'data/gcc-yemen-measures.json', 'data/food-indicators.json'];
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
 if (missing.length) throw new Error(`Required static files are missing: ${missing.join(', ')}`);
-for (const file of ['app.js', 'data-service.js', 'food-analysis.js', 'prices.js', 'network.js', 'reports.js', 'scripts/build-indicators.cjs', 'api/policy-ai.js', 'scripts/build-data.cjs', 'scripts/test-ai-api.mjs']) {
+for (const file of ['app.js', 'data-service.js', 'food-analysis.js', 'policy-analysis.js', 'prices.js', 'network.js', 'reports.js', 'scripts/build-indicators.cjs', 'api/policy-ai.js', 'scripts/build-data.cjs', 'scripts/test-ai-api.mjs']) {
   const result = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`${file} syntax check failed:\n${result.stderr}`);
 }

@@ -1,4 +1,4 @@
-import { CURRENCY, comparableItems, countryPriceSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261004";
+import { CURRENCY, comparableItems, countryPriceSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261006";
 
 export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];

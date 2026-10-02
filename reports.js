@@ -1,4 +1,5 @@
-import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261004";
+import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261006";
+import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261006";
 
 const REPORT_TYPES = {
   analysis: "Policy and food security analysis",
@@ -94,35 +95,6 @@ function table(headers, rows, caption) {
 }
 
 // ---------- narrative sections ----------
-function activityNarrative(a, subject) {
-  const firstYear = a.first?.slice(0, 4), lastYear = a.latest?.slice(0, 4);
-  return paras(
-    `Between ${longDate(a.first)} and ${longDate(a.latest)}, ${num(a.total)} policy measures were recorded for ${subject}, an average of about ${Math.round(a.perMonth)} a month. By calendar year, the record holds ${listJoin(a.years.map(([year, count]) => `${num(count)} in ${year}`))}${firstYear === lastYear ? "" : `; ${firstYear} and ${lastYear} are partial years in the monitoring series`}.`,
-    a.peak ? `The busiest month was ${monthName(a.peak[0])}, with ${num(a.peak[1].total)} measures. In the most recent 12 months, ${compareCounts(a.growth.recent, a.growth.previous)}. Because the series depends on what is reported publicly, changes in volume can reflect shifts in reporting as well as in policy activity.` : "",
-  );
-}
-function themesNarrative(ui, a) {
-  const top = a.domains.slice(0, 4);
-  const groups = a.groups.slice(0, 3);
-  return paras(
-    top.length ? `The record is led by ${listJoin(top.map((row) => `${lower(ui.escapeHtml(row.domain))} (${num(row.count)} measures, ${share(row.count, a.total)}%)`))}. Together these account for ${share(top.reduce((sum, row) => sum + row.count, 0), a.total)}% of all measures.` : "",
-    groups.length ? `Grouped more broadly, most measures fall under ${listJoin(groups.map(([group, count]) => `${lower(ui.escapeHtml(group))} (${num(count)})`))}.` : "",
-    a.emerging.length ? `Several themes have gained attention over the last year: ${listJoin(a.emerging.map((row) => `${lower(ui.escapeHtml(row.domain))} (${num(row.growth.recent)} measures in the last 12 months against ${num(row.growth.previous)} the year before)`))}.` : "No domain shows a marked rise in attention over the last year.",
-  );
-}
-function instrumentsNarrative(ui, a) {
-  const [family, familyCount] = a.families[0] || [];
-  return paras(
-    `Short-term policy decisions make up ${share(a.decision, a.total)}% of the record (${num(a.decision)} measures), while long-term frameworks such as strategies, plans and laws account for ${share(a.framework, a.total)}% (${num(a.framework)}).${family ? ` ${ui.escapeHtml(family)} measures are the largest family (${share(familyCount, a.total)}%), followed by ${listJoin(a.families.slice(1, 3).map(([name, count]) => `${lower(ui.escapeHtml(name))} measures (${share(count, a.total)}%)`))}.` : ""}`,
-    a.institutions.length ? `The institutions named most often are ${listJoin(a.institutions.slice(0, 4).map(([name, count]) => `${ui.escapeHtml(name)} (${num(count)})`))}. In all, ${num(a.institutions.length)} institution names appear in the record, some of them variants of the same body.` : "",
-  );
-}
-function countryParagraph(ui, row, total, extended) {
-  if (!row.count) return `<p><strong>${row.country}.</strong> No measures were recorded for ${shortName(row.country)} in this selection.</p>`;
-  const domains = row.domains.slice(0, 2).map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${num(count)})`);
-  const latest = row.latestRecord;
-  return `<p><strong>${row.country}.</strong> ${startName(row.country)} recorded ${num(row.count)} measures (${share(row.count, total)}% of the total), concentrated on ${listJoin(domains)}. ${row.framework ? `It adopted ${num(row.framework)} long-term framework${row.framework === 1 ? "" : "s"} alongside ${num(row.decision)} short-term decisions.` : "All of its measures are short-term decisions."} In the last 12 months, ${compareCounts(row.growth.recent, row.growth.previous)}.${latest ? ` Its most recent measure, on ${longDate(latest.date)}: “${ui.escapeHtml(firstSentence(latest.description))}”` : ""}${extended && row.institutions[0] ? ` The institution named most often is ${ui.escapeHtml(row.institutions[0][0])}.` : ""}</p>`;
-}
 function recentNarrative(ui, records, limit) {
   const rows = records.filter((record) => record.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
   if (!rows.length) return "<p>No dated measures are available in this selection.</p>";
@@ -139,7 +111,7 @@ function foodNarrative(food, country) {
     const row = diet.rows.find((item) => item.country === country);
     if (row) {
       const rank = diet.rows.slice().sort((a, b) => b.latest - a.latest).findIndex((item) => item.country === country) + 1;
-      out.push(`In ${row.latestYear}, a healthy diet cost ${formatLocal(row.lcuLatest, country)} per person per day in ${shortName(country)}, or roughly ${monthlyLocal(row.lcuLatest, country)} a month. That is ${Math.abs(row.lcuChange).toFixed(0)}% ${row.lcuChange >= 0 ? "more" : "less"} than in ${row.firstYear} in local currency. Adjusted for price levels it equals $${row.latest.toFixed(2)} a day, ${rank === 1 ? "the highest" : rank === diet.rows.length ? "the lowest" : `ranking ${rank} of ${diet.rows.length}`} among the six GCC countries covered.${row.puaLatest ? ` FAOSTAT estimates that ${row.puaLatest.value}% of the population could not afford a healthy diet in ${row.puaLatest.year}.` : ""}`);
+      out.push(`In ${row.latestYear}, a healthy diet cost ${formatLocal(row.lcuLatest, country)} per person per day in ${shortName(country)}, or roughly ${monthlyLocal(row.lcuLatest, country)} a month. That is ${Math.abs(row.lcuChange).toFixed(0)}% ${row.lcuChange >= 0 ? "more" : "less"} than in ${row.firstYear} in local currency. Adjusted for price levels it equals $${row.latest.toFixed(2)} a day, ${rank === 1 ? "the highest" : rank === diet.rows.length ? "the lowest" : `the ${ORDINALS[rank - 1]} highest`} of the ${diet.rows.length} GCC countries covered.${row.puaLatest ? ` FAOSTAT estimates that ${row.puaLatest.value}% of the population could not afford a healthy diet in ${row.puaLatest.year}.` : ""}`);
       const parts = components.rows.find((item) => item.country === country);
       if (parts) { const sorted = Object.entries(parts.parts).sort((a, b) => b[1] - a[1]); out.push(`In ${components.year}, ${lower(sorted[0][0])} were the largest single cost in the diet (${share(sorted[0][1], parts.total)}%), followed by ${lower(sorted[1][0])} (${share(sorted[1][1], parts.total)}%).`); }
     } else out.push(`FAOSTAT does not publish cost of a healthy diet estimates for ${shortName(country)}, so affordability cannot be assessed from this source.`);
@@ -177,26 +149,6 @@ function foodVisuals(food, country) {
   return `${rows.length ? table(["Country", "Per person per day", "Per month", `Change since ${diet.firstYear}`, "PPP $ per day"], rows.map((row) => [row.country, formatLocal(row.lcuLatest, row.country), monthlyLocal(row.lcuLatest, row.country), `${row.lcuChange >= 0 ? "+" : ""}${row.lcuChange.toFixed(1)}%`, `$${row.latest.toFixed(2)}`]), "Table: cost of a healthy diet (FAOSTAT), local currency.") : ""}${prices.length ? table(["Country", "Commodities assessable", "Median farm-gate price change", "Period"], prices.map((row) => [row.country, `${row.assessed} of ${row.series}`, row.medianChange === null ? "Not assessable (repeated values)" : row.country === "Yemen" ? `${Math.round(row.medianUsdChange)}% in USD` : `${row.medianChange >= 0 ? "+" : ""}${row.medianChange.toFixed(0)}%`, `${row.firstYear}–${row.latestYear}`]), "Table: farm-gate (producer) prices, FAOSTAT.") : ""}`;
 }
 
-function considerations(a, food, country) {
-  const items = [];
-  const diet = dietSummary(food);
-  if (country) {
-    const row = a.countries.find((item) => item.country === country);
-    if (row && row.growth.previous && row.growth.recent < row.growth.previous * .8) items.push(`Recorded activity in ${shortName(country)} has slowed over the last year. It is worth confirming whether this reflects fewer measures or gaps in monitoring coverage.`);
-    const d = diet.rows.find((item) => item.country === country);
-    if (d && row?.count) items.push(`With a healthy diet now costing ${formatLocal(d.lcuLatest, country)} a day, ${Math.round(d.lcuChange)}% more than in ${d.firstYear}, consumer-oriented measures make up ${share(row.consumer, row.count)}% of ${shortName(country)}'s recorded measures. The balance between producer support and consumer affordability merits review.`);
-  } else {
-    const slowing = a.countries.filter((row) => row.growth.previous >= 20 && row.growth.recent < row.growth.previous * .8).map((row) => shortName(row.country));
-    if (slowing.length) items.push(`Recorded activity has slowed over the last year in ${listJoin(slowing)}. Monitoring teams should check whether this reflects fewer measures or reduced coverage of national sources.`);
-    const fastest = diet.rows.slice().sort((x, y) => y.lcuChange - x.lcuChange)[0];
-    const fastestRow = a.countries.find((row) => row.country === fastest?.country);
-    if (fastestRow?.count) items.push(`${startName(fastest.country)} has seen the steepest rise in the cost of a healthy diet (${Math.round(fastest.lcuChange)}% in local currency since ${diet.firstYear}), while ${share(fastestRow.consumer, fastestRow.count)}% of its recorded measures are consumer-oriented.`);
-    const producerShare = share(a.families.find(([name]) => name === "Producer oriented")?.[1] || 0, a.total);
-    if (producerShare > 60) items.push(`Policy attention is heavily weighted towards producers (${producerShare}% of measures), consistent with the region's focus on domestic production and self-sufficiency. Measures that address consumer affordability and nutrition are comparatively rare.`);
-  }
-  items.push("Data gaps limit the analysis. There are no healthy diet cost estimates for Yemen and no producer prices for the UAE, and unaffordability is reported only for Qatar and the UAE. Several countries' producer price series repeat the same value each year. National statistics would strengthen future monitoring.");
-  return `<ul class="narrative-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul><p class="report-note">These points follow from the recorded data and indicate where to look more closely; they are not policy conclusions.</p>`;
-}
 function methodNarrative(food, r) {
   return paras(
     `This report was generated from the Policy Intelligence monitoring record for the GCC States and Yemen: short summaries of food and agriculture policy measures compiled from public sources and classified by instrument, family, group and domain. The scope was ${scopeLabel(r)}. Counts reflect what was recorded, not the full universe of policy activity. Comparisons of the latest 12 months with the 12 months before are anchored on the most recent dated record in the selection.`,
@@ -205,38 +157,176 @@ function methodNarrative(food, r) {
   );
 }
 
-// ---------- report types ----------
+// ---------- content-based policy narrative ----------
+// Context sentences are general background on each approach; every figure and example comes from the record.
+const APPROACH_CONTEXT = {
+  production: "Growing more food at home is a long-standing objective in a region that imports most of what it eats.",
+  technology: "Technology is presented as the main route to higher yields under extreme heat and scarce water.",
+  water: "Water is the binding constraint on agriculture across the Arabian Peninsula, where groundwater is being depleted and desalinated water is costly.",
+  cooperation: "Agreements extend food security beyond national borders through supply arrangements, investment abroad and technical partnerships.",
+  supply: "Reserves, storage and logistics are meant to cushion import disruptions and price shocks.",
+  trade: "As net food importers, these countries use trade policy both to keep supplies flowing and to support domestic producers.",
+  markets: "Measures in this area act directly on what consumers pay.",
+  finance: "Financial support lowers the cost of production and investment for farmers and agribusinesses.",
+  climate: "These measures address the natural resource base on which future production depends.",
+  safety: "Food safety controls carry particular weight where most food is imported.",
+  livestock: "Livestock measures focus on herd health, feed supply and local meat and dairy output.",
+  fisheries: "Fisheries provide protein and livelihoods for coastal communities and are a growing focus for aquaculture investment.",
+  capacity: "Training and extension determine whether new technologies and practices are actually adopted by producers.",
+  social: "These measures address whether vulnerable households can access food, rather than whether food is available.",
+  governance: "Laws, strategies and new institutions set the long-term framework within which shorter-term measures operate.",
+};
+const SUPPLY_SIDE = ["production", "technology", "water", "supply", "finance", "livestock", "fisheries", "trade", "cooperation"];
+const DEMAND_SIDE = ["markets", "social", "safety"];
+const pctOf = (value) => `${Math.round(value * 100)}%`;
+const oneIn = (raw) => { const share = Math.round(raw * 100) / 100; return share >= .45 ? `almost half of all measures (${pctOf(share)})` : share >= .37 ? `about two in five measures (${pctOf(share)})` : share >= .3 ? `about one in three measures (${pctOf(share)})` : share >= .23 ? `about one in four measures (${pctOf(share)})` : share >= .1 ? `about one in ${Math.round(1 / share)} measures (${pctOf(share)})` : `a small minority of measures (${pctOf(share)})`; };
+const ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh"];
+const ratioWords = (ratio) => ratio >= 3.5 ? `${Math.round(ratio)} times the rate elsewhere in the region` : ratio >= 1.8 ? "about twice the rate elsewhere in the region" : "noticeably more than elsewhere in the region";
+
+// Quoted excerpt; the sentence's own full stop is dropped so the surrounding sentence can close it.
+function quote(ui, record, limit = 220, { withCountry = true } = {}) {
+  const excerpt = firstSentence(record.description, limit).replace(/[.!?]$/, "");
+  return `${withCountry ? `${shortName(record.country)} (${longDate(record.date)})` : `a measure of ${longDate(record.date)}`}: “${ui.escapeHtml(excerpt)}”`;
+}
+function leadingCountries(rows) {
+  return countBy(rows, (record) => record.country).slice(0, 2);
+}
+function countBy(rows, keyFn) {
+  const counts = new Map();
+  rows.forEach((row) => { const key = keyFn(row); if (key) counts.set(key, (counts.get(key) || 0) + 1); });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function directionSummary(profile) {
+  const top = profile.slice(0, 3);
+  const supply = profile.filter((row) => SUPPLY_SIDE.includes(row.key)).reduce((sum, row) => sum + row.count, 0);
+  const demand = profile.filter((row) => DEMAND_SIDE.includes(row.key)).reduce((sum, row) => sum + row.count, 0);
+  const lead = `policy has been shaped above all by ${listJoin(top.map((row) => lower(row.label)))}`;
+  const balance = supply > demand * 4
+    ? "The overall orientation is towards securing and expanding food supply; measures that act on what consumers pay or on access to food for vulnerable households are far less common."
+    : supply > demand * 2
+      ? "Supply-side measures clearly outweigh measures aimed at consumers and vulnerable households, although the latter are present."
+      : "Supply-side and consumer-facing measures are relatively balanced.";
+  return { lead, balance };
+}
+
+function executiveSummary(ui, ctx) {
+  const { a, profile, subject, country, region, shifts, food } = ctx;
+  const { lead, balance } = directionSummary(profile);
+  const p1 = `Between ${longDate(a.first)} and ${longDate(a.latest)}, food and agriculture ${lead} in ${subject}. ${balance}`;
+  let p2;
+  if (country) {
+    const own = distinctiveApproaches(a.records, region.records.filter((record) => record.country !== country), { minRatio: 1.2, minCount: 4 }).slice(0, 2);
+    const under = approachProfile(a.records).filter((row) => row.count >= 0).map((row) => ({ ...row, base: approachProfile(region.records.filter((record) => record.country !== country)).find((item) => item.key === row.key)?.share || 0 })).filter((row) => row.base > .08 && row.share < row.base * .6).slice(0, 1);
+    p2 = own.length
+      ? `Compared with the rest of the region, ${shortName(country)} places particular weight on ${listJoin(own.map((row) => `${lower(row.label)} (${pctOf(row.share)} of its measures, ${ratioWords(row.ratio)})`))}${under.length ? `, and comparatively little on ${lower(under[0].label)}` : ""}. ${startName(country)} accounts for ${share(a.total, region.total)}% of the region's recorded measures in this scope.`
+      : `${startName(country)}'s policy mix broadly mirrors the regional pattern, and it accounts for ${share(a.total, region.total)}% of the region's recorded measures in this scope.`;
+  } else {
+    const profiles = a.countries.filter((row) => row.count >= 15).map((row) => ({ country: row.country, top: distinctiveApproaches(row.rows, a.records.filter((record) => record.country !== row.country), { minRatio: 1.25, minCount: 4 })[0] })).filter((row) => row.top);
+    const grouped = new Map(); profiles.forEach((row) => grouped.set(row.top.key, [...(grouped.get(row.top.key) || []), row.country]));
+    p2 = profiles.length ? `Within this shared direction, countries pursue distinct emphases: ${listJoin([...grouped.entries()].map(([key, names], i) => `${i === 0 ? listJoin(names.map(startName)) : listJoin(names.map(shortName))} ${i === 0 ? (names.length > 1 ? "stand out for" : "stands out for") : "for"} ${lower(approachLabel(key))}`))}, each relative to the rest of the region. ${startName(a.countries[0].country)} and ${shortName(a.countries[1].country)} together account for ${share(a.countries[0].count + a.countries[1].count, a.total)}% of the record, so regional patterns largely reflect their priorities.` : "";
+  }
+  const rising = shifts.filter((row) => row.points >= 1).slice(0, 2);
+  const falling = shifts.filter((row) => row.points <= -1).slice(-2).reverse();
+  const p3 = `${rising.length ? `Over the past year, attention has moved towards ${listJoin(rising.map((row) => lower(row.label)))}` : "Policy attention has been broadly stable over the past year"}${falling.length ? `${rising.length ? "," : ""} while ${listJoin(falling.map((row) => lower(row.label)))} ${falling.length > 1 ? "have" : "has"} received less` : ""}. In the most recent 12 months, ${compareCounts(a.growth.recent, a.growth.previous)}. ${food[0] || ""}`;
+  return paras(p1, p2, p3);
+}
+
+function directionsSection(ui, ctx, limit) {
+  const { profile, country } = ctx;
+  return profile.filter((row) => row.count >= 3).slice(0, limit).map((row) => {
+    const leaders = leadingCountries(row.rows);
+    const picks = examples(row.rows, row.key, 2);
+    const frameworks = row.rows.filter((record) => record.type === "framework").length;
+    return `<p><strong>${row.label}.</strong> ${APPROACH_CONTEXT[row.key]} In this record, ${oneIn(row.share)} concern ${approachPhrase(row.key)}${row.countries > 1 ? `, across ${row.countries} countries, led by ${listJoin(leaders.map(([name, count]) => `${shortName(name)} (${num(count)})`))}` : ""}${frameworks ? `; ${num(frameworks)} of them are long-term frameworks such as strategies, plans or laws` : ""}. ${picks.length ? `Examples include ${picks.map((record) => quote(ui, record, 220, { withCountry: !country })).join("; and ")}.` : ""}</p>`;
+  }).join("") + `<p class="report-note">Approaches are identified from the text of each measure; one measure can address several approaches, so shares do not add up to 100%.</p>`;
+}
+
+function countryProfile(ui, row, a, extended) {
+  if (!row.count) return `<p><strong>${row.country}.</strong> No measures were recorded for ${shortName(row.country)} in this selection.</p>`;
+  const others = a.records.filter((record) => record.country !== row.country);
+  const distinct = distinctiveApproaches(row.rows, others, { minRatio: 1.2, minCount: Math.min(4, Math.max(2, Math.round(row.count / 15))) }).slice(0, 2);
+  const main = approachProfile(row.rows).slice(0, 2);
+  const focus = distinct.length ? distinct : main;
+  const picks = examples(row.rows.filter((record) => approachesOf(record).includes(focus[0]?.key)), focus[0]?.key, extended ? 2 : 1);
+  const growth = row.growth.previous ? (row.growth.recent > row.growth.previous * 1.1 ? "Activity has picked up over the past year" : row.growth.recent < row.growth.previous * .9 ? "Activity has slowed over the past year" : "Activity has been steady over the past year") : "";
+  const emphasis = distinct.length
+    ? `is distinguished by its focus on ${listJoin(distinct.map((item) => `${lower(item.label)} (${pctOf(item.share)} of its measures, ${ratioWords(item.ratio)})`))}`
+    : `concentrates on ${listJoin(main.map((item) => `${lower(item.label)} (${pctOf(item.share)} of its measures)`))}`;
+  return `<p><strong>${row.country}.</strong> ${startName(row.country)}'s record of ${num(row.count)} measures ${emphasis}. ${picks.length ? `Typical of this focus is ${picks.map((record) => quote(ui, record, 200, { withCountry: false })).join("; and ")}.` : ""} ${row.framework ? `It has adopted ${num(row.framework)} long-term framework${row.framework === 1 ? "" : "s"}, ` : "Its measures are all short-term decisions, "}and the domains it addresses most are ${listJoin(row.domains.slice(0, 2).map(([domain]) => lower(ui.escapeHtml(domain))))}. ${growth ? `${growth} (${num(row.growth.recent)} measures in the latest 12 months against ${num(row.growth.previous)} the year before).` : ""}</p>`;
+}
+
+function shiftsSection(ui, ctx) {
+  const { shifts, a } = ctx;
+  if (!shifts.length) return paras("The selection does not cover two full years of records, so shifts in policy attention cannot be assessed.");
+  const rising = shifts.filter((row) => row.points >= .8).slice(0, 3);
+  const falling = shifts.filter((row) => row.points <= -.8).slice(-3).reverse();
+  const end = Math.max(...a.records.filter((record) => record.date).map(time));
+  const recentRows = a.records.filter((record) => record.date && time(record) > end - 365 * DAY);
+  const risingExamples = rising.slice(0, 2).map((row) => examples(recentRows.filter((record) => approachesOf(record).includes(row.key)), row.key, 1)[0]).filter(Boolean);
+  return paras(
+    rising.length ? `Comparing the latest 12 months with the year before, the clearest gains in policy attention were in ${listJoin(rising.map((row) => `${lower(row.label)} (from ${pctOf(row.previousShare)} to ${pctOf(row.recentShare)} of attention)`))}.` : "No approach gained markedly in policy attention over the past year.",
+    risingExamples.length ? `Recent examples: ${risingExamples.map((record) => quote(ui, record, 200)).join("; and ")}.` : "",
+    falling.length ? `Attention declined for ${listJoin(falling.map((row) => `${lower(row.label)} (from ${pctOf(row.previousShare)} to ${pctOf(row.recentShare)})`))}. A lower share does not necessarily mean less effort: it can also reflect other priorities growing faster.` : "",
+    `"Attention" here is each approach's share of all approach mentions across measures, which keeps the comparison fair as descriptions become more detailed over time.`,
+  );
+}
+
+function responseSection(ui, ctx) {
+  const { a, profile, country, foodCtx } = ctx;
+  const find = (key) => profile.find((row) => row.key === key) || { count: 0, share: 0 };
+  const markets = find("markets"), social = find("social"), supply = find("supply"), trade = find("trade");
+  const sentences = [...foodCtx];
+  sentences.push(`Against this cost picture, measures acting on prices and markets make up ${pctOf(markets.share)} of the ${country ? `${shortName(country)} ` : ""}record and measures addressing nutrition or assistance to vulnerable households ${pctOf(social.share)}, compared with ${pctOf(supply.share)} for supply security and reserves and ${pctOf(trade.share)} for trade measures. ${markets.share + social.share < .15 ? "Rising diet costs have therefore been met mainly through supply-side policy rather than direct support to consumers." : "Consumer-facing measures form a visible part of the response."}`);
+  const consumerExample = examples(a.records.filter((record) => approachesOf(record).some((key) => key === "markets" || key === "social")), null, 1)[0];
+  if (consumerExample) sentences.push(`An example of a consumer-facing measure comes from ${quote(ui, consumerExample, 220)}.`);
+  return paras(sentences);
+}
+
+function attentionPoints(ui, ctx) {
+  const { a, profile, country, food } = ctx;
+  const items = [];
+  const find = (key) => profile.find((row) => row.key === key) || { share: 0 };
+  const diet = dietSummary(food);
+  if (find("markets").share + find("social").share < .15) items.push(`Consumer affordability is a thin strand of policy. With healthy-diet costs up ${country && diet.rows.find((row) => row.country === country) ? `${Math.round(diet.rows.find((row) => row.country === country).lcuChange)}%` : `${Math.round(Math.min(...diet.rows.map((row) => row.lcuChange)))}–${Math.round(Math.max(...diet.rows.map((row) => row.lcuChange)))}%`} since ${diet.firstYear}, measures on prices, nutrition and assistance to vulnerable groups merit more attention, and monitoring should track whether such measures are under-reported.`);
+  if (find("water").share > .25 && find("production").share > .25) items.push("Production expansion and water policy advance side by side. Assessing whether new production capacity is consistent with water conservation targets would strengthen policy coherence.");
+  if (a.framework / a.total < .08) items.push(`Long-term frameworks are rare (${share(a.framework, a.total)}% of measures). Most action consists of one-off decisions, which makes it harder to judge strategic direction and continuity.`);
+  if (find("cooperation").share > .2) items.push("International agreements are a growing instrument of food security. Their implementation, including actual supply volumes and investment flows, is rarely visible in public reporting and deserves follow-up.");
+  if (!country) { const quiet = a.countries.filter((row) => row.count > 0 && row.count < a.total * .03).map((row) => shortName(row.country)); if (quiet.length) items.push(`${listJoin(quiet)} ${quiet.length > 1 ? "have" : "has"} very few recorded measures. This more likely reflects limited public reporting than limited policy activity, and source coverage should be reviewed.`); }
+  items.push("Data gaps remain: no healthy-diet cost estimates for Yemen, no producer prices for the UAE, unaffordability reported only for Qatar and the UAE, and repeated values in several producer price series.");
+  return `<ul class="narrative-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul><p class="report-note">These points follow from the recorded data and indicate where to look more closely; they are not policy recommendations.</p>`;
+}
+
+function latestSection(ui, records, limit) {
+  const dated = records.filter((record) => record.date);
+  if (!dated.length) return "<p>No dated measures are available in this selection.</p>";
+  const end = Math.max(...dated.map(time));
+  const quarter = dated.filter((record) => time(record) > end - 92 * DAY);
+  const top = approachProfile(quarter).slice(0, 3).filter((row) => row.count);
+  return `${top.length ? `<p>In the last three months of the record (${num(quarter.length)} measures), policy centred on ${listJoin(top.map((row) => lower(row.label)))}. The most recent measures:</p>` : ""}${recentNarrative(ui, records, limit).replace(/^<p>[^<]*<\/p>/, "")}`;
+}
+
 function analysisReport(ui, food, r) {
   const records = scopeRecords(ui, r);
   const country = r.country !== "all" ? r.country : null;
   const a = analyse(ui, records);
   const region = analyse(ui, scopeRecords(ui, r, { ignoreCountry: true }));
-  const subject = `${country ? shortName(country) : "the GCC States and Yemen"}${r.domain !== "all" ? ` in the domain of ${lower(ui.escapeHtml(r.domain))}` : ""}`;
+  const subject = `${country ? shortName(country) : "the GCC States and Yemen"}${r.domain !== "all" ? ` (${lower(ui.escapeHtml(r.domain))})` : ""}`;
   const extended = r.length === "extended";
-  const [first, second] = a.countries;
+  const profile = approachProfile(records);
   const foodText = foodNarrative(food, country);
-  const rank = country ? region.countries.findIndex((row) => row.country === country) + 1 : 0;
-
-  const summary = paras(
-    `This report reviews ${num(a.total)} food and agriculture policy measures recorded for ${subject} between ${longDate(a.first)} and ${longDate(a.latest)}. ${country ? `${startName(country)} accounts for ${share(a.total, region.total)}% of the measures recorded across the region in the same scope, ranking ${rank} of ${region.countries.filter((row) => row.count).length} countries.` : `${first.country} and ${second.country} account for ${share(first.count + second.count, a.total)}% of them, reflecting both the size of their policy programmes and the depth of public reporting.`}`,
-    `Policy action is dominated by short-term decisions (${share(a.decision, a.total)}%), and attention centres on ${listJoin(a.domains.slice(0, 3).map((row) => lower(ui.escapeHtml(row.domain))))}. In the most recent 12 months, ${compareCounts(a.growth.recent, a.growth.previous)}.`,
-    foodText[0],
-  );
-  const sections = [["Executive summary", summary, ""], ["Policy activity and momentum", activityNarrative(a, subject), svgMonthlyBars(a.monthly)]];
-  if (!country) {
-    sections.push(["Country picture", `<p>The seven countries differ markedly in how much policy activity is recorded and where it is directed.</p>${a.countries.map((row) => countryParagraph(ui, row, a.total, extended)).join("")}`, table(["Country", "Measures", "Share", "Last 12 months", "12 months before", "Leading domain"], a.countries.map((row) => [row.country, num(row.count), `${share(row.count, a.total)}%`, num(row.growth.recent), num(row.growth.previous), ui.escapeHtml(row.domains[0]?.[0] || "–")]), "Table: measures by country.")]);
-  } else {
-    const expected = share(a.total, region.total) / 100;
-    const standout = region.domains.slice(0, 10).map((row) => ({ ...row, own: a.domains.find((item) => item.domain === row.domain)?.count || 0 })).filter((row) => row.own / row.count > expected * 1.4).slice(0, 3);
-    sections.push(["Position in the region", paras(`${startName(country)} recorded ${num(a.total)} of the ${num(region.total)} measures in the region (${share(a.total, region.total)}%). ${standout.length ? `Relative to its overall share, it is especially active in ${listJoin(standout.map((row) => `${lower(ui.escapeHtml(row.domain))} (${num(row.own)} of ${num(row.count)} regional measures)`))}.` : "Its thematic profile broadly mirrors the regional pattern."} Across the region in the last 12 months, ${compareCounts(region.growth.recent, region.growth.previous)}.`), ""]);
-  }
-  sections.push(["Policy themes", themesNarrative(ui, a), table(["Policy domain", "Measures", "Share", "Countries", "Last 12 months"], a.domains.slice(0, 10).map((row) => [ui.escapeHtml(row.domain), num(row.count), `${share(row.count, a.total)}%`, row.countries, num(row.growth.recent)]), "Table: leading policy domains.")]);
-  sections.push(["Instruments and institutions", instrumentsNarrative(ui, a), ""]);
-  sections.push(["Food prices and affordability", paras(foodText), foodVisuals(food, country)]);
-  sections.push(["Recent developments", recentNarrative(ui, records, extended ? 10 : 5), ""]);
-  sections.push(["Points for attention", considerations(a, food, country), ""]);
-  sections.push(["About this report", methodNarrative(food, r), ""]);
-  const kept = r.length === "short" ? sections.filter(([title]) => ["Executive summary", "Policy activity and momentum", "Recent developments", "Points for attention"].includes(title)) : sections;
+  const ctx = { a, region, profile, subject, country, shifts: approachShifts(records), food: foodText, foodCtx: foodText };
+  const sections = [
+    ["Executive summary", executiveSummary(ui, { ...ctx, food: [foodText[0]] }), ""],
+    ["Main policy directions", directionsSection(ui, ctx, extended ? 7 : 5), table(["Approach", "Measures", "Share of measures", "Countries"], profile.slice(0, 10).map((row) => [row.label, num(row.count), pctOf(row.share), row.countries]), "Table: policy approaches identified in the measures.")],
+  ];
+  if (!country) sections.push(["Country profiles", `<p>Each country's profile below highlights where its policy mix differs from the rest of the region.</p>${a.countries.map((row) => countryProfile(ui, row, a, extended)).join("")}`, table(["Country", "Measures", "Share", "Last 12 months", "12 months before"], a.countries.map((row) => [row.country, num(row.count), `${share(row.count, a.total)}%`, num(row.growth.recent), num(row.growth.previous)]), "Table: measures by country.")]);
+  sections.push(["Shifts in policy attention", shiftsSection(ui, ctx), svgMonthlyBars(a.monthly)]);
+  sections.push(["Food costs and the policy response", responseSection(ui, ctx), foodVisuals(food, country)]);
+  sections.push(["Latest developments", latestSection(ui, records, extended ? 10 : 5), ""]);
+  sections.push(["Points for attention", attentionPoints(ui, { a, profile, country, food }), ""]);
+  sections.push(["About this report", methodNarrative(food, r) + paras("Policy approaches are identified by matching the text of each measure against a fixed set of themes (for example water, trade, research, social protection). The classification is indicative and can miss or over-count measures whose wording is unusual."), ""]);
+  const kept = r.length === "short" ? sections.filter(([title]) => ["Executive summary", "Main policy directions", "Latest developments", "Points for attention"].includes(title)) : sections;
   return { title: REPORT_TYPES.analysis, subtitle: country || "GCC States & Yemen", sections: kept };
 }
 
@@ -255,7 +345,7 @@ function foodReport(ui, food, r) {
     ["Summary", paras(text[0], priceText), ""],
     ["The cost of a healthy diet", paras(dietText), foodVisuals(food, country)],
     ["Prices received by farmers", paras(priceText, top.length ? `Among individual commodities, the largest increases were ${listJoin(top.map((item) => `${lower(item.item)} in ${shortName(item.country)} (${Math.round(item.change)}%, ${item.firstYear}–${item.latestYear}${item.swing ? ", including a large one-year swing that should be verified" : ""})`))}.` : ""), ""],
-    ["Policy response", paras(policyText), ""],
+    ["Policy response", paras(policyText) + responseSection(ui, { a, profile: approachProfile(records), country, foodCtx: [] }), ""],
     ["About this report", methodNarrative(food, r), ""],
   ];
   return { title: REPORT_TYPES.food, subtitle: country || "GCC States & Yemen", sections: r.length === "short" ? sections.slice(0, 3) : sections };
@@ -275,7 +365,7 @@ function monthlyReport(ui, food, r) {
   const byCountry = ui.COUNTRIES.map((name) => [name, rows.filter((record) => record.country === name)]).filter(([, list]) => list.length).sort((a, b) => b[1].length - a[1].length);
   const domains = ui.groupCount(rows, (record) => record.domain).slice(0, 4);
   const sections = [
-    ["Overview", paras(`${num(rows.length)} policy measures were recorded ${country ? `for ${shortName(country)} ` : ""}in ${monthName(month)}, compared with ${num(inMonth(prevMonth).length)} in ${monthName(prevMonth)} and ${num(inMonth(lastYear).length)} in ${monthName(lastYear)}.${domains.length ? ` The month's activity focused on ${listJoin(domains.map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${count})`))}.` : ""}`), ""],
+    ["Overview", paras(`${num(rows.length)} policy measures were recorded ${country ? `for ${shortName(country)} ` : ""}in ${monthName(month)}, compared with ${num(inMonth(prevMonth).length)} in ${monthName(prevMonth)} and ${num(inMonth(lastYear).length)} in ${monthName(lastYear)}.${domains.length ? ` The month's activity focused on ${listJoin(domains.map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${count})`))}.` : ""}${approachProfile(rows).filter((row) => row.count).length ? ` In terms of policy approach, measures mostly concerned ${listJoin(approachProfile(rows).filter((row) => row.count).slice(0, 3).map((row) => approachPhrase(row.key)))}.` : ""}`), ""],
     ...(!country ? [["By country", byCountry.map(([name, list]) => `<p><strong>${name}.</strong> ${num(list.length)} measure${list.length === 1 ? "" : "s"}, mainly on ${listJoin(ui.groupCount(list, (record) => record.domain).slice(0, 2).map(([domain]) => lower(ui.escapeHtml(domain))))}. For example: “${ui.escapeHtml(firstSentence(list[0].description, 220))}”</p>`).join("") || "<p>No measures were recorded this month.</p>", ""]] : []),
     ["Highlights", recentNarrative(ui, rows, r.length === "short" ? 5 : r.length === "extended" ? 20 : 10), ""],
     ["About this report", methodNarrative(food, r), ""],
