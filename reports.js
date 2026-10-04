@@ -1,5 +1,5 @@
-import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261006";
-import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261006";
+import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261007";
+import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261007";
 
 const REPORT_TYPES = {
   analysis: "Policy and food security analysis",

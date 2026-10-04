@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261006";
-import { renderNetworkPage } from "./network.js?v=pi-20261006";
-import { renderPricesPage } from "./prices.js?v=pi-20261006";
-import { renderReportsPage } from "./reports.js?v=pi-20261006";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261007";
+import { renderNetworkPage } from "./network.js?v=pi-20261007";
+import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261007";
+import { renderReportsPage } from "./reports.js?v=pi-20261007";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -82,7 +82,6 @@ function heading(title, subtitle, eyebrow = "REGIONAL POLICY MONITORING", action
 function card(title, subtitle, body, className = "span-6", actions = "") {
   return `<section class="card ${className}"><div class="card-header"><div><h2 class="card-title">${title}</h2>${subtitle ? `<p class="card-subtitle">${subtitle}</p>` : ""}</div>${actions}</div><div class="card-body">${body}</div></section>`;
 }
-function chartExplainButton(chartName) { return `<button class="text-button" type="button" data-explain="${escapeHtml(chartName)}">${icon("sparkles", 14)}Explain</button>`; }
 function familyColor(family) { return FAMILY_COLORS[family] || FAMILY_COLORS["Other decision family"]; }
 function aggregateMonthly(records) {
   const grouped = d3.rollups(records.filter((record) => record.date), (values) => ({ total: values.length, decision: totalCount(values, "decision"), framework: totalCount(values, "framework") }), monthKey).sort((a, b) => a[0].localeCompare(b[0]));
@@ -120,7 +119,7 @@ function renderOverview() {
   const latestItems = items.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
   const latest = latestItems.length ? `<div class="record-list">${latestItems.map((record) => recordCard(record)).join("")}</div>` : emptyMarkup();
   const themes = renderEmerging(items);
-  return `${intro}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12", chartExplainButton("monthly activity"))}${card("Policy measures by country", "Ranked counts from the selected records", countryBars, "span-6")}${card("Short-term and long-term orientation", "Country totals by measure type", typeBars, "span-6")}${card("Policy family distribution", "Counts from recorded family classifications", families, "span-6", chartExplainButton("policy family mix"))}${card("Policy domains by country", "Top 12 domains · select a cell, domain or country to filter", heatmap, "span-6")}${card("Regional map", "Policy measure volume by country", map, "span-7")}${card("Emerging policy themes", "Recent 12 months compared with the preceding 12 months", themes, "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-12")}</div>`;
+  return `${intro}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12")}${card("Policy measures by country", "Ranked counts from the selected records", countryBars, "span-6")}${card("Short-term and long-term orientation", "Country totals by measure type", typeBars, "span-6")}${card("Policy family distribution", "Counts from recorded family classifications", families, "span-6")}${card("Policy domains by country", "Top 12 domains · select a cell, domain or country to filter", heatmap, "span-6")}${card("Regional map", "Policy measure volume by country", map, "span-7")}${card("Emerging policy themes", "Recent 12 months compared with the preceding 12 months", themes, "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-12")}</div>`;
 }
 
 function drawActivityChart(selector, records, mode = state.activityMode, onMonth = true) {
@@ -286,7 +285,7 @@ function renderOverviewPage() {
 function renderTrendsPage() {
   const records = filtered();
   const actions = `<div class="chart-toolbar" id="activity-range">${["1m", "3m", "6m", "ytd", "1y", "all"].map((range) => `<button type="button" data-range="${range}" aria-pressed="${state.activityRange === range}">${({ "1m": "1 month", "3m": "3 months", "6m": "6 months", ytd: "YTD", "1y": "1 year", all: "All" })[range]}</button>`).join("")}</div>`;
-  $("#page-content").innerHTML = `${heading("Policy trends", "Monthly activity and measure orientation across the current regional selection.", "POLICY ACTIVITY", actions)}<div class="kpi-grid">${kpi("Policy measures", records.length.toLocaleString(), "In current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Dated policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Dated policy frameworks", "book-open")}${kpi("Countries active", new Set(records.map((record) => record.country)).size.toString(), "Countries with measures", "map-pinned")}</div><div class="content-grid">${card("Monthly policy activity", "Select a month to cross-filter the dashboard.", `<div class="chart-wrap chart-tall" id="trend-main"></div><div class="legend-row"><span class="legend-item"><i style="background:#287bb0"></i>Short-term decisions</span><span class="legend-item"><i style="background:#40836d"></i>Long-term frameworks</span></div>`, "span-12", chartExplainButton("monthly activity"))}${card("Country activity", "Measures by country in the selected period.", `<div class="rank-list" id="trend-country-rank"></div>`, "span-6")}${card("Policy family mix", "Distribution from recorded categories.", `<div class="chart-wrap" id="trend-family"></div><div class="legend-row" id="trend-family-legend"></div>`, "span-6")}</div>`;
+  $("#page-content").innerHTML = `${heading("Policy trends", "Monthly activity and measure orientation across the current regional selection.", "POLICY ACTIVITY", actions)}<div class="kpi-grid">${kpi("Policy measures", records.length.toLocaleString(), "In current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Dated policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Dated policy frameworks", "book-open")}${kpi("Countries active", new Set(records.map((record) => record.country)).size.toString(), "Countries with measures", "map-pinned")}</div><div class="content-grid">${card("Monthly policy activity", "Select a month to cross-filter the dashboard.", `<div class="chart-wrap chart-tall" id="trend-main"></div><div class="legend-row"><span class="legend-item"><i style="background:#287bb0"></i>Short-term decisions</span><span class="legend-item"><i style="background:#40836d"></i>Long-term frameworks</span></div>`, "span-12")}${card("Country activity", "Measures by country in the selected period.", `<div class="rank-list" id="trend-country-rank"></div>`, "span-6")}${card("Policy family mix", "Distribution from recorded categories.", `<div class="chart-wrap" id="trend-family"></div><div class="legend-row" id="trend-family-legend"></div>`, "span-6")}</div>`;
   const rangeButton = (range) => { state.activityRange = range; $$("[data-range]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.range === range))); drawActivityChart("#trend-main", rangeRecords(records, range), "all"); };
   $$("[data-range]").forEach((button) => button.addEventListener("click", () => rangeButton(button.dataset.range)));
   drawActivityChart("#trend-main", rangeRecords(records, state.activityRange), "all");
@@ -358,9 +357,16 @@ function renderComparePage() {
   const choices = state.compareCountries;
   const records = filtered();
   const measures = choices.map((country) => ({ country, records: records.filter((record) => record.country === country) }));
-  $("#page-content").innerHTML = `${heading("Country comparison", "Compare up to three countries using the same policy record and global filters.", "COMPARATIVE ANALYSIS", `<button class="button button-outline" id="add-compare" ${choices.length >= 3 ? "disabled title='Compare up to three countries'" : ""}><i data-lucide="plus"></i>Add country</button>`)}<div class="compare-selectors">${choices.map((country, i) => `<label>Country ${i + 1}<select data-compare="${i}">${COUNTRIES.map((name) => `<option ${country === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label>`).join("")}</div><div class="content-grid">${card("Policy orientation", "Short-term decisions and long-term frameworks by country.", `<div class="chart-wrap chart-tall" id="compare-type"></div>`, "span-7")}${card("Policy family mix", "Shares from observed categories.", `<div class="chart-wrap" id="compare-family"></div>`, "span-5")}${card("Monthly activity", "Monthly policy measure counts by country.", `<div class="chart-wrap chart-tall" id="compare-monthly"></div>`, "span-12")}${card("Comparison table", "Counts and leading recorded domains.", `<div class="table-wrap"><table class="data-table"><thead><tr><th>Country</th><th>Total</th><th>Short-term</th><th>Long-term</th><th>Leading policy domain</th><th>Institutions</th></tr></thead><tbody>${measures.map(({ country, records: rows }) => `<tr><td><strong>${escapeHtml(country)}</strong></td><td>${rows.length}</td><td>${totalCount(rows, "decision")}</td><td>${totalCount(rows, "framework")}</td><td>${escapeHtml(groupCount(rows, (r) => r.domain)[0]?.[0] || "Not available")}</td><td>${new Set(rows.map((r) => r.institution).filter(Boolean)).size}</td></tr>`).join("")}</tbody></table></div>`, "span-12")}</div>`;
-  $$('[data-compare]').forEach((select) => select.addEventListener("change", (event) => { state.compareCountries[Number(event.target.dataset.compare)] = event.target.value; renderComparePage(); }));
-  $("#add-compare").addEventListener("click", () => { const next = COUNTRIES.find((name) => !state.compareCountries.includes(name)); if (state.compareCountries.length >= 3) showToast("Country comparison supports up to three countries."); else if (next) { state.compareCountries.push(next); renderComparePage(); } else showToast("All seven countries are already selected."); });
+  $("#page-content").innerHTML = `${heading("Country comparison", "Compare countries side by side using the same policy record and global filters.", "COMPARATIVE ANALYSIS", `<button class="button button-outline" id="add-compare" ${choices.length >= COUNTRIES.length ? "disabled title='All countries are already shown'" : ""}><i data-lucide="plus"></i>Add country</button>`)}<div class="compare-selectors">${choices.map((country, i) => `<div class="compare-choice"><label>Country ${i + 1}<select data-compare="${i}">${COUNTRIES.map((name) => `<option ${country === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label>${choices.length > 2 ? `<button type="button" class="icon-button compare-remove" data-remove-compare="${i}" aria-label="Remove ${escapeHtml(country)}" title="Remove ${escapeHtml(country)}">${icon("x")}</button>` : ""}</div>`).join("")}</div><div class="content-grid">${card("Policy orientation", "Short-term decisions and long-term frameworks by country.", `<div class="chart-wrap chart-tall" id="compare-type"></div>`, "span-7")}${card("Policy family mix", "Shares from observed categories.", `<div class="chart-wrap" id="compare-family"></div>`, "span-5")}${card("Monthly activity", "Monthly policy measure counts by country.", `<div class="chart-wrap chart-tall" id="compare-monthly"></div>`, "span-12")}${card("Comparison table", "Counts and leading recorded domains.", `<div class="table-wrap"><table class="data-table"><thead><tr><th>Country</th><th>Total</th><th>Short-term</th><th>Long-term</th><th>Leading policy domain</th><th>Institutions</th></tr></thead><tbody>${measures.map(({ country, records: rows }) => `<tr><td><strong>${escapeHtml(country)}</strong></td><td>${rows.length}</td><td>${totalCount(rows, "decision")}</td><td>${totalCount(rows, "framework")}</td><td>${escapeHtml(groupCount(rows, (r) => r.domain)[0]?.[0] || "Not available")}</td><td>${new Set(rows.map((r) => r.institution).filter(Boolean)).size}</td></tr>`).join("")}</tbody></table></div>`, "span-12")}</div>`;
+  $$('[data-compare]').forEach((select) => select.addEventListener("change", (event) => {
+    // Choosing a country that is already shown swaps the two, so no country appears twice.
+    const index = Number(event.target.dataset.compare), chosen = event.target.value, existing = state.compareCountries.indexOf(chosen);
+    if (existing > -1 && existing !== index) state.compareCountries[existing] = state.compareCountries[index];
+    state.compareCountries[index] = chosen;
+    renderComparePage();
+  }));
+  $$('[data-remove-compare]').forEach((button) => button.addEventListener("click", () => { state.compareCountries.splice(Number(button.dataset.removeCompare), 1); renderComparePage(); }));
+  $("#add-compare").addEventListener("click", () => { const next = COUNTRIES.find((name) => !state.compareCountries.includes(name)); if (next) { state.compareCountries.push(next); renderComparePage(); } });
   drawComparisonType("#compare-type", measures);
   drawComparisonFamilies("#compare-family", measures);
   drawComparisonMonthly("#compare-monthly", measures);
@@ -405,7 +411,7 @@ function drawComparisonMonthly(selector, countries) {
   const y = d3.scaleLinear().domain([0, max * 1.1]).nice().range([height - margin.bottom, margin.top]);
   svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(width - margin.left - margin.right)));
   svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickValues(months.filter((_, i) => i % Math.max(1, Math.ceil(months.length / 11)) === 0)).tickFormat((key) => { const [yr, mon] = key.split("-"); return `${MONTHS[Number(mon) - 1].slice(0, 3)} '${yr.slice(-2)}`; }));
-  const color = d3.scaleOrdinal().domain(series.map((entry) => entry.country)).range(["#116aab", "#49806a", "#b7852f"]);
+  const color = d3.scaleOrdinal().domain(series.map((entry) => entry.country)).range(series.map((entry) => COUNTRY_COLORS[entry.country] || "#116aab"));
   series.forEach((entry) => { const line = d3.line().defined((month) => entry.monthly.has(month)).x((month) => x(month)).y((month) => y(entry.monthly.get(month) || 0)).curve(d3.curveMonotoneX); svg.append("path").datum(months).attr("d", line).attr("fill", "none").attr("stroke", color(entry.country)).attr("stroke-width", 2.5); });
   target.append("div").attr("class", "legend-row").html(series.map((entry) => `<span class="legend-item"><i style="background:${color(entry.country)}"></i>${escapeHtml(entry.country)}</span>`).join(""));
 }
@@ -452,10 +458,9 @@ function openRecordDrawer(record) {
   $("#record-drawer")?.remove();
   const aside = document.createElement("aside");
   aside.id = "record-drawer"; aside.className = "assistant-panel open"; aside.setAttribute("role", "dialog"); aside.setAttribute("aria-modal", "true"); aside.setAttribute("aria-label", "Policy record detail");
-  aside.innerHTML = `<div class="assistant-header"><div><span class="ai-icon">${icon("file-text")}</span><div><strong>Policy measure detail</strong><small>${escapeHtml(record.id)}</small></div></div><button class="icon-button" id="close-record-drawer" aria-label="Close detail">${icon("x")}</button></div><div class="assistant-messages"><div class="eyebrow">${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}</div><h2 class="drawer-title">${escapeHtml(record.title)}</h2><div class="record-card-meta"><span class="type-badge ${record.type === "framework" ? "framework" : ""}">${escapeHtml(record.typeLabel)}</span><span class="family-badge">${escapeHtml(record.family)}</span></div><h3>Policy domain</h3><p>${escapeHtml(record.group)} · ${escapeHtml(record.domain)}</p><h3>Full description</h3><p class="record-description">${escapeHtml(record.description)}</p><h3>Decision-making institution</h3><p>${escapeHtml(record.institution || "Not stated in the source record")}</p><h3>Source</h3>${safeUrl(record.source) ? `<a class="source-link" href="${escapeHtml(record.source)}" target="_blank" rel="noopener noreferrer">Open original source ↗</a>` : "<p>Source link not provided.</p>"}<h3>Related policy measures</h3><div class="record-list">${state.records.filter((item) => item.id !== record.id && item.country === record.country && (item.domain === record.domain || item.group === record.group)).slice(0,3).map((item) => `<div class="related-record"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(formatDate(item.date))} · ${escapeHtml(item.domain)}</small></div>`).join("") || "<p>No related records found.</p>"}</div><div class="drawer-ai"><strong>AI summary</strong><p>Request a sourced summary from Ask Policy AI. This record will be searched with the regional dataset.</p><button class="button button-primary" id="summarize-record">${icon("sparkles")}Ask about this record</button></div></div>`;
+  aside.innerHTML = `<div class="assistant-header"><div><span class="ai-icon">${icon("file-text")}</span><div><strong>Policy measure detail</strong><small>${escapeHtml(record.id)}</small></div></div><button class="icon-button" id="close-record-drawer" aria-label="Close detail">${icon("x")}</button></div><div class="assistant-messages"><div class="eyebrow">${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}</div><h2 class="drawer-title">${escapeHtml(record.title)}</h2><div class="record-card-meta"><span class="type-badge ${record.type === "framework" ? "framework" : ""}">${escapeHtml(record.typeLabel)}</span><span class="family-badge">${escapeHtml(record.family)}</span></div><h3>Policy domain</h3><p>${escapeHtml(record.group)} · ${escapeHtml(record.domain)}</p><h3>Full description</h3><p class="record-description">${escapeHtml(record.description)}</p><h3>Decision-making institution</h3><p>${escapeHtml(record.institution || "Not stated in the source record")}</p><h3>Source</h3>${safeUrl(record.source) ? `<a class="source-link" href="${escapeHtml(record.source)}" target="_blank" rel="noopener noreferrer">Open original source ↗</a>` : "<p>Source link not provided.</p>"}<h3>Related policy measures</h3><div class="record-list">${state.records.filter((item) => item.id !== record.id && item.country === record.country && (item.domain === record.domain || item.group === record.group)).slice(0,3).map((item) => `<div class="related-record"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(formatDate(item.date))} · ${escapeHtml(item.domain)}</small></div>`).join("") || "<p>No related records found.</p>"}</div></div>`;
   document.body.append(aside); $("#panel-scrim").classList.add("visible"); $("#panel-scrim").onclick = closeRecordDrawer;
   $("#close-record-drawer").onclick = closeRecordDrawer;
-  $("#summarize-record").onclick = () => { closeRecordDrawer(); openAssistant(`Summarise policy measure ${record.id} and cite its source.`); };
   refreshIcons();
 }
 function closeRecordDrawer() { $("#record-drawer")?.remove(); $("#panel-scrim").classList.remove("visible"); }
@@ -475,116 +480,17 @@ function downloadBlob(blob, filename) { const url = URL.createObjectURL(blob); c
 function renderCountryRecordsPage() { renderRecordsPage(); }
 function renderMethodologyPage() {
   const latest = latestDate(state.records);
-  const noAi = !$("meta[name='policy-ai-endpoint']")?.content;
-  $("#page-content").innerHTML = `${heading("Methodology & sources", "How the monitored records are classified, filtered and interpreted.", "ABOUT THIS PLATFORM")}<div class="content-grid">${card("Purpose and coverage", "The dashboard supports monitoring and analysis, not legal interpretation.", `<p>This platform organises reported food and agriculture policy developments for <strong>the six GCC member states and Yemen</strong>: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen.</p><p>Current source coverage: <strong>${state.records.length.toLocaleString()} unique records</strong> spanning ${Math.min(...state.records.map((record)=>record.year||2023))}–${Math.max(...state.records.map((record)=>record.year||2026))}. Latest dated record: <strong>${escapeHtml(formatDate(latest))}</strong>.</p>`, "span-6")}${card("Classification", "Families and groups follow the source workbook coding.", `<h3>Short-term policy decisions</h3><p>Decision records use the leading code digits to classify Consumer-oriented, Producer-oriented or Trade-oriented measures and their groups.</p><h3>Long-term policy frameworks</h3><p>Framework records are grouped under development planning, food security and nutrition, agriculture and rural development, social protection and employment, natural resources and climate, trade and value chains, disaster risk management, and gender.</p><p>Domains and institutions are shown as supplied in the source record.</p>`, "span-6")}${card("Data processing and limitations", "No missing values are inferred as facts.", `<ul class="method-list"><li>Duplicate records are removed by type, country, date and the first 160 characters of description.</li><li>Excel serial dates are converted to ISO dates.</li><li>Country aliases are normalised in the source-generation script.</li><li>Rows with Excel error values in the country field are excluded rather than assigned an inferred country.</li><li>Record summaries may omit context from their original source; review the source before using a finding.</li></ul>`, "span-6")}${card("AI methodology and limitations", "Secure backend configuration is required for model-generated answers.", `<p>${noAi ? "AI responses are not enabled on this GitHub Pages deployment. The assistant can show locally matched evidence records, but it does not claim that these are model-generated answers." : "AI requests are sent to the configured server endpoint, which retrieves records server-side and returns traceable record citations."}</p><p>Any generated analysis should be treated as a research aid. Verify material claims against cited original sources. The API key is not stored in this static site.</p>`, "span-6")}${card("Food price and healthy diet indicators", "FAOSTAT annual indicators shown on the Food Prices & Diets page and in reports.", `<ul class="method-list"><li><strong>Producer prices</strong> (FAOSTAT PP): annual farm-gate prices per tonne in USD and local currency, 2020–2024. Live-weight meat duplicates and non-food items are excluded; USD values inconsistent with official currency pegs are recomputed from local-currency prices.</li><li><strong>Cost and affordability of a healthy diet</strong> (FAOSTAT CAHD): PPP dollars per person per day, 2020–2025, with food-group costs for 2021 and unaffordability where reported.</li><li>Series that repeat one value every year are treated as carried-forward estimates and excluded from change statistics; year-on-year swings above 60% are flagged for verification.</li><li>Coverage gaps: no producer prices for the United Arab Emirates and no healthy diet estimates for Yemen.</li></ul>`, "span-12")}${card("Disclaimer", "Policy monitoring, not legal advice.", `<p>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</p>`, "span-12")}</div>`;
+  $("#page-content").innerHTML = `${heading("Methodology & sources", "How the monitored records are classified, filtered and interpreted.", "ABOUT THIS PLATFORM")}<div class="content-grid">${card("Purpose and coverage", "The dashboard supports monitoring and analysis, not legal interpretation.", `<p>This platform organises reported food and agriculture policy developments for <strong>the six GCC member states and Yemen</strong>: Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen.</p><p>Current source coverage: <strong>${state.records.length.toLocaleString()} unique records</strong> spanning ${Math.min(...state.records.map((record)=>record.year||2023))}–${Math.max(...state.records.map((record)=>record.year||2026))}. Latest dated record: <strong>${escapeHtml(formatDate(latest))}</strong>.</p>`, "span-6")}${card("Classification", "Families and groups follow the source workbook coding.", `<h3>Short-term policy decisions</h3><p>Decision records use the leading code digits to classify Consumer-oriented, Producer-oriented or Trade-oriented measures and their groups.</p><h3>Long-term policy frameworks</h3><p>Framework records are grouped under development planning, food security and nutrition, agriculture and rural development, social protection and employment, natural resources and climate, trade and value chains, disaster risk management, and gender.</p><p>Domains and institutions are shown as supplied in the source record.</p>`, "span-6")}${card("Data processing and limitations", "No missing values are inferred as facts.", `<ul class="method-list"><li>Duplicate records are removed by type, country, date and the first 160 characters of description.</li><li>Excel serial dates are converted to ISO dates.</li><li>Country aliases are normalised in the source-generation script.</li><li>Rows with Excel error values in the country field are excluded rather than assigned an inferred country.</li><li>Record summaries may omit context from their original source; review the source before using a finding.</li></ul>`, "span-12")}${card("Food price and healthy diet indicators", "FAOSTAT annual indicators shown on the Food Prices & Diets page and in reports.", `<ul class="method-list"><li><strong>Producer prices</strong> (FAOSTAT PP): annual farm-gate prices per tonne in USD and local currency, 2018–2024. Where FAOSTAT has no annual value, or only repeats the previous year, the average of at least six monthly FAOSTAT prices is used. Live-weight meat duplicates and non-food items are excluded; USD values inconsistent with official currency pegs are recomputed from local-currency prices.</li><li><strong>Cost and affordability of a healthy diet</strong> (FAOSTAT CAHD): PPP dollars and local currency per person per day, 2017–2025, with food-group costs for 2021 and unaffordability where reported.</li><li>Series that still repeat one value in every year are shown as reported but excluded from change statistics; year-on-year swings above 60% are flagged for verification.</li><li>Coverage gaps: the United Arab Emirates does not report producer prices to FAOSTAT, and neither FAO nor the World Bank estimates the cost of a healthy diet for Yemen.</li></ul>`, "span-12")}${card("Disclaimer", "Policy monitoring, not legal advice.", `<p>Policy measures are short summaries compiled from publicly available sources for monitoring and analysis. They are not legal texts and do not represent an official or legal interpretation. Always consult the original source.</p>`, "span-12")}</div>`;
   refreshIcons();
 }
 
-function renderAiPage() {
-  const records = filtered();
-  const mode = state.aiSearchMode || "question";
-  $("#page-content").innerHTML = `${heading("AI Policy Analyst", "Ask questions about the regional policy record with source citations.", "POLICY INTELLIGENCE ASSISTANT", `<div class="ai-availability ${$("meta[name='policy-ai-endpoint']")?.content ? "connected" : "offline"}"><span class="status-dot"></span>${$("meta[name='policy-ai-endpoint']")?.content ? "Secure endpoint configured" : "Evidence search available · AI endpoint not connected"}</div>`)}<div class="content-grid"><section class="card span-8"><div class="card-header"><div><h2 class="card-title">Policy Intelligence Assistant</h2><p class="card-subtitle">Ask about policy measures, periods, countries and recorded source evidence.</p></div></div><div class="card-body"><div class="assistant-inline-messages" id="ai-page-messages"><div class="assistant-welcome"><h2>Ask with evidence.</h2><p>Answers should identify supporting records. If the secure AI service is unavailable, matching evidence is still shown without pretending to generate an AI answer.</p><div class="starter-questions">${["What were the latest UAE food security policy developments?","Compare Saudi Arabia and Oman agriculture measures.","Which policy themes increased in the latest year?"].map((question)=>`<button type="button" data-question="${escapeHtml(question)}">${escapeHtml(question)}</button>`).join("")}</div></div></div><form class="assistant-compose inline-compose" id="ai-page-form"><label class="sr-only" for="ai-page-input">Ask a policy question</label><textarea id="ai-page-input" rows="3" placeholder="Ask a question about GCC States and Yemen policy…" required></textarea><div><span>${records.length.toLocaleString()} records in current filters</span><button class="button button-primary" type="submit">${icon("send")}Ask Policy AI</button></div></form><div class="assistant-config" id="ai-page-config" ${$("meta[name='policy-ai-endpoint']")?.content ? "hidden" : ""}>Secure AI is not deployed on GitHub Pages. Evidence results below are local record matches, not model-generated answers. Deploy the API and set the endpoint to enable RAG responses.</div></div></section>${card("Try a question", "Examples grounded in the current source collection.", `<div class="ai-capabilities"><div>${icon("quote")}<span>Ask for summaries with cited records.</span></div><div>${icon("git-compare-arrows")}<span>Compare country activity and recorded domains.</span></div><div>${icon("chart-no-axes-combined")}<span>Explain observed changes from the filtered data.</span></div><div>${icon("languages")}<span>Questions can be submitted in Arabic; model language quality depends on the configured endpoint.</span></div></div>`, "span-4")}</div>`;
-  $("#ai-page-form").addEventListener("submit", (event) => { event.preventDefault(); askAssistant($("#ai-page-input").value, $("#ai-page-messages"), true); });
-  $$('[data-question]').forEach((button) => button.addEventListener("click", () => { $("#ai-page-input").value = button.dataset.question; askAssistant(button.dataset.question, $("#ai-page-messages"), true); }));
-  refreshIcons();
-}
-
-function openAssistant(prefill = "") {
-  $("#assistant-panel").classList.add("open"); $("#assistant-panel").setAttribute("aria-hidden", "false"); $("#panel-scrim").classList.add("visible");
-  if (prefill) $("#assistant-input").value = prefill;
-  $("#assistant-input").focus();
-}
-function closeAssistant() { $("#assistant-panel").classList.remove("open"); $("#assistant-panel").setAttribute("aria-hidden", "true"); $("#panel-scrim").classList.remove("visible"); }
-const OUT_OF_SCOPE_COUNTRIES = ["Algeria", "Egypt", "Iraq", "Jordan", "Lebanon", "Libya", "Mauritania", "Morocco", "Palestine", "Sudan", "Syria", "Tunisia"];
-function outOfScopeCountry(question) {
-  const normalized = normalizeText(question);
-  return OUT_OF_SCOPE_COUNTRIES.find((country) => new RegExp(`\\b${country.toLocaleLowerCase()}\\b`, "i").test(normalized));
-}
-function localEvidence(question, sourceRecords = filtered()) {
-  const outsideCountry = outOfScopeCountry(question);
-  if (outsideCountry) return { outsideCountry, records: [] };
-  const tokens = normalizeText(question).split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 2);
-  const synonyms = { reserves: ["storage", "stocks", "reserve"], resilience: ["supply", "availability", "chain", "imports"], wheat: ["cereal", "grain", "flour"], fisheries: ["fish", "aquaculture"], water: ["irrigation", "desalination", "water"], trade: ["export", "import", "customs", "trade"], الاستدامة: ["sustainability", "climate", "water"], الأمن: ["security", "resilience", "reserves"], الغذاء: ["food", "security", "nutrition"], المياه: ["water", "irrigation", "desalination"], الزراعة: ["agriculture", "farming", "crops"] };
-  const extended = new Set(tokens.flatMap((token) => [token, ...(synonyms[token] || [])]));
-  const records = sourceRecords.map((record) => {
-    const text = `${record.country} ${record.title} ${record.description} ${record.domain} ${record.group} ${record.institution}`.toLocaleLowerCase();
-    const score = [...extended].reduce((sum, token) => sum + (text.includes(token) ? token.length > 5 ? 2 : 1 : 0), 0);
-    return { record, score };
-  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score || (b.record.date || "").localeCompare(a.record.date || "")).slice(0, 8).map((entry) => entry.record);
-  return { outsideCountry: null, records };
-}
-async function consumeAssistantStream(response, message) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let sources = [];
-  message.textContent = "";
-  const consume = (block) => {
-    const eventName = block.split(/\r?\n/).find((line) => line.startsWith("event:"))?.slice(6).trim();
-    const data = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
-    if (!data) return;
-    const payload = JSON.parse(data);
-    if (eventName === "sources") sources = payload;
-    else if (eventName === "delta") message.textContent += payload.text || "";
-    else if (eventName === "error") throw new Error(payload.error || "The AI response stream failed.");
-  };
-  while (true) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() || "";
-    blocks.forEach(consume);
-    if (done) break;
-  }
-  if (buffer.trim()) consume(buffer);
-  const sourceIds = new Set(sources.map((source) => String(source.id)));
-  const groundedAnswer = message.textContent.replace(/\[([a-f0-9]{16})\]/gi, (citation, id) => sourceIds.has(id) ? citation : "");
-  message.innerHTML = `${escapeHtml(groundedAnswer)}${renderCitations(sources)}`;
-}
-async function askAssistant(question, container, pageContext = false) {
-  const cleanQuestion = question.trim(); if (!cleanQuestion) return;
-  container.insertAdjacentHTML("beforeend", `<div class="chat-message">${escapeHtml(cleanQuestion)}</div><div class="chat-message assistant" data-response="pending"><span class="loading-mark small"></span>Searching regional evidence…</div>`);
-  container.scrollTop = container.scrollHeight;
-  const endpoint = $("meta[name='policy-ai-endpoint']")?.content.trim();
-  const pending = $('[data-response="pending"]', container);
-  try {
-    if (endpoint) {
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: cleanQuestion, stream: true, filters: { country: state.country, year: state.year, month: state.month, type: state.type, family: state.family, group: state.group, domain: state.domain, institution: state.institution, from: state.from, to: state.to } }) });
-      if (response.headers.get("content-type")?.includes("text/event-stream")) {
-        await consumeAssistantStream(response, pending);
-        pending.removeAttribute("data-response");
-        container.scrollTop = container.scrollHeight;
-        if (!pageContext) $("#assistant-input").value = "";
-        refreshIcons();
-        return;
-      }
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || `AI request failed (${response.status})`);
-      pending.innerHTML = `${escapeHtml(result.answer)}${renderCitations(result.sources || [])}`;
-    } else {
-      const result = localEvidence(cleanQuestion);
-      const matches = result.records;
-      if (result.outsideCountry) {
-        pending.textContent = `This dashboard covers GCC States and Yemen, so I can’t answer questions about ${result.outsideCountry}.`;
-      } else if (!matches.length) pending.innerHTML = "No matching GCC/Yemen records were found in the current source data. Try a country name, policy area, date or related term. This is evidence search, not an AI-generated answer.";
-      else pending.innerHTML = `Secure AI is not configured for this GitHub Pages site, so I can’t provide a generated analysis. These ${matches.length} records are the closest local matches to your question.${matches.map((record) => `<div class="evidence-result"><strong>${escapeHtml(record.country)} · ${escapeHtml(formatDate(record.date))}</strong><p>${escapeHtml(record.title)}</p><small>${escapeHtml(record.domain)} · ${escapeHtml(record.institution || "Institution not stated")}</small>${safeUrl(record.source) ? `<a href="${escapeHtml(record.source)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ""}</div>`).join("")}`;
-    }
-  } catch (error) {
-    pending.innerHTML = `The assistant could not complete this request: ${escapeHtml(error.message)}. You can still search the policy records below.`;
-  }
-  pending.removeAttribute("data-response");
-  container.scrollTop = container.scrollHeight;
-  if (!pageContext) $("#assistant-input").value = "";
-  refreshIcons();
-}
-function renderCitations(sources) { return `<div class="chat-sources"><strong>Supporting records</strong>${sources.map((source) => `<a href="${escapeHtml(safeUrl(source.url || source.source) || "#")}" target="_blank" rel="noopener noreferrer">[${escapeHtml(source.id)}] ${escapeHtml(source.country)} · ${escapeHtml(formatDate(source.date))} · ${escapeHtml(source.title)}</a>`).join("")}</div>`; }
-
-// Navigation starts at the top; re-renders (filters, cross-filters, resizes) keep the reader's place.
 function renderDashboardPage({ keepScroll = false } = {}) {
   const scrollY = window.scrollY;
   state.pendingScroll = keepScroll ? scrollY : null;
   $("#current-page-label").textContent = pageLabels[state.page] || "Overview";
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
+  // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
+  $(".global-filters").hidden = ["reports", "methodology"].includes(state.page);
   if (state.page === "overview") renderOverviewPage();
   else if (state.page === "country") renderCountryPage();
   else if (state.page === "trends") renderTrendsPage();
@@ -593,7 +499,6 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   else if (state.page === "network") renderNetworkPage(ui);
   else if (state.page === "prices") withFoodData(renderPricesPage);
   else if (state.page === "records") renderRecordsPage();
-  else if (state.page === "ai") renderAiPage();
   else if (state.page === "reports") withFoodData(renderReportsPage);
   else if (state.page === "methodology") renderMethodologyPage();
   else renderOverviewPage();
@@ -601,7 +506,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   refreshIcons();
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
-const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", ai: "AI Policy Analyst", reports: "Reports", methodology: "Methodology & Sources" };
+const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
 function setFilter(key, value) { state[key] = value || "all"; state.pageNumber = 1; syncFilters(); render(); }
 function render() { renderDashboardPage({ keepScroll: true }); }
@@ -620,15 +525,10 @@ function bindShell() {
   try { storedCollapsed = localStorage.getItem("filtersCollapsed"); } catch { /* Storage may be unavailable. */ }
   setFiltersCollapsed(storedCollapsed === null ? window.matchMedia("(max-width: 760px)").matches : storedCollapsed === "1");
   $("#global-search").addEventListener("input", (event) => { state.keyword = event.target.value; state.pageNumber = 1; render(); });
-  $("#ask-policy-ai").addEventListener("click", () => openAssistant());
-  $("#close-assistant").addEventListener("click", closeAssistant);
-  $("#panel-scrim").addEventListener("click", () => { closeAssistant(); closeRecordDrawer(); });
-  $("#assistant-form").addEventListener("submit", (event) => { event.preventDefault(); askAssistant($("#assistant-input").value, $("#assistant-messages")); });
-  $$("[data-question]").forEach((button) => button.addEventListener("click", () => { if ($("#ai-page-input")) { $("#ai-page-input").value = button.dataset.question; askAssistant(button.dataset.question,$("#ai-page-messages"),true); } else openAssistant(button.dataset.question); }));
+  $("#panel-scrim").addEventListener("click", closeRecordDrawer);
   $("#top-export").addEventListener("click", () => setPage("reports"));
   $("#updates-button").addEventListener("click", () => showToast(`Dataset includes records through ${formatDate(latestDate(state.records))}.`));
-  document.addEventListener("click", (event) => { const explain = event.target.closest("[data-explain]"); if (explain) openAssistant(`Explain ${explain.dataset.explain} using the current filters and cite supporting records.`); });
-  document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeAssistant(); closeRecordDrawer(); closeMobileSidebar(); } });
+  document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeRecordDrawer(); closeMobileSidebar(); } });
   // Mobile browsers fire resize when the address bar shows or hides; only a width change needs charts redrawn.
   let resizeTimer;
   let lastWidth = window.innerWidth;
@@ -657,20 +557,17 @@ function withFoodData(renderPage) {
     wireEmptyActions();
   });
 }
-const ui = { state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, openAssistant, downloadBlob, exportXlsx };
-// Stop the page behind an open menu, assistant or record drawer from scrolling on touch devices.
+const ui = { state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, downloadBlob, exportXlsx };
+// Stop the page behind an open menu or record drawer from scrolling on touch devices.
 function watchScrollLock() {
-  const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || $("#assistant-panel").classList.contains("open") || !!$("#record-drawer"));
+  const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || !!$("#record-drawer"));
   const observer = new MutationObserver(sync);
   observer.observe($("#sidebar"), { attributes: true, attributeFilter: ["class"] });
-  observer.observe($("#assistant-panel"), { attributes: true, attributeFilter: ["class"] });
   observer.observe(document.body, { childList: true });
 }
 function initialize() {
   bindShell();
   watchScrollLock();
-  $("#assistant-config").hidden = !!$("meta[name='policy-ai-endpoint']")?.content.trim();
-  $("#assistant-messages").addEventListener("click", (event) => { const button = event.target.closest("[data-question]"); if (button) openAssistant(button.dataset.question); });
   loadRegionalData().then((records) => {
     state.records = records;
     initializeFilters(records);

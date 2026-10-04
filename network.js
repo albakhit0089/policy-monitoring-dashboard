@@ -117,7 +117,7 @@ function detailPanel(ui, { dim, focus, records, selected, periods }) {
     <div class="pn-tiles"><div><strong>${selected.count.toLocaleString()}</strong><span>Measures</span></div><div><strong>${ui.totalCount(rows, "decision").toLocaleString()}</strong><span>Short-term decisions</span></div><div><strong>${ui.totalCount(rows, "framework").toLocaleString()}</strong><span>Long-term frameworks</span></div><div><strong>${breadth.toLocaleString()}</strong><span>${breadthKey === "country" ? "Countries involved" : "Institutions involved"}</span></div></div>
     <div class="pn-analysis"><span class="pn-kicker">${ui.icon("sparkles", 14)}Analysis</span><p>${insight}</p></div>
     <div class="pn-recent"><span class="pn-kicker">${ui.icon("clock-3", 14)}Latest developments</span>${recent.map((record) => `<a ${ui.safeUrl(record.source) ? `href="${escapeHtml(record.source)}" target="_blank" rel="noopener noreferrer"` : ""}><small>${escapeHtml(record.country)} · ${escapeHtml(ui.formatDate(record.date))}</small>${escapeHtml(truncate(record.title, 110))}</a>`).join("")}</div>
-    <div class="pn-actions"><button type="button" class="pn-btn" id="pn-explore">${ui.icon("rows-3", 15)}Explore records</button><button type="button" class="pn-btn pn-btn-gold" id="pn-ask">${ui.icon("sparkles", 15)}Ask Policy AI</button></div>`;
+    <div class="pn-actions"><button type="button" class="pn-btn pn-btn-gold" id="pn-explore">${ui.icon("rows-3", 15)}Explore records</button></div>`;
 }
 
 function bindDetail(ui, { dim, focus, selected }) {
@@ -129,7 +129,6 @@ function bindDetail(ui, { dim, focus, selected }) {
     ui.syncFilters();
     ui.setPage("records");
   });
-  $("#pn-ask")?.addEventListener("click", () => ui.openAssistant(`Summarise ${focus ? `${focus}'s ` : ""}policy measures on ${selected.name}, the latest developments and how activity changed, citing records.`));
 }
 
 function drawLinks() {

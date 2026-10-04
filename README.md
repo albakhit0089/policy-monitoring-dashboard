@@ -37,24 +37,22 @@ The generator rewrites the complete `data/measures.json` and a separate GCC/Yeme
 
 ## Food price and healthy diet indicators
 
-The **Food Prices & Diets** page and the reports use `data/food-indicators.json`, built from two FAOSTAT exports: Producer Prices (PP, `.xlsx`) and Cost and Affordability of a Healthy Diet (CAHD, as JSON records with `country, year, item, unit, value, flag`):
+The **Food Prices & Diets** page and the reports use `data/food-indicators.json`, built from the FAOSTAT bulk downloads (normalized CSV) for Producer Prices and for the Cost and Affordability of a Healthy Diet (https://bulks-faostat.fao.org/production/):
 
 ```sh
-npm run build-indicators -- --prices "<FAOSTAT PP export>.xlsx" --diet "<healthy-diet>.json"
+npm run build-indicators -- --prices "Prices_E_All_Data_(Normalized).csv" --diet "Cost_Affordability_Healthy_Diet_(CoAHD)_E_All_Data_(Normalized).csv"
 ```
 
-The script keeps GCC States and Yemen only, drops live-weight ("biological") meat duplicates and non-food items, recomputes USD values that contradict official currency pegs, and records coverage and quality notes (repeated values, large swings, missing countries) that the dashboard displays alongside the figures.
+The script keeps GCC States and Yemen, uses official annual prices from 2018 and fills missing or carried-forward annual values with the average of at least six monthly FAOSTAT prices. It drops live-weight ("biological") meat duplicates and non-food items, recomputes USD values that contradict official currency pegs, and records coverage and quality notes that the dashboard displays alongside the figures. The UAE does not report producer prices to FAOSTAT, and Yemen has no healthy diet cost estimate from FAO or the World Bank.
 
 ## Pages and reports
 
 - **Policy Network**: focus country orb, dimension cards (domains, institutions, groups, families), a fan of the top linked items with 12-month trends, and a detail panel with activity, recent records and a computed summary.
 - **Reports**: regional analysis, country brief, food prices and affordability brief, policy domain report and monthly update, all computed from the current filters, with Print/PDF, Word and Markdown export.
 
-## GitHub Pages and AI
+## AI endpoint (optional, not used by the dashboard)
 
-GitHub Pages hosts the static dashboard at the repository root. It cannot execute `api/policy-ai.js`. To enable generated AI answers, deploy this repository to Vercel, configure `ANTHROPIC_API_KEY` and optionally `CLAUDE_MODEL` (defaults to `claude-opus-5-5`) and comma-separated `ALLOWED_ORIGINS` as server-side environment variables, then set the `policy-ai-endpoint` meta content in `index.html` to the deployed `/api/policy-ai` URL. The browser never receives the API key. Until configured, the assistant clearly labels results as local evidence matches rather than AI-generated analysis.
-
-The API performs allowlisted record retrieval on the server and asks Claude (via the official `@anthropic-ai/sdk`, streaming, with server-side refusal fallback) to answer only from the retrieved records with source IDs. Lexical retrieval is currently used; semantic embeddings/vector search are not configured. Verify generated analysis against the cited source links.
+`api/policy-ai.js` is a Claude-based serverless function kept for future use. The dashboard interface no longer includes an AI assistant.
 
 ## Methodology
 

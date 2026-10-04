@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#102f46" />
     <meta name="description" content="Evidence-led food and agriculture policy intelligence for GCC countries and Yemen." />
-    <meta name="policy-ai-endpoint" content="" />
+    <link rel="icon" type="image/svg+xml" href="./assets/fao-logo.svg" />
     <title>Policy Intelligence | GCC States &amp; Yemen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=pi-20261006" />
+    <link rel="stylesheet" href="./styles.css?v=pi-20261007" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>
     <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script type="module" src="./app.js?v=pi-20261006"></script>
+    <script type="module" src="./app.js?v=pi-20261007"></script>
   </head>
   <body>
     <div class="app-shell" id="app-shell">
       <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
         <a class="brand" href="#overview" data-nav="overview" aria-label="Policy Intelligence home">
-          <span class="brand-symbol" aria-hidden="true"><i data-lucide="wheat"></i></span>
+          <span class="brand-symbol"><img src="./assets/fao-logo.svg" alt="FAO" width="30" height="30" /></span>
           <span class="brand-copy"><strong>Policy Intelligence</strong><small>Food &amp; Agriculture</small></span>
         </a>
         <div class="region-label">GCC STATES &amp; YEMEN</div>
@@ -37,7 +37,6 @@
           <button class="nav-item" data-nav="network"><i data-lucide="orbit"></i><span>Policy Network</span></button>
           <div class="nav-section-label nav-section-spaced">EVIDENCE</div>
           <button class="nav-item" data-nav="records"><i data-lucide="rows-3"></i><span>Policy Records</span></button>
-          <button class="nav-item" data-nav="ai"><i data-lucide="messages-square"></i><span>AI Policy Analyst</span></button>
           <button class="nav-item" data-nav="reports"><i data-lucide="file-chart-column-increasing"></i><span>Reports</span></button>
           <button class="nav-item" data-nav="methodology"><i data-lucide="book-open-check"></i><span>Methodology &amp; Sources</span></button>
         </nav>
@@ -54,7 +53,6 @@
           <div class="topbar-actions">
             <label class="global-search"><i data-lucide="search"></i><span class="sr-only">Search policy records</span><input id="global-search" type="search" placeholder="Search policy measures" autocomplete="off" /><kbd>⌘ K</kbd></label>
             <button class="icon-button update-button" id="updates-button" type="button" title="Latest dataset update" aria-label="Latest dataset update"><i data-lucide="bell-dot"></i></button>
-            <button class="button button-primary ask-button" id="ask-policy-ai" type="button" aria-label="Ask Policy AI"><i data-lucide="sparkles"></i><span>Ask Policy AI</span></button>
             <button class="button button-outline" id="top-export" type="button"><i data-lucide="download"></i><span>Export</span></button>
           </div>
         </header>
@@ -83,13 +81,6 @@
 
       <div class="sidebar-scrim" id="sidebar-scrim"></div>
       <div class="panel-scrim" id="panel-scrim"></div>
-      <aside class="assistant-panel" id="assistant-panel" aria-label="Ask Policy AI" aria-hidden="true">
-        <div class="assistant-header"><div><span class="ai-icon"><i data-lucide="sparkles"></i></span><div><strong>Policy Intelligence Assistant</strong><small>Evidence-led answers from monitored records</small></div></div><button class="icon-button" id="close-assistant" type="button" aria-label="Close AI assistant"><i data-lucide="x"></i></button></div>
-        <div class="assistant-scope"><i data-lucide="shield-check"></i><span>Answers are limited to GCC States &amp; Yemen records. Sources are shown with each response.</span></div>
-        <div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-welcome"><span class="ai-icon large"><i data-lucide="sparkles"></i></span><h2>Ask with evidence.</h2><p>Explore food, agriculture, water, trade and related policy measures in the regional dataset.</p><div class="starter-questions"><button type="button" data-question="What were the latest UAE food security policy developments?">Latest UAE food security developments</button><button type="button" data-question="Compare Saudi Arabia and Oman agriculture measures.">Compare Saudi Arabia and Oman</button><button type="button" data-question="Which policy themes are most common across the region?">Most common regional themes</button></div></div></div>
-        <form class="assistant-compose" id="assistant-form"><label for="assistant-input" class="sr-only">Ask a policy question</label><textarea id="assistant-input" rows="2" placeholder="Ask a question about regional policy…" required></textarea><div><span>Responses should be checked against cited sources.</span><button class="button button-primary" id="send-assistant" type="submit" aria-label="Send question"><i data-lucide="arrow-up"></i></button></div></form>
-        <div class="assistant-config" id="assistant-config" hidden>Secure AI is not connected on GitHub Pages. Deploy the included API to Vercel, configure <code>ANTHROPIC_API_KEY</code>, and set the endpoint in this page's metadata.</div>
-      </aside>
       <div class="toast-region" id="toast-region" aria-live="polite"></div>
     </div>
   </body>

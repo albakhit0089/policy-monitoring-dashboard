@@ -667,6 +667,12 @@ body { background: radial-gradient(1200px 420px at 70% -120px, #e3eef6 0%, trans
 .group-note { margin: 8px 0 14px; }
 .compact-table.fit-table { min-width: 0; }
 .compact-table.fit-table th, .compact-table.fit-table td { padding: 7px 8px; white-space: normal; }
+.brand-symbol { width: 40px; height: 40px; padding: 4px; background: white; border: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.brand-symbol img { display: block; width: 100%; height: 100%; }
+.compare-choice { display: flex; align-items: flex-end; gap: 4px; }
+.compare-remove { width: 36px; height: 39px; color: #7a8c97; }
+.compare-remove:hover { color: var(--danger); }
+.change-cell.flat { color: #8494a0; background: #f2f5f7; font-weight: 500; }
 /* ---------- Reports ---------- */
 .report-form-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .report-form label[hidden] { display: none; }
