@@ -47,7 +47,7 @@ The script keeps GCC States and Yemen, uses official annual prices from 2018 and
 
 ## Pages and reports
 
-- **Policy Network**: focus country orb, dimension cards (domains, institutions, groups, families), a fan of the top linked items with 12-month trends, and a detail panel with activity, recent records and a computed summary.
+- **Policy Network**: an interactive 3D view (Three.js, loaded only on this page) with countries on an inner ring and their top domains, institutions, groups or families on a surrounding sphere; drag to rotate, zoom, click a node for details. A 2D layout remains available and is used automatically where WebGL is unavailable. The 2D view has a focus country orb, dimension cards (domains, institutions, groups, families), a fan of the top linked items with 12-month trends, and a detail panel with activity, recent records and a computed summary.
 - **Reports**: regional analysis, country brief, food prices and affordability brief, policy domain report and monthly update, all computed from the current filters, with Print/PDF, Word and Markdown export.
 
 ## AI endpoint (optional, not used by the dashboard)
