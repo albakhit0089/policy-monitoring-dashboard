@@ -1,5 +1,5 @@
-import { loadThree, mountNetwork3D, webglAvailable } from "./network3d.js?v=pi-20261016";
-import { COUNTRY_COLORS } from "./prices.js?v=pi-20261016";
+import { loadThree, mountNetwork3D, webglAvailable } from "./network3d.js?v=pi-20261017";
+import { COUNTRY_COLORS } from "./prices.js?v=pi-20261017";
 // Policy network: focus orb → dimension cards → fan of linked items → detail panel.
 
 const DIMENSIONS = {
@@ -215,7 +215,7 @@ function render3D(ui) {
   const countryCounts = COUNTRIES.map((country) => [country, records.filter((record) => record.country === country).length]).filter(([, count]) => count);
   const maxCountry = Math.max(1, ...countryCounts.map(([, count]) => count));
   const graph = {
-    centers: countryCounts.map(([country, count]) => ({ id: `c:${country}`, name: country === "United Arab Emirates" ? "UAE" : country, color: COUNTRY_COLORS[country] || "#5aaee8", size: focus ? 16 : 6 + Math.sqrt(count / maxCountry) * 9 })),
+    centers: countryCounts.map(([country, count]) => ({ id: `c:${country}`, name: country === "United Arab Emirates" ? "UAE" : country, color: COUNTRY_COLORS[country] || "#5aaee8", size: focus ? 30 : 17 + Math.sqrt(count / maxCountry) * 21 })),
     items: items.map((item, i) => ({ id: `i:${i}`, name: item.name, count: item.count, selected: item.name === state.networkItem })),
     links: [],
   };

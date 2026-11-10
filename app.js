@@ -1,7 +1,9 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261016";
-import { renderNetworkPage } from "./network.js?v=pi-20261016";
-import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261016";
-import { renderReportsPage } from "./reports.js?v=pi-20261016";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261017";
+import { renderNetworkPage } from "./network.js?v=pi-20261017";
+import { loadThree, webglAvailable } from "./network3d.js?v=pi-20261017";
+import { mountMap3D } from "./map3d.js?v=pi-20261017";
+import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261017";
+import { renderReportsPage } from "./reports.js?v=pi-20261017";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -241,6 +243,26 @@ async function renderMap(records) {
     const countryFeatures = topojson.feature(topology, topology.objects.countries).features;
     const features = countryFeatures.filter((feature) => Object.values(COUNTRY_CODES).includes(String(feature.id).padStart(3, "0")));
     if (!features.length) throw new Error("Regional map geometry is unavailable.");
+    const countryOf = (feature) => COUNTRIES.find((name) => COUNTRY_CODES[name] === String(feature.id).padStart(3, "0"));
+    const mapToggle = (view) => webglAvailable() ? `<div class="chart-toolbar map-view-toggle" role="group" aria-label="Map view"><button type="button" data-map-view="3d" aria-pressed="${view === "3d"}">${icon("box", 13)}3D</button><button type="button" data-map-view="2d" aria-pressed="${view === "2d"}">${icon("map", 13)}2D</button></div>` : "";
+    const bindMapToggle = () => $$("[data-map-view]", target).forEach((button) => button.addEventListener("click", () => { if (state.mapView === button.dataset.mapView) return; state.mapView = button.dataset.mapView; renderMap(records); }));
+    const countryStrip = (dotColor) => { const key = document.createElement("div"); key.className = "map-country-strip"; key.innerHTML = COUNTRIES.map((country) => `<button type="button" data-map-country="${escapeHtml(country)}"><span class="map-key-dot" style="background:${dotColor(country)}"></span><span>${escapeHtml(country)}</span><strong>${counts[country].toLocaleString()}</strong></button>`).join(""); target.append(key); $$('[data-map-country]', key).forEach((button) => button.addEventListener("click", () => setFilter("country", button.dataset.mapCountry))); };
+    state.mapView ||= webglAvailable() ? "3d" : "2d";
+    // 3D view: countries raised as glass to a height that reflects their number of measures.
+    if (state.mapView === "3d" && webglAvailable()) {
+      target.innerHTML = `<div class="map3d"><div class="pn3d-loading"><span class="loading-mark"></span>Loading 3D map…</div>${mapToggle("3d")}<div class="pn3d-hint">${icon("mouse-pointer-2", 13)}Drag to rotate · ${window.matchMedia("(pointer: coarse)").matches ? "tap" : "click"} a country to filter</div></div>`;
+      bindMapToggle(); refreshIcons();
+      try { await loadThree(); } catch { state.mapView = "2d"; return renderMap(records); }
+      if (generation !== mapRenderGeneration || !target.isConnected) return;
+      const host = $(".map3d", target);
+      host.querySelector(".pn3d-loading")?.remove();
+      mountMap3D(host, COUNTRIES.map((country) => ({ name: country, short: country === "United Arab Emirates" ? "UAE" : country, count: counts[country], color: COUNTRY_COLORS[country], feature: features.find((feature) => countryOf(feature) === country) || null })), {
+        onCountry: (name) => setFilter("country", name),
+        tooltip: (name) => { const countryRecords = records.filter((record) => record.country === name); const topDomain = groupCount(countryRecords, (record) => record.domain)[0]?.[0]; return `<strong>${escapeHtml(name)}</strong><span>${countryRecords.length.toLocaleString()} measures${topDomain ? ` · mostly ${escapeHtml(topDomain.toLowerCase())}` : ""}</span>`; },
+      });
+      countryStrip((country) => COUNTRY_COLORS[country]);
+      return;
+    }
     const width = Math.max(300, target.clientWidth || 650), height = 370;
     const collection = { type: "FeatureCollection", features };
     const projection = d3.geoMercator().fitExtent([[20, 20], [width - 20, height - 20]], collection);
@@ -258,8 +280,9 @@ async function renderMap(records) {
       marker.append("text").attr("x", 9).attr("y", 4).attr("fill", "#e6eef3").attr("font-size", 12).attr("font-weight", 600).text("Bahrain");
       marker.append("title").text(`Bahrain: ${counts.Bahrain} measures. Island polygon is not available in the map geometry.`);
     }
-    const key = document.createElement("div"); key.className = "map-country-strip"; key.innerHTML = COUNTRIES.map((country) => `<button type="button" data-map-country="${escapeHtml(country)}"><span class="map-key-dot" style="background:${color(counts[country])}"></span><span>${escapeHtml(country)}</span><strong>${counts[country].toLocaleString()}</strong></button>`).join(""); target.append(key);
-    $$('[data-map-country]', key).forEach((button) => button.addEventListener("click", () => setFilter("country", button.dataset.mapCountry)));
+    target.insertAdjacentHTML("afterbegin", mapToggle("2d"));
+    bindMapToggle(); refreshIcons();
+    countryStrip((country) => color(counts[country]));
   } catch {
     if (generation !== mapRenderGeneration) return;
     target.innerHTML = `<div class="map-fallback">${COUNTRIES.map((country) => `<button data-country="${escapeHtml(country)}"><strong>${escapeHtml(country)}</strong><span>${counts[country].toLocaleString()} policy measures</span></button>`).join("")}</div>`;
@@ -595,8 +618,26 @@ function watchScrollLock() {
   observer.observe($("#sidebar"), { attributes: true, attributeFilter: ["class"] });
   observer.observe(document.body, { childList: true });
 }
+// KPI cards tilt toward the pointer like glass panels, with the light following the cursor.
+function enableCardTilt() {
+  if (window.matchMedia("(pointer: coarse)").matches) return;
+  let active = null;
+  const reset = () => { if (active) { active.style.transform = ""; active.style.removeProperty("--mx"); active.style.removeProperty("--my"); active = null; } };
+  $("#page-content").addEventListener("pointermove", (event) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const card = event.target.closest(".kpi-card");
+    if (card !== active) reset();
+    if (!card) return;
+    active = card;
+    const rect = card.getBoundingClientRect(), x = (event.clientX - rect.left) / rect.width, y = (event.clientY - rect.top) / rect.height;
+    card.style.transform = `perspective(700px) rotateX(${((.5 - y) * 9).toFixed(2)}deg) rotateY(${((x - .5) * 11).toFixed(2)}deg) translateY(-3px)`;
+    card.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`); card.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
+  });
+  $("#page-content").addEventListener("pointerleave", reset);
+}
 function initialize() {
   bindShell();
+  enableCardTilt();
   watchScrollLock();
   loadRegionalData().then((records) => {
     state.records = records;

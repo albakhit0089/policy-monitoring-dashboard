@@ -32,20 +32,27 @@ function glow(THREE) {
   glowTexture = new THREE.CanvasTexture(canvas);
   return glowTexture;
 }
-function label(THREE, text, { color = "#e6eef3", size = 28, weight = 600 } = {}) {
-  const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
-  const font = `${weight} ${size}px "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif`;
+// Text label drawn at 2x resolution on a dark glass pill so it stays legible over bright nodes and links.
+// screen = label height as a fraction of the viewport height (constant on screen, not shrinking with distance).
+export function label(THREE, text, { color = "#eef4f8", size = 30, weight = 600, accent = null, screen = .036 } = {}) {
+  const ratio = 2, canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+  const font = `${weight} ${size * ratio}px "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif`;
   ctx.font = font;
-  const width = Math.ceil(ctx.measureText(text).width) + 24, height = size + 18;
+  const padX = 16 * ratio, padY = 9 * ratio;
+  const width = Math.ceil(ctx.measureText(text).width) + padX * 2, height = size * ratio + padY * 2;
   canvas.width = width; canvas.height = height;
-  ctx.font = font; ctx.textBaseline = "middle";
-  ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = 8;
-  ctx.fillStyle = color; ctx.fillText(text, 12, height / 2);
+  const r = height / 2;
+  ctx.beginPath(); ctx.moveTo(r, 1); ctx.arcTo(width - 1, 1, width - 1, height - 1, r); ctx.arcTo(width - 1, height - 1, 1, height - 1, r); ctx.arcTo(1, height - 1, 1, 1, r); ctx.arcTo(1, 1, width - 1, 1, r); ctx.closePath();
+  ctx.fillStyle = "rgba(6,22,36,.78)"; ctx.fill();
+  ctx.lineWidth = 2 * ratio; ctx.strokeStyle = accent || "rgba(255,255,255,.22)"; ctx.stroke();
+  ctx.font = font; ctx.textBaseline = "middle"; ctx.fillStyle = color;
+  ctx.fillText(text, padX, height / 2 + ratio);
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
-  const scale = .14;
-  sprite.scale.set(width * scale, height * scale, 1);
+  texture.anisotropy = 4;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false }));
+  sprite.renderOrder = 10;
+  sprite.scale.set(screen * width / height, screen, 1);
   return sprite;
 }
 // Evenly spread points on a sphere (Fibonacci lattice).
@@ -70,9 +77,9 @@ export function mountNetwork3D(host, graph, handlers) {
   scene.fog = new THREE.FogExp2(0x0a1f30, .0016);
   const camera = new THREE.PerspectiveCamera(48, width / height, 1, 4000);
   // Narrow screens need the camera further back so the whole sphere fits.
-  camera.position.set(0, 120, width < 560 ? 640 : 430);
+  camera.position.set(0, 340, width < 560 ? 760 : 540);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  Object.assign(controls, { enableDamping: true, dampingFactor: .08, enablePan: false, minDistance: 180, maxDistance: 760, autoRotate: !reduceMotion(), autoRotateSpeed: .55, rotateSpeed: .6 });
+  Object.assign(controls, { enableDamping: true, dampingFactor: .08, enablePan: false, minDistance: 220, maxDistance: 900, autoRotate: !reduceMotion(), autoRotateSpeed: .55, rotateSpeed: .6 });
 
   scene.add(new THREE.AmbientLight(0x9fc4dc, .55));
   const key = new THREE.PointLight(0x6cb9ee, 1.4, 1400); key.position.set(180, 260, 300); scene.add(key);
@@ -86,8 +93,8 @@ export function mountNetwork3D(host, graph, handlers) {
 
   // Orbit guide rings
   const ring = (radius, color, opacity) => { const geometry = new THREE.RingGeometry(radius - .6, radius + .6, 160); const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false })); mesh.rotation.x = Math.PI / 2; scene.add(mesh); return mesh; };
-  ring(graph.centers.length > 1 ? 82 : 30, 0xe2b84f, .35);
-  ring(190, 0x6cb9ee, .12);
+  ring(graph.centers.length > 1 ? 140 : 36, 0xe2b84f, .4);
+  ring(255, 0x6cb9ee, .12);
 
   const pickable = [], nodes = new Map();
   const sphereGeo = new THREE.SphereGeometry(1, 32, 24);
@@ -100,8 +107,10 @@ export function mountNetwork3D(host, graph, handlers) {
     mesh.userData = { id, name, kind };
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow(THREE), color, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }));
     halo.scale.setScalar(radius * 5.2);
-    const text = label(THREE, name.length > 34 ? `${name.slice(0, 33)}…` : name, { color: labelColor, size: kind === "center" ? 32 : 26 });
-    text.position.set(0, radius + 7, 0);
+    const text = kind === "center"
+      ? label(THREE, name, { color: "#ffffff", weight: 700, screen: .04, accent: `#${new THREE.Color(color).getHexString()}` })
+      : label(THREE, name.length > 30 ? `${name.slice(0, 29)}…` : name, { color: labelColor, screen: .031 });
+    text.position.set(0, radius + 5, 0);
     group.add(halo, mesh, text);
     scene.add(group);
     pickable.push(mesh);
@@ -109,13 +118,13 @@ export function mountNetwork3D(host, graph, handlers) {
     return group;
   }
 
-  const centerRadius = graph.centers.length > 1 ? 82 : 0;
+  const centerRadius = graph.centers.length > 1 ? 140 : 0;
   graph.centers.forEach((center, i) => {
     const angle = (i / graph.centers.length) * Math.PI * 2;
     addNode(center.id, center.name, center.color, center.size, [Math.cos(angle) * centerRadius, 0, Math.sin(angle) * centerRadius], "center", "#ffffff");
   });
   const maxCount = Math.max(1, ...graph.items.map((item) => item.count));
-  graph.items.forEach((item, i) => addNode(item.id, item.name, 0x5aaee8, 3 + Math.sqrt(item.count / maxCount) * 7, spherePoint(i, graph.items.length, 190), "item", "#dbe6ec"));
+  graph.items.forEach((item, i) => addNode(item.id, item.name, 0x5aaee8, 4 + Math.sqrt(item.count / maxCount) * 8, spherePoint(i, graph.items.length, 255), "item", "#eef4f8"));
 
   // Curved links with brightness by weight
   const maxValue = Math.max(1, ...graph.links.map((link) => link.value));
