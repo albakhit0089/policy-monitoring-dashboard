@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261011";
-import { renderNetworkPage } from "./network.js?v=pi-20261011";
-import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261011";
-import { renderReportsPage } from "./reports.js?v=pi-20261011";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261013";
+import { renderNetworkPage } from "./network.js?v=pi-20261013";
+import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261013";
+import { renderReportsPage } from "./reports.js?v=pi-20261013";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -193,7 +193,7 @@ function drawFamilyDonut(records) {
   const group = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
   const pie = d3.pie().sort(null).value((entry) => entry[1])(entries);
   const arc = d3.arc().innerRadius(radius * .63).outerRadius(radius);
-  const slices = group.selectAll("path").data(pie).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "white").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).attr("role", "button").attr("aria-label", (entry) => `Filter to ${entry.data[0]}, ${entry.data[1]} measures`).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); });
+  const slices = group.selectAll("path").data(pie).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "#0f2c42").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).attr("role", "button").attr("aria-label", (entry) => `Filter to ${entry.data[0]}, ${entry.data[1]} measures`).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); });
   slices.append("title").text((entry) => `${entry.data[0]}: ${entry.data[1]} measures (${percentage(entry.data[1], records.length)}). Click to filter.`);
   group.append("text").attr("class", "donut-center-value").attr("y", -2).text(records.length.toLocaleString());
   group.append("text").attr("class", "donut-center-label").attr("y", 18).text("measures");
@@ -255,7 +255,7 @@ async function renderMap(records) {
       const [x, y] = projection([50.55, 26.07]);
       const marker = svg.append("g").attr("class", "map-small-country").attr("transform", `translate(${x},${y})`).attr("role", "button").attr("tabindex", 0).attr("aria-label", `Bahrain: ${counts.Bahrain} measures`).on("click keydown", (event) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("country", "Bahrain"); });
       marker.append("circle").attr("r", 6).attr("fill", color(counts.Bahrain)).attr("stroke", "white").attr("stroke-width", 2);
-      marker.append("text").attr("x", 9).attr("y", 4).attr("fill", "#26475c").attr("font-size", 12).attr("font-weight", 600).text("Bahrain");
+      marker.append("text").attr("x", 9).attr("y", 4).attr("fill", "#e6eef3").attr("font-size", 12).attr("font-weight", 600).text("Bahrain");
       marker.append("title").text(`Bahrain: ${counts.Bahrain} measures. Island polygon is not available in the map geometry.`);
     }
     const key = document.createElement("div"); key.className = "map-country-strip"; key.innerHTML = COUNTRIES.map((country) => `<button type="button" data-map-country="${escapeHtml(country)}"><span class="map-key-dot" style="background:${color(counts[country])}"></span><span>${escapeHtml(country)}</span><strong>${counts[country].toLocaleString()}</strong></button>`).join(""); target.append(key);
@@ -310,7 +310,7 @@ function drawFamilyDonutInto(selector, legendSelector, records) {
   const svg = target.append("svg").attr("viewBox", `0 0 ${width} ${height}`);
   const group = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
   const arc = d3.arc().innerRadius(radius * .63).outerRadius(radius);
-  group.selectAll("path").data(d3.pie().sort(null).value((entry) => entry[1])(entries)).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "white").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); }).append("title").text((entry) => `${entry.data[0]}: ${entry.data[1]}`);
+  group.selectAll("path").data(d3.pie().sort(null).value((entry) => entry[1])(entries)).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "#0f2c42").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); }).append("title").text((entry) => `${entry.data[0]}: ${entry.data[1]}`);
   group.append("text").attr("class", "donut-center-value").attr("y", -2).text(records.length.toLocaleString());
   group.append("text").attr("class", "donut-center-label").attr("y", 18).text("measures");
   $(legendSelector).innerHTML = entries.map(([family, count]) => `<span class="legend-item"><i style="background:${familyColor(family)}"></i>${escapeHtml(family)} <strong>${count}</strong></span>`).join("");
@@ -332,9 +332,9 @@ function drawHorizontalBars(selector, entries, onClick = null) {
   const svg = target.append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img");
   const x = d3.scaleLinear().domain([0, d3.max(entries, (d) => d[1]) || 1]).range([0, width - margin.left - margin.right]);
   const rows = svg.append("g").selectAll("g.chart-row").data(entries).join("g").attr("class", "chart-row").attr("transform", (_, i) => `translate(0,${margin.top + i * rowHeight})`).attr("tabindex", onClick ? 0 : null).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); onClick?.(entry[0]); });
-  rows.append("text").attr("x", margin.left - 9).attr("y", 16).attr("text-anchor", "end").attr("fill", "#526977").attr("font-size", 12).text((entry) => entry[0]);
+  rows.append("text").attr("x", margin.left - 9).attr("y", 16).attr("text-anchor", "end").attr("fill", "#b9cbd6").attr("font-size", 12).text((entry) => entry[0]);
   rows.append("rect").attr("x", margin.left).attr("y", 3).attr("height", 17).attr("width", (entry) => x(entry[1])).attr("rx", 4).attr("fill", (_, i) => d3.interpolateBlues(.45 + .48 * (1 - i / entries.length)));
-  rows.append("text").attr("x", (entry) => margin.left + x(entry[1]) + 7).attr("y", 16).attr("fill", "#39586b").attr("font-size", 12).text((entry) => entry[1].toLocaleString());
+  rows.append("text").attr("x", (entry) => margin.left + x(entry[1]) + 7).attr("y", 16).attr("fill", "#dbe6ec").attr("font-size", 12).text((entry) => entry[1].toLocaleString());
   rows.append("title").text((entry) => `${entry[0]}: ${entry[1]} policy measures`);
 }
 
@@ -396,7 +396,7 @@ function drawComparisonFamilies(selector, countries) {
   const x1 = d3.scaleBand().domain(series).range([0, x0.bandwidth()]).padding(.06);
   const y = d3.scaleLinear().domain([0, d3.max(data, (d) => d3.max(series, (key) => d[key])) || 1]).nice().range([height - margin.bottom, margin.top]);
   svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x0).tickFormat((name) => name === "United Arab Emirates" ? "UAE" : name === "Saudi Arabia" ? "Saudi" : name));
-  svg.append("g").attr("class", "chart-axis").call(d3.axisLeft(y).ticks(4));
+  svg.append("g").attr("class", "chart-axis").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(4));
   svg.append("g").selectAll("g").data(data).join("g").attr("transform", (d) => `translate(${x0(d.country)},0)`).selectAll("rect").data((d) => series.map((family) => ({ family, count: d[family], country: d.country }))).join("rect").attr("x", (d) => x1(d.family)).attr("y", (d) => y(d.count)).attr("width", x1.bandwidth()).attr("height", (d) => y(0) - y(d.count)).attr("fill", (d) => familyColor(d.family)).attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, item) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); state.country = item.country; state.family = item.family; syncFilters(); render(); }).append("title").text((d) => `${d.country} · ${d.family}: ${d.count}`);
 }
 function drawComparisonMonthly(selector, countries) {
