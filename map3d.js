@@ -1,5 +1,5 @@
 // 3D regional map: each country is raised as tinted glass to a height that reflects its number of measures.
-import { label } from "./network3d.js?v=pi-20261017";
+import { label } from "./network3d.js?v=pi-20261018";
 
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 

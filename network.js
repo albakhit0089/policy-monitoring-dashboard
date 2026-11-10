@@ -1,5 +1,5 @@
-import { loadThree, mountNetwork3D, webglAvailable } from "./network3d.js?v=pi-20261017";
-import { COUNTRY_COLORS } from "./prices.js?v=pi-20261017";
+import { loadThree, mountNetwork3D, webglAvailable } from "./network3d.js?v=pi-20261018";
+import { COUNTRY_COLORS } from "./prices.js?v=pi-20261018";
 // Policy network: focus orb → dimension cards → fan of linked items → detail panel.
 
 const DIMENSIONS = {
