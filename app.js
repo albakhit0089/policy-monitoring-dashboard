@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261013";
-import { renderNetworkPage } from "./network.js?v=pi-20261013";
-import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261013";
-import { renderReportsPage } from "./reports.js?v=pi-20261013";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadRegionalData, monthKey } from "./data-service.js?v=pi-20261014";
+import { renderNetworkPage } from "./network.js?v=pi-20261014";
+import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261014";
+import { renderReportsPage } from "./reports.js?v=pi-20261014";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -146,7 +146,7 @@ function drawActivityChart(selector, records, mode = state.activityMode, onMonth
   gradient.append("stop").attr("offset", "0%").attr("stop-color", color).attr("stop-opacity", .18);
   gradient.append("stop").attr("offset", "100%").attr("stop-color", color).attr("stop-opacity", .015);
   svg.append("path").datum(data).attr("d", area).attr("fill", `url(#${gradientId})`);
-  svg.append("path").datum(data).attr("d", line).attr("fill", "none").attr("stroke", color).attr("stroke-width", 2.6);
+  svg.append("path").datum(data).attr("d", line).attr("class", "draw-line").attr("pathLength", 1).attr("fill", "none").attr("stroke", color).attr("stroke-width", 2.6);
   const marks = svg.append("g").selectAll("g.chart-mark").data(data).join("g").attr("class", "chart-mark").attr("tabindex", 0).attr("role", onMonth ? "button" : null).attr("aria-label", (entry) => `${entry[0]}: ${valueFor(entry)} policy measures`);
   marks.append("circle").attr("cx", ([key]) => x(key)).attr("cy", (entry) => y(valueFor(entry))).attr("r", 3.5).attr("fill", "white").attr("stroke", color).attr("stroke-width", 2);
   marks.append("title").text(([key, values]) => `${key}: ${mode === "all" ? values.total : values[mode]} measures · ${values.decision} short-term · ${values.framework} long-term`);
@@ -412,7 +412,7 @@ function drawComparisonMonthly(selector, countries) {
   svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(width - margin.left - margin.right)));
   svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickValues(months.filter((_, i) => i % Math.max(1, Math.ceil(months.length / 11)) === 0)).tickFormat((key) => { const [yr, mon] = key.split("-"); return `${MONTHS[Number(mon) - 1].slice(0, 3)} '${yr.slice(-2)}`; }));
   const color = d3.scaleOrdinal().domain(series.map((entry) => entry.country)).range(series.map((entry) => COUNTRY_COLORS[entry.country] || "#116aab"));
-  series.forEach((entry) => { const line = d3.line().defined((month) => entry.monthly.has(month)).x((month) => x(month)).y((month) => y(entry.monthly.get(month) || 0)).curve(d3.curveMonotoneX); svg.append("path").datum(months).attr("d", line).attr("fill", "none").attr("stroke", color(entry.country)).attr("stroke-width", 2.5); });
+  series.forEach((entry) => { const line = d3.line().defined((month) => entry.monthly.has(month)).x((month) => x(month)).y((month) => y(entry.monthly.get(month) || 0)).curve(d3.curveMonotoneX); svg.append("path").datum(months).attr("d", line).attr("class", "draw-line").attr("pathLength", 1).attr("fill", "none").attr("stroke", color(entry.country)).attr("stroke-width", 2.5); });
   target.append("div").attr("class", "legend-row").html(series.map((entry) => `<span class="legend-item"><i style="background:${color(entry.country)}"></i>${escapeHtml(entry.country)}</span>`).join(""));
 }
 
@@ -505,6 +505,35 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   renderActiveFilters();
   refreshIcons();
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
+  if (!keepScroll) playEntrance();
+}
+// Entrance motion for a newly opened page: cards rise in, charts draw, KPI numbers count up.
+// Only on navigation (not filter changes), and skipped when the user prefers reduced motion.
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let entranceTimer;
+function playEntrance() {
+  const root = $("#page-content");
+  if (reducedMotion()) return;
+  root.classList.remove("page-enter");
+  void root.offsetWidth;
+  root.classList.add("page-enter");
+  clearTimeout(entranceTimer);
+  entranceTimer = setTimeout(() => root.classList.remove("page-enter"), 1800);
+  $$(".kpi-value", root).forEach((element) => {
+    const text = element.textContent.trim();
+    const match = text.match(/^([^\d]*)([\d,]+)(\.\d+)?(.*)$/);
+    // Count up whole numbers only; dates ("30 Aug 2026") and decimals stay as they are.
+    if (!match || match[3] || /\d{1,2} [A-Z][a-z]{2}/.test(text)) return;
+    const target = Number(match[2].replace(/,/g, ""));
+    if (!Number.isFinite(target) || target < 10) return;
+    const start = performance.now(), duration = 900;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration), eased = 1 - (1 - t) ** 3;
+      element.textContent = `${match[1]}${Math.round(target * eased).toLocaleString()}${match[4]}`;
+      if (t < 1) requestAnimationFrame(step); else element.textContent = text;
+    };
+    requestAnimationFrame(step);
+  });
 }
 const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
@@ -551,6 +580,7 @@ function withFoodData(renderPage) {
     renderPage(ui, food);
     renderActiveFilters();
     if (state.pendingScroll !== null && state.pendingScroll !== undefined) window.scrollTo({ top: state.pendingScroll, behavior: "instant" });
+    else playEntrance();
     state.pendingScroll = null;
   }).catch((error) => {
     $("#page-content").innerHTML = emptyMarkup("Food indicators could not be loaded", `${error.message}. Reload the page to try again.`);

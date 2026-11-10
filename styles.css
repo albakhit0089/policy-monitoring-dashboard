@@ -1137,3 +1137,61 @@ a, .source-link, .text-button, .link-button:hover { color: #6cb9ee; }
 @media (max-width: 760px), (prefers-reduced-transparency: reduce) {
   .card, .kpi-card, .global-filters, .table-wrap, .pn-stage, .pn-detail, .hero-asof { backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(155deg, rgba(24,58,82,.96), rgba(16,44,63,.96)) padding-box, linear-gradient(150deg, rgba(255,255,255,.25), rgba(255,255,255,.06)) border-box; }
 }
+
+/* ---------- Motion and light (all disabled by prefers-reduced-motion) ---------- */
+/* Living aurora: three soft glows drift slowly behind everything */
+body::after { position: fixed; inset: -20vmax; z-index: 0; content: ''; pointer-events: none; opacity: .55;
+  background: radial-gradient(28vmax 22vmax at 25% 30%, rgba(39,133,127,.35), transparent 70%), radial-gradient(30vmax 24vmax at 70% 40%, rgba(17,106,171,.32), transparent 70%), radial-gradient(26vmax 22vmax at 55% 80%, rgba(183,133,47,.28), transparent 70%);
+  animation: aurora-drift 38s ease-in-out infinite alternate; will-change: transform; }
+@keyframes aurora-drift { 0% { transform: translate3d(-3%, -2%, 0) rotate(0deg); } 50% { transform: translate3d(3%, 2%, 0) rotate(4deg); } 100% { transform: translate3d(-2%, 4%, 0) rotate(-3deg); } }
+
+/* Page entrance: content rises in with a short stagger */
+@keyframes rise-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+.page-enter .hero-strip, .page-enter .page-heading, .page-enter .kpi-card, .page-enter .content-grid > *, .page-enter .pn-stage, .page-enter .table-toolbar, .page-enter .table-wrap { animation: rise-in .55s cubic-bezier(.2,.75,.25,1) both; }
+.page-enter .kpi-grid > :nth-child(1) { animation-delay: .05s; } .page-enter .kpi-grid > :nth-child(2) { animation-delay: .09s; }
+.page-enter .kpi-grid > :nth-child(3) { animation-delay: .13s; } .page-enter .kpi-grid > :nth-child(4) { animation-delay: .17s; }
+.page-enter .kpi-grid > :nth-child(5) { animation-delay: .21s; } .page-enter .kpi-grid > :nth-child(6) { animation-delay: .25s; }
+.page-enter .kpi-grid > :nth-child(7) { animation-delay: .29s; } .page-enter .kpi-grid > :nth-child(8) { animation-delay: .33s; }
+.page-enter .content-grid > :nth-child(1) { animation-delay: .2s; } .page-enter .content-grid > :nth-child(2) { animation-delay: .26s; }
+.page-enter .content-grid > :nth-child(3) { animation-delay: .32s; } .page-enter .content-grid > :nth-child(4) { animation-delay: .38s; }
+.page-enter .content-grid > :nth-child(n+5) { animation-delay: .44s; }
+
+/* Charts draw themselves */
+@keyframes draw-line { to { stroke-dashoffset: 0; } }
+@keyframes grow-up { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes grow-right { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+.page-enter .draw-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-line 1.3s cubic-bezier(.45,.05,.25,1) .35s forwards; }
+.page-enter rect.chart-mark { transform-box: fill-box; transform-origin: bottom; animation: grow-up .7s cubic-bezier(.2,.75,.25,1) .35s both; }
+.page-enter .rank-track span, .page-enter .pn-share i { transform-origin: left; animation: grow-right .8s cubic-bezier(.2,.75,.25,1) .4s both; }
+.page-enter .heatmap-cell { animation: pop-in .4s cubic-bezier(.2,.9,.3,1.3) both; }
+.page-enter .heatmap-table tr:nth-child(2n) .heatmap-cell { animation-delay: .45s; } .page-enter .heatmap-table tr:nth-child(2n+1) .heatmap-cell { animation-delay: .38s; }
+.page-enter .heatmap-table tr:nth-child(n+7) .heatmap-cell { animation-delay: .55s; }
+
+/* Hover: a light sweep crosses the card and its edge glows */
+.card::before { position: absolute; inset: 0; z-index: 2; content: ''; pointer-events: none; border-radius: inherit; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.09) 48%, transparent 60%); transform: translateX(-110%); transition: transform .9s cubic-bezier(.2,.75,.25,1); }
+.card:hover::before { transform: translateX(110%); }
+.card, .kpi-card { transition: box-shadow .3s ease, transform .3s ease, border-color .3s ease; }
+.card:hover, .kpi-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 1px rgba(108,185,238,.28), 0 0 34px rgba(108,185,238,.14), 0 22px 46px rgba(0,0,0,.4); }
+.kpi-card:hover { transform: translateY(-3px); }
+.kpi-label svg { transition: transform .35s cubic-bezier(.2,.9,.3,1.4), box-shadow .35s ease; }
+.kpi-card:hover .kpi-label svg { transform: scale(1.1) rotate(-6deg); box-shadow: inset 0 2px 0 rgba(255,255,255,.55), 0 0 22px rgba(108,185,238,.55); }
+.kpi-card.kpi-gold:hover .kpi-label svg { box-shadow: inset 0 2px 0 rgba(255,255,255,.55), 0 0 22px rgba(226,184,79,.6); }
+.kpi-card.kpi-teal:hover .kpi-label svg { box-shadow: inset 0 2px 0 rgba(255,255,255,.55), 0 0 22px rgba(88,194,184,.6); }
+
+/* Titles with a soft metallic gradient */
+.page-title { background: linear-gradient(95deg, #ffffff 0%, #d6ebf8 55%, #f1d58f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.kpi-value { text-shadow: 0 0 24px rgba(108,185,238,.22); }
+
+/* Navigation and controls glow */
+.nav-item.active { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 3px 0 #e2b84f, 0 0 22px rgba(226,184,79,.18), 0 8px 20px rgba(4,20,32,.32); }
+.nav-item svg { transition: transform .25s ease; }
+.nav-item:hover svg { transform: translateX(2px) scale(1.08); }
+.global-search:focus-within { background: rgba(255,255,255,.14); border-color: rgba(108,185,238,.6); box-shadow: 0 0 0 4px rgba(108,185,238,.18), 0 0 24px rgba(108,185,238,.25); }
+.button-primary:hover, .pn-btn-gold:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 24px rgba(42,138,208,.55), 0 10px 22px rgba(17,106,171,.4); }
+.pn-orb-core { animation: orb-breathe 5s ease-in-out infinite; }
+@keyframes orb-breathe { 50% { box-shadow: 0 0 0 10px rgba(17,106,171,.12), 0 0 46px rgba(42,138,208,.55), inset 0 -8px 16px rgba(0,0,0,.25), inset 0 6px 12px rgba(255,255,255,.4); } }
+.status-dot { animation: status-pulse 2.4s ease-in-out infinite; }
+@keyframes status-pulse { 50% { box-shadow: 0 0 0 6px rgba(113,178,141,0); } 0%, 100% { box-shadow: 0 0 0 0 rgba(113,178,141,.5); } }
+@media (max-width: 760px) { body::after { animation: none; } }
+.page-title, .hero-strip .page-title { text-shadow: none; filter: drop-shadow(0 2px 14px rgba(0,0,0,.3)); }

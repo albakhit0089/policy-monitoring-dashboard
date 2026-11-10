@@ -1,4 +1,4 @@
-import { CURRENCY, comparableItems, countryPriceSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261013";
+import { CURRENCY, comparableItems, countryPriceSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261014";
 
 export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];
@@ -25,7 +25,7 @@ function lineChart(selector, series, { height = 290, format = (value) => value, 
   series.forEach((entry) => {
     const dim = highlight && highlight !== entry.name;
     const group = svg.append("g").attr("opacity", dim ? .22 : 1);
-    group.append("path").datum(entry.points).attr("fill", "none").attr("stroke", entry.color).attr("stroke-width", dim ? 1.6 : 2.6).attr("d", d3.line().x(([year]) => x(year)).y(([, value]) => y(value)).curve(d3.curveMonotoneX));
+    group.append("path").datum(entry.points).attr("class", "draw-line").attr("pathLength", 1).attr("fill", "none").attr("stroke", entry.color).attr("stroke-width", dim ? 1.6 : 2.6).attr("d", d3.line().x(([year]) => x(year)).y(([, value]) => y(value)).curve(d3.curveMonotoneX));
     group.selectAll("circle").data(entry.points).join("circle").attr("cx", ([year]) => x(year)).attr("cy", ([, value]) => y(value)).attr("r", 3.6).attr("fill", "white").attr("stroke", entry.color).attr("stroke-width", 2)
       .append("title").text(([year, value]) => `${entry.name} · ${year}: ${format(value)}`);
   });
