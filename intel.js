@@ -1,8 +1,7 @@
-// Policy intelligence functions: the monthly brief, country benchmarking profiles and thematic comparison.
+// Policy intelligence: narrative monthly briefs, country and thematic reports, the Themes page and the Home story.
 // Everything here is derived from the policy record; wording flags patterns to investigate, not verdicts.
-import { APPROACHES, approachesOf, approachLabel, approachProfile } from "./policy-analysis.js?v=pi-20261018";
+import { APPROACHES, approachesOf, approachLabel, approachPhrase, approachProfile, examples } from "./policy-analysis.js?v=pi-20261018";
 import { CURRENCY, countryPriceSummary, dietSummary, formatLocal, perMonth } from "./food-analysis.js?v=pi-20261018";
-import { loadFoodIndicators } from "./data-service.js?v=pi-20261018";
 
 // ---------- policy instruments ----------
 // What kind of government action a measure is. Checked in priority order; the first match is the primary instrument.
@@ -48,19 +47,20 @@ export function significance(record) {
 }
 
 // ---------- small helpers ----------
-const num = (value) => Number(value).toLocaleString("en-GB");
 const pct = (value) => `${Math.round(value * 100)}%`;
 const short = (country) => country === "United Arab Emirates" ? "the UAE" : country;
-const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+const cap = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 const lower = (text) => text ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 const listJoin = (items) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
-const monthName = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+export const monthName = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 const shiftMonth = (key, by) => { const [y, m] = key.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + by, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 const sentence = (text, limit = 240) => { const first = String(text || "").split(/(?<=[.!?])\s+/)[0] || ""; return first.length > limit ? `${first.slice(0, limit - 1).replace(/\s+\S*$/, "")}…` : first; };
 const countBy = (rows, keyFn) => { const counts = new Map(); rows.forEach((row) => [].concat(keyFn(row)).forEach((key) => key && counts.set(key, (counts.get(key) || 0) + 1))); return [...counts.entries()].sort((a, b) => b[1] - a[1]); };
-const change = (value, base) => base ? (value - base) / base : null;
-const changeWords = (ratio) => ratio === null ? "" : Math.abs(ratio) < .1 ? "in line with" : `${Math.round(Math.abs(ratio) * 100)}% ${ratio > 0 ? "above" : "below"}`;
+const time = (record) => new Date(`${record.date}T00:00:00Z`).getTime();
+const YEAR = 365 * 864e5;
 const $ = (selector) => document.querySelector(selector);
+const paras = (...items) => items.flat().filter(Boolean).map((text) => `<p>${text}</p>`).join("");
+const bullets = (items) => items.length ? `<ul class="narrative-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul>` : "";
 
 function pickSpread(rows, count, spread = true) {
   const ranked = [...rows].sort((a, b) => significance(b) - significance(a) || (b.date || "").localeCompare(a.date || ""));
@@ -74,21 +74,63 @@ function pickSpread(rows, count, spread = true) {
   return picked.sort((a, b) => significance(b) - significance(a));
 }
 
-// ---------- shared export ----------
-function exportWord(ui, root, name) {
-  const documentHtml = `<!doctype html><html><head><meta charset="utf-8"><title>${ui.escapeHtml(name)}</title><style>body{font:11pt Calibri,Arial,sans-serif;color:#263b4a;line-height:1.55}h2{color:#153f59;font-size:20pt}h3{color:#153f59;font-size:14pt;margin-top:18pt}table{border-collapse:collapse;width:100%;margin:8pt 0}th,td{border:1px solid #cfd9e0;padding:4pt 6pt;font-size:9.5pt;text-align:left;vertical-align:top}th{background:#eef3f6}a{color:#116aab}.eyebrow{color:#8a5f17;font-size:9pt;letter-spacing:1px}.brief-tag{font-weight:bold;color:#8a5f17}.report-kpis div{display:inline-block;margin-right:14pt}</style></head><body>${root.innerHTML}</body></html>`;
-  ui.downloadBlob(new Blob([documentHtml], { type: "application/msword;charset=utf-8" }), `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.doc`);
+// Measures that best illustrate a policy area: strongest wording match, long-term frameworks, food relevance.
+function fit(rows, key, count, used = null) {
+  const pool = used ? rows.filter((record) => !used.has(record)) : rows;
+  const picks = examples(pool.length ? pool : rows, key, count);
+  const result = picks.length ? picks : pickSpread(pool.length ? pool : rows, count, false);
+  if (used) result.forEach((record) => used.add(record));
+  return result;
 }
-function printDocument(html) {
-  let holder = null;
-  if (!$("#generated-report")) { holder = document.createElement("div"); holder.id = "generated-report"; holder.className = "generated-report print-holder"; holder.innerHTML = html; document.body.append(holder); }
-  document.body.classList.add("printing-report");
-  window.print();
-  setTimeout(() => { document.body.classList.remove("printing-report"); holder?.remove(); }, 500);
+const onePerCountry = (rows) => rows.filter((record, i) => rows.findIndex((other) => other.country === record.country) === i);
+
+// ---------- narrative vocabulary ----------
+// Why each policy area matters for food security in the region, and what to follow up.
+const THEME_TEXT = {
+  production: { why: "Domestic production reduces exposure to import disruptions, but in water-scarce countries it has to be weighed against groundwater depletion and the cost of desalinated water.", watch: "whether new capacity suits local water limits, and whether announced projects reach operation" },
+  technology: { why: "Controlled-environment farming, improved varieties and smart irrigation are the region's main route to higher output under heat and water stress.", watch: "uptake by ordinary producers beyond pilot projects, and the cost of the technology compared with imports" },
+  water: { why: "Water is the binding constraint on agriculture across the Arabian Peninsula and in Yemen; how it is priced, allocated and saved decides which farming is viable.", watch: "enforcement of efficiency standards, controls on groundwater abstraction and the use of treated wastewater in agriculture" },
+  cooperation: { why: "Agreements extend food security beyond national borders through supply contracts, investment in farmland abroad and technical partnerships.", watch: "the volumes actually delivered and the investment actually made, which public reporting rarely follows up" },
+  supply: { why: "Strategic reserves, storage and logistics cushion the region against shipping disruptions and price shocks on world markets.", watch: "stock levels against targets, and how reserves are drawn on when shipping routes are disrupted" },
+  trade: { why: "As net food importers, these countries rely on trade for most of their food; trade measures shape both supply security and the incentives facing domestic producers.", watch: "import and export bans and their effect on prices at home and in neighbouring markets" },
+  markets: { why: "Measures on prices and markets act directly on what households pay for food.", watch: "whether price monitoring leads to enforcement, and how price controls affect supply" },
+  finance: { why: "Subsidies, credit and insurance lower the cost of producing and investing, and decide who can take part in new agricultural programmes.", watch: "who benefits, large agribusiness or smallholders, and the fiscal cost over time" },
+  climate: { why: "Soils, rangelands, mangroves and biodiversity determine whether production can be sustained as temperatures rise.", watch: "measurable targets such as restored land area, and coherence with plans to expand production" },
+  safety: { why: "Food safety controls carry particular weight where most food is imported, protecting consumers and access to export markets.", watch: "inspection results and recalls, and the consistency of standards across the region" },
+  livestock: { why: "Livestock and animal health shape local meat and dairy supply, which depends heavily on imported feed.", watch: "disease outbreaks, dependence on imported feed and restrictions on the live animal trade" },
+  fisheries: { why: "Fisheries and aquaculture provide protein and coastal livelihoods, and aquaculture is a growing area of investment.", watch: "stock protection such as seasonal fishing bans, and whether aquaculture expansion meets its targets" },
+  capacity: { why: "Training and extension decide whether new technologies and practices actually reach producers.", watch: "reach to smallholders and women farmers, and whether training is linked to programme uptake" },
+  social: { why: "These measures decide whether vulnerable households can afford and access food, not only whether food is available.", watch: "the coverage of food assistance in Yemen and the targeting of support as healthy-diet costs rise" },
+  governance: { why: "Laws, strategies and institutions set the long-term direction within which day-to-day decisions are taken.", watch: "the implementing regulations, budgets and progress reports that show a strategy is being carried out" },
+};
+const weightWords = (share) => share >= .35 ? "the dominant strand" : share >= .22 ? "a major strand" : share >= .12 ? "a significant strand" : share >= .05 ? "a secondary strand" : "a marginal strand";
+const activityWords = (ratio) => ratio >= 1.35 ? "an unusually busy month" : ratio >= 1.1 ? "a busier month than usual" : ratio > .9 ? "a typical month" : ratio > .7 ? "a quieter month than usual" : "an unusually quiet month";
+const activityShort = (ratio) => ratio >= 1.35 ? "Unusually busy" : ratio >= 1.1 ? "Busier than usual" : ratio > .9 ? "Typical" : ratio > .7 ? "Quieter than usual" : "Unusually quiet";
+const ratioWords = (ratio) => ratio >= 2 ? "far more intensively than" : "noticeably more than";
+const COUNTRY_TERMS = { "Saudi Arabia": /saudi|riyadh|jeddah|neom|kingdom|mewa/i, "United Arab Emirates": /emirat|\bUAE\b|abu dhabi|dubai|sharjah/i, Oman: /oman|muscat|dhofar|salalah|sohar/i, Qatar: /qatar|doha/i, Kuwait: /kuwait/i, Bahrain: /bahrain|manama/i, Yemen: /yemen|aden|sana|hodeidah|hadramout|taiz|marib/i };
+
+// One measure as a readable sentence that always names its country.
+function prose(ui, record, { limit = 240, date = true } = {}) {
+  let text = sentence(record.description, limit);
+  if (!COUNTRY_TERMS[record.country]?.test(text.slice(0, 110))) text = /^In\s/.test(text) ? `${cap(short(record.country))}: ${text}` : `In ${short(record.country)}, ${/^(The|A|An|According|As|Under|With|Following|After|During|Through|To)\s/.test(text) ? lower(text) : text}`;
+  return `${ui.escapeHtml(text)}${date ? ` <span class="report-date">(${ui.escapeHtml(ui.formatDate(record.date))})</span>` : ""}`;
 }
+// Recent and previous 12-month share of an area, to say whether it is gaining or losing attention.
+function trendOf(rows, key) {
+  const dated = rows.filter((record) => record.date);
+  if (dated.length < 30) return null;
+  const end = Math.max(...dated.map(time));
+  const recent = dated.filter((record) => time(record) > end - YEAR), previous = dated.filter((record) => time(record) <= end - YEAR && time(record) > end - 2 * YEAR);
+  if (recent.length < 12 || previous.length < 12) return null;
+  const share = (list) => list.filter((record) => approachesOf(record).includes(key)).length / list.length;
+  const ratio = share(previous) ? share(recent) / share(previous) : null;
+  return ratio === null ? null : ratio >= 1.25 ? "rising" : ratio <= .8 ? "falling" : "stable";
+}
+const trendWords = (trend) => trend === "rising" ? "and it has been gaining attention over the past year" : trend === "falling" ? "although it has received less attention over the past year" : trend === "stable" ? "and attention to it has been broadly stable over the past year" : "";
+const about = (text) => paras(text, "Policy areas and instruments are identified from the wording of each measure, so the analysis is indicative. Measures are short summaries of public reporting, not legal texts; check the original source before citing a decision.");
 
 // =====================================================================
-// Monthly policy intelligence brief
+// Monthly brief (narrative)
 // =====================================================================
 function monthStats(records, month, country) {
   const scoped = country === "all" ? records : records.filter((record) => record.country === country);
@@ -97,148 +139,82 @@ function monthStats(records, month, country) {
   const baselineMonths = [1, 2, 3, 4, 5, 6].map((i) => shiftMonth(month, -i));
   const baselineRows = baselineMonths.flatMap(inMonth);
   const available = baselineMonths.filter((key) => scoped.some((record) => record.date?.startsWith(key))).length || 1;
-  return { scoped, rows, previous: inMonth(shiftMonth(month, -1)), baselineRows, baselineAvg: baselineRows.length / available, available };
+  return { rows, baselineRows, baselineAvg: baselineRows.length / available, available };
 }
-
-function keyMessages(ui, s, month, country, records) {
-  const items = [];
-  const vs = change(s.rows.length, s.baselineAvg);
-  items.push(`<strong>${num(s.rows.length)} policy measures</strong> were recorded ${country === "all" ? "across the GCC States and Yemen" : `for ${short(country)}`} in ${monthName(month)}, ${changeWords(vs)} the average of the previous six months (${num(Math.round(s.baselineAvg))} a month).`);
-  if (country === "all") {
-    const ranked = countBy(s.rows, (record) => record.country);
-    if (ranked.length) {
-      const [top, count] = ranked[0];
-      const focus = approachProfile(s.rows.filter((record) => record.country === top)).filter((row) => row.count)[0];
-      items.push(`<strong>${cap(short(top))} was the most active country</strong> with ${num(count)} measures (${pct(count / s.rows.length)} of the month)${focus ? `, focused mainly on ${lower(focus.label)}` : ""}.${ranked[1] ? ` ${cap(short(ranked[1][0]))} followed with ${num(ranked[1][1])}.` : ""}`);
-    }
-  }
-  const inst = Object.fromEntries(countBy(s.rows, (record) => instrumentsOf(record).keys));
-  const parts = [["legislation", "law or regulation", "laws or regulations"], ["strategy", "strategy or plan", "strategies or plans"], ["investment", "investment or financing announcement", "investment or financing announcements"], ["agreement", "agreement", "agreements"]].filter(([key]) => inst[key]).map(([key, one, many]) => `${num(inst[key])} ${inst[key] === 1 ? one : many}`);
-  if (parts.length) {
-    const biggest = s.rows.filter((record) => instrumentsOf(record).amount).sort((a, b) => significance(b) - significance(a))[0];
-    items.push(`<strong>By instrument</strong>, the month brought ${listJoin(parts)}.${biggest ? ` The largest stated commitment: ${short(biggest.country)}, ${ui.escapeHtml(instrumentsOf(biggest).amount)} (${ui.escapeHtml(sentence(biggest.description, 140))}).` : ""}`);
-  }
-  // Themes that drew clearly more attention than usual
-  const now = Object.fromEntries(approachProfile(s.rows).map((row) => [row.key, row.count]));
-  const before = Object.fromEntries(approachProfile(s.baselineRows).map((row) => [row.key, row.count / s.available]));
-  const rising = APPROACHES.map((item) => ({ key: item.key, now: now[item.key] || 0, avg: before[item.key] || 0 })).filter((row) => row.now >= 3 && row.now >= row.avg * 1.5 + 1).sort((a, b) => (b.now - b.avg) - (a.now - a.avg)).slice(0, 2);
-  if (rising.length) items.push(`<strong>Rising attention</strong> to ${listJoin(rising.map((row) => `${lower(approachLabel(row.key))} (${num(row.now)} measures against a usual ${row.avg.toFixed(1)})`))}.`);
-  const restrictions = s.rows.filter(restrictionOf);
-  if (restrictions.length) items.push(`<strong>Trade restrictions:</strong> ${num(restrictions.length)} measure${restrictions.length === 1 ? "" : "s"} ban, suspend or restrict trade flows (${listJoin([...new Set(restrictions.map((record) => short(record.country)))])}). See watch points.`);
-  if (country === "all") {
-    const quiet = ui.COUNTRIES.filter((name) => !s.rows.some((record) => record.country === name));
-    if (quiet.length) items.push(`<strong>No measures were recorded</strong> for ${listJoin(quiet.map(short))} this month. This more likely reflects public reporting coverage than an absence of policy activity.`);
-  }
-  return items;
-}
-
-function developmentItem(ui, record) {
-  const info = instrumentsOf(record);
-  const href = ui.safeUrl(record.source);
-  return `<article class="brief-item"><div class="brief-item-head"><span class="brief-tag tag-${info.primary}">${instrumentShort(info.primary)}</span><strong>${ui.escapeHtml(record.country)}</strong><span>${ui.escapeHtml(ui.formatDate(record.date))}</span>${info.amount ? `<span class="brief-amount">${ui.escapeHtml(info.amount)}</span>` : ""}</div><p>${ui.escapeHtml(sentence(record.description, 320))}</p><div class="brief-item-foot"><span>${ui.escapeHtml(record.domain)}</span>${record.institution ? `<span>${ui.escapeHtml(record.institution)}</span>` : ""}${href ? `<a href="${ui.escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Source</a>` : ""}</div></article>`;
-}
-
-function watchPoints(ui, s, country) {
-  const items = [];
-  const restrictions = s.rows.filter(restrictionOf);
-  restrictions.slice(0, 3).forEach((record) => items.push(`<strong>Trade restriction, ${ui.escapeHtml(short(record.country))}:</strong> ${ui.escapeHtml(sentence(restrictionOf(record), 220))} Check the effect on regional supply and prices.`));
-  const consumer = s.rows.filter((record) => approachesOf(record).some((key) => key === "markets" || key === "social"));
-  const share = s.rows.length ? consumer.length / s.rows.length : 0;
-  items.push(share < .12
-    ? `<strong>Consumer affordability:</strong> only ${num(consumer.length)} of ${num(s.rows.length)} measures (${pct(share)}) act on prices, markets or support to vulnerable households. With healthy-diet costs rising across the region, this is worth tracking.`
-    : `<strong>Consumer affordability:</strong> ${num(consumer.length)} measures (${pct(share)}) act on prices, markets or support to vulnerable households. Follow whether they are implemented and reach consumers.`);
-  if (country === "all") {
-    ui.COUNTRIES.forEach((name) => {
-      const now = s.rows.filter((record) => record.country === name).length;
-      const avg = s.baselineRows.filter((record) => record.country === name).length / s.available;
-      if (avg >= 5 && now >= avg * 1.6) items.push(`<strong>${cap(short(name))} activity surge:</strong> ${num(now)} measures against a usual ${avg.toFixed(0)} a month. Look for a policy push or a triggering event.`);
-      else if (avg >= 5 && now <= avg * .45) items.push(`<strong>${cap(short(name))} activity drop:</strong> ${num(now)} measures against a usual ${avg.toFixed(0)} a month. Check whether reporting coverage changed.`);
-    });
-  }
-  const frameworks = s.rows.filter((record) => ["legislation", "strategy"].includes(instrumentsOf(record).primary));
-  if (frameworks.length) items.push(`<strong>Implementation follow-up:</strong> ${num(frameworks.length)} new law${frameworks.length === 1 ? "" : "s"}, strategies or plans were recorded. Track the implementing decisions, budgets and results that should follow in the coming months.`);
-  return items;
-}
-
-function briefDocument(ui, state) {
-  const { month, country } = state.brief;
-  const s = monthStats(state.records, month, country);
-  const scopeName = country === "all" ? "GCC States & Yemen" : country;
-  const inst = Object.fromEntries(countBy(s.rows, (record) => instrumentsOf(record).keys));
-  const vs = change(s.rows.length, s.baselineAvg);
-  const kpis = [
-    ["Measures", num(s.rows.length)],
-    ["vs 6-month average", vs === null ? "n/a" : `${vs > 0 ? "+" : ""}${Math.round(vs * 100)}%`],
-    ["Laws, strategies & plans", num(s.rows.filter((record) => ["legislation", "strategy"].some((key) => instrumentsOf(record).keys.includes(key))).length)],
-    ["Investments announced", num(inst.investment || 0)],
-  ];
-  const developments = pickSpread(s.rows, 6, country === "all");
-  const instrumentSections = ["legislation", "strategy", "investment", "agreement", "enforcement", "programme"].map((key) => {
-    const all = s.rows.filter((record) => instrumentsOf(record).primary === key);
-    const rows = all.filter((record) => !developments.includes(record));
-    if (!rows.length) return "";
-    const top = pickSpread(rows, 4, country === "all");
-    return `<h4>${instrumentLabel(key)} <span class="brief-count">${num(all.length)}</span></h4><ul class="narrative-list">${top.map((record) => `<li><strong>${ui.escapeHtml(cap(short(record.country)))}</strong> (${ui.escapeHtml(ui.formatDate(record.date))}): ${ui.escapeHtml(sentence(record.description, 200))}</li>`).join("")}</ul>${rows.length > top.length ? `<p class="report-note">Plus ${num(rows.length - top.length)} more in the Policy Records page.</p>` : ""}`;
-  }).join("");
-  const snapshot = country === "all" ? `<section><h3>4. Country snapshot</h3><div class="report-table-wrap"><table><thead><tr><th>Country</th><th>Measures</th><th>vs 6-month average</th><th>Main focus</th><th>Headline measure</th></tr></thead><tbody>${ui.COUNTRIES.map((name) => {
-    const rows = s.rows.filter((record) => record.country === name);
-    const avg = s.baselineRows.filter((record) => record.country === name).length / s.available;
-    const ratio = change(rows.length, avg);
-    const focus = approachProfile(rows).filter((row) => row.count)[0];
-    const headline = pickSpread(rows, 1, false)[0];
-    return `<tr><td><strong>${ui.escapeHtml(name)}</strong></td><td>${num(rows.length)}</td><td>${avg < 3 ? `low base (usually ${avg.toFixed(1)})` : `${ratio > 0 ? "+" : ""}${Math.round(ratio * 100)}%`}</td><td>${focus ? ui.escapeHtml(focus.label) : "–"}</td><td>${headline ? ui.escapeHtml(sentence(headline.description, 130)) : "No measures recorded"}</td></tr>`;
-  }).join("")}</tbody></table></div></section>` : "";
-  const n = country === "all" ? 5 : 4;
-  return `<div class="report-document brief-document"><header class="report-cover"><div class="eyebrow">MONTHLY POLICY INTELLIGENCE BRIEF</div><h2>${monthName(month)}: ${ui.escapeHtml(scopeName)}</h2><p class="report-meta">Food and agriculture policy developments · ${num(s.rows.length)} measures · prepared ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p><div class="report-kpis">${kpis.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("")}</div></header>
-  ${s.rows.length ? `<section><h3>1. Key messages</h3><ul class="narrative-list">${keyMessages(ui, s, month, country, state.records).map((item) => `<li>${item}</li>`).join("")}</ul></section>
-  <section><h3>2. Key developments</h3><p>The most significant measures of the month, ranked by instrument (laws, strategies and large investments first)${country === "all" ? " and spread across countries" : ""}.</p><div class="brief-items">${developments.map((record) => developmentItem(ui, record)).join("")}</div></section>
-  <section><h3>3. Other developments by instrument</h3><p class="report-note">Each measure is listed once, under its main instrument; measures shown above are not repeated.</p>${instrumentSections || "<p>No further measures this month.</p>"}</section>
-  ${snapshot}
-  <section><h3>${n}. Watch points</h3><ul class="narrative-list">${watchPoints(ui, s, country).map((item) => `<li>${item}</li>`).join("")}</ul></section>` : `<section><h3>No measures recorded</h3><p>No policy measures were recorded for this scope in ${monthName(month)}.</p></section>`}
-  <section><h3>${n + 1}. About this brief</h3><p>Generated from the monitored policy record. Instruments (law, strategy, investment, agreement, programme, event) and policy approaches are identified from the wording of each measure, so they are indicative. Significance ranks binding and strategic instruments and large stated sums first. Comparisons use the average of the previous six months. Always check the original source before citing a measure.</p></section></div>`;
-}
-
 export function briefMonths(records) {
   return [...new Set(records.map((record) => record.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
 }
 
-export function renderBriefPage(ui) {
-  const { state, escapeHtml } = ui;
-  const months = briefMonths(state.records);
-  state.brief ||= { month: months[0], country: "all" };
-  const b = state.brief;
-  $("#page-content").innerHTML = `${ui.heading("Monthly policy brief", "What governments decided this month, the most significant measures, and what to watch next. Choose a month and scope; download it to share.", "POLICY INTELLIGENCE")}
-  <div class="content-grid"><section class="card span-12 report-builder"><div class="card-body"><div class="report-form report-form-wide">
-    <label>Month<select id="brief-month">${months.map((key) => `<option value="${key}" ${key === b.month ? "selected" : ""}>${monthName(key)}</option>`).join("")}</select></label>
-    <label>Scope<select id="brief-country"><option value="all">All countries</option>${ui.COUNTRIES.map((name) => `<option ${name === b.country ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label>
-    <div class="report-actions brief-actions"><button class="button button-outline" id="brief-prev">${ui.icon("chevron-left")}Previous month</button><button class="button button-outline" id="brief-print">${ui.icon("printer")}Print / Save PDF</button><button class="button button-outline" id="brief-word">${ui.icon("file-text")}Word</button><button class="button button-outline" id="brief-copy">${ui.icon("copy")}Copy text</button></div>
-  </div></div></section>
-  <section class="card span-12"><div class="card-body"><article class="generated-report" id="generated-report" aria-live="polite">${briefDocument(ui, state)}</article></div></section></div>`;
-  $("#brief-month").addEventListener("change", (event) => { b.month = event.target.value; renderBriefPage(ui); });
-  $("#brief-country").addEventListener("change", (event) => { b.country = event.target.value; renderBriefPage(ui); });
-  const index = months.indexOf(b.month);
-  $("#brief-prev").disabled = index >= months.length - 1;
-  $("#brief-prev").addEventListener("click", () => { b.month = months[index + 1]; renderBriefPage(ui); });
-  $("#brief-print").addEventListener("click", () => printDocument());
-  $("#brief-word").addEventListener("click", () => exportWord(ui, $("#generated-report"), `policy-brief-${b.month}-${b.country}`));
-  $("#brief-copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#generated-report").innerText); ui.showToast("Brief copied."); } catch { ui.showToast("Clipboard access is unavailable.", "error"); } });
-  ui.refreshIcons();
+function monthSummary(ui, records, month, country) {
+  const s = monthStats(records, month, country);
+  const region = country === "all";
+  const scope = region ? "the GCC States and Yemen" : short(country);
+  if (!s.rows.length) return { s, empty: true, scope };
+  const profile = approachProfile(s.rows).filter((row) => row.count);
+  const base = Object.fromEntries(approachProfile(s.baselineRows).map((row) => [row.key, row.count / s.available]));
+  const rising = profile.filter((row) => row.count >= 3 && row.count >= (base[row.key] || 0) * 1.5 + 1).sort((a, b) => (b.count - (base[b.key] || 0)) - (a.count - (base[a.key] || 0)));
+  const ratio = s.baselineAvg ? s.rows.length / s.baselineAvg : 1;
+  const leaders = countBy(s.rows, (record) => record.country);
+  const top = profile.slice(0, 2);
+  const risingNew = rising.find((row) => !top.some((item) => item.key === row.key));
+  let lead = `${monthName(month)} was ${activityWords(ratio)} for food and agriculture policy in ${scope}. Policy centred on ${lower(top[0].label)}${top[1] ? `, followed by ${lower(top[1].label)}` : ""}${risingNew ? `, with clearly growing attention to ${lower(risingNew.label)}` : ""}.`;
+  if (region && leaders.length > 1) lead += leaders[0][1] / s.rows.length >= .4 ? ` ${cap(short(leaders[0][0]))} accounted for much of the activity, followed by ${short(leaders[1][0])}.` : ` ${cap(short(leaders[0][0]))} and ${short(leaders[1][0])} were the most active.`;
+  return { s, scope, region, profile, rising, ratio, leaders, lead, key: pickSpread(s.rows, 3, region) };
 }
 
-// Compact pointer to the latest brief for the overview page.
-export function briefTeaser(ui) {
-  const month = briefMonths(ui.state.records)[0];
-  if (!month) return "";
-  const s = monthStats(ui.state.records, month, "all");
-  const vs = change(s.rows.length, s.baselineAvg);
-  const laws = s.rows.filter((record) => ["legislation", "strategy"].some((key) => instrumentsOf(record).keys.includes(key))).length;
-  const investments = s.rows.filter((record) => instrumentsOf(record).keys.includes("investment")).length;
-  const top = pickSpread(s.rows, 1, false)[0];
-  return `<section class="brief-teaser"><div class="brief-teaser-main"><div class="eyebrow">LATEST BRIEF · ${monthName(month).toUpperCase()}</div><p><strong>${num(s.rows.length)} measures</strong>${vs === null ? "" : ` (${changeWords(vs)} the 6-month average)`} · <strong>${num(laws)}</strong> laws, strategies or plans · <strong>${num(investments)}</strong> investment announcements${top ? `. Headline: ${ui.escapeHtml(short(top.country))}, ${ui.escapeHtml(sentence(top.description, 150))}` : ""}</p></div><button class="button button-gold" type="button" data-nav-to="brief">${ui.icon("newspaper")}Read the brief</button></section>`;
+export function monthlyReport(ui, records, { month, country = "all" }) {
+  const m = monthSummary(ui, records, month, country);
+  const subtitle = `${country === "all" ? "GCC States & Yemen" : country} · ${monthName(month)}`;
+  if (m.empty) return { title: "Monthly policy brief", subtitle, sections: [["Summary", paras(`No food and agriculture policy developments were recorded for ${m.scope} in ${monthName(month)}. This most likely reflects gaps in public reporting rather than an absence of policy activity.`), ""]] };
+  const { s, region, profile, rising, ratio, leaders } = m;
+  const used = new Set(m.key);
+  const developments = profile.filter((row) => row.count >= 2).slice(0, 3).map((row, i) => {
+    const pool = row.rows.filter((record) => !used.has(record));
+    const picks = fit(row.rows, row.key, 2, used);
+    const actors = [...new Set(row.rows.map((record) => record.country))];
+    const role = i === 0 ? "was the leading theme of the month" : rising.some((item) => item.key === row.key) ? "drew more attention than usual" : "was also prominent";
+    return `<h4>${ui.escapeHtml(row.label)}</h4>${paras(`${cap(approachPhrase(row.key))} ${role}${region && actors.length > 1 ? `, with action in ${listJoin(actors.map(short))}` : ""}. ${picks.map((record) => prose(ui, record)).join(" ")}`)}<p class="report-why"><strong>Why it matters.</strong> ${THEME_TEXT[row.key].why}</p>`;
+  }).join("");
+  const countryNotes = region ? (() => {
+    const active = ui.COUNTRIES.filter((name) => s.rows.some((record) => record.country === name));
+    const quiet = ui.COUNTRIES.filter((name) => !active.includes(name));
+    const notes = active.map((name) => {
+      const rows = s.rows.filter((record) => record.country === name);
+      const focus = approachProfile(rows).filter((row) => row.count)[0];
+      const avg = s.baselineRows.filter((record) => record.country === name).length / s.available;
+      const pace = avg >= 4 ? (rows.length >= avg * 1.5 ? " Activity was well above its usual level." : rows.length <= avg * .5 ? " Activity was well below its usual level." : "") : "";
+      const headline = pickSpread(rows.filter((record) => !m.key.includes(record)), 1, false)[0] || rows[0];
+      return `<p><strong>${ui.escapeHtml(name)}.</strong> ${focus ? `Activity centred on ${lower(focus.label)}.` : ""}${pace} ${prose(ui, headline)}</p>`;
+    }).join("");
+    return notes + (quiet.length ? paras(`No developments were recorded for ${listJoin(quiet.map(short))} this month, which most likely reflects reporting coverage rather than an absence of policy.`) : "");
+  })() : (() => {
+    const regionRows = monthStats(records, month, "all").rows.filter((record) => record.country !== country);
+    const own = approachProfile(s.rows), others = Object.fromEntries(approachProfile(regionRows).map((row) => [row.key, row.share]));
+    const distinct = own.filter((row) => row.count >= 2 && others[row.key] !== undefined && row.share >= (others[row.key] || .01) * 1.5).slice(0, 2);
+    return paras(distinct.length ? `Compared with the rest of the region this month, ${short(country)} put more emphasis on ${listJoin(distinct.map((row) => lower(row.label)))}.` : `${cap(short(country))}'s priorities this month broadly followed the regional pattern.`);
+  })();
+  const watch = [];
+  onePerCountry(s.rows.filter(restrictionOf)).slice(0, 2).forEach((record) => watch.push(`<strong>Trade restriction in ${ui.escapeHtml(short(record.country))}.</strong> ${ui.escapeHtml(sentence(restrictionOf(record), 220))} Its effect on prices and on supply to neighbouring markets is worth following.`));
+  s.rows.filter((record) => ["legislation", "strategy"].includes(instrumentsOf(record).primary)).slice(0, 2).forEach((record) => watch.push(`<strong>Implementation.</strong> ${prose(ui, record, { limit: 180 })} The implementing decisions, budget and first results will show whether it changes practice.`));
+  const consumer = s.rows.filter((record) => approachesOf(record).some((key) => key === "markets" || key === "social")).length / s.rows.length;
+  if (consumer < .12) watch.push(`<strong>Affordability.</strong> Few of the month's measures act on food prices or on support to vulnerable households, while the cost of a healthy diet keeps rising across the region. This remains the thinnest strand of policy.`);
+  if (rising[0]) watch.push(`<strong>${ui.escapeHtml(rising[0].label)}.</strong> Attention to this area rose this month. Follow ${THEME_TEXT[rising[0].key].watch}.`);
+  if (region) leaders.filter(([name, count]) => { const avg = s.baselineRows.filter((record) => record.country === name).length / s.available; return avg >= 5 && count >= avg * 1.6; }).slice(0, 1).forEach(([name]) => watch.push(`<strong>${ui.escapeHtml(cap(short(name)))}.</strong> Policy activity was well above its usual level. It is worth checking whether a policy push or a specific event lies behind it.`));
+  return {
+    title: "Monthly policy brief", subtitle,
+    highlights: [["Activity", activityShort(ratio)], ["Leading theme", profile[0].label], [region ? "Most active" : "Second theme", region ? leaders[0][0] : profile[1]?.label || "–"], ["Rising", rising[0]?.label || "No marked shift"]],
+    sections: [
+      ["Summary", `${paras(m.lead, "Three decisions stand out:")}${bullets(m.key.map((record) => prose(ui, record, { limit: 260 })))}`, ""],
+      ["Main developments", developments, ""],
+      [region ? "Country notes" : "In regional context", countryNotes, ""],
+      ["What to watch", bullets(watch), ""],
+      ["About this brief", about(`This brief covers measures dated ${monthName(month)}, compared with the previous six months. Decisions are ranked by their instrument, with laws, strategies and large stated investments first.`), ""],
+    ],
+  };
 }
 
 // =====================================================================
-// Country profile and benchmarking
+// Country report (narrative) and profile cards
 // =====================================================================
 export function benchmark(countryRows, peerRows) {
   const peers = Object.fromEntries(approachProfile(peerRows).map((row) => [row.key, row]));
@@ -249,109 +225,177 @@ export function benchmark(countryRows, peerRows) {
     return { ...row, peer, ratio, status };
   });
 }
-
-// For a theme the country under-represents, the peer that leads it and an example worth studying.
+// For an area a country under-represents, the peer that gives it most weight and an example worth studying.
 function learningFrom(peerRows, key) {
-  const byCountry = countBy(peerRows, (record) => record.country).map(([country, total]) => {
+  const leader = countBy(peerRows, (record) => record.country).map(([country, total]) => {
     const rows = peerRows.filter((record) => record.country === country && approachesOf(record).includes(key));
     return { country, total, rows, share: rows.length / total };
-  }).filter((row) => row.rows.length >= 5).sort((a, b) => b.share - a.share);
-  const leader = byCountry[0];
-  if (!leader) return null;
-  return { ...leader, example: pickSpread(leader.rows, 1, false)[0] };
+  }).filter((row) => row.rows.length >= 5).sort((a, b) => b.share - a.share)[0];
+  return leader ? { ...leader, example: fit(leader.rows, key, 1)[0] } : null;
 }
-
-function profileNarrative(ui, country, rows, peers, bench) {
-  const all = [...rows, ...peers];
-  const frameworks = rows.filter((record) => record.type === "framework").length;
-  const dated = rows.filter((record) => record.date).map((record) => record.date).sort();
-  const end = dated.length ? new Date(`${dated.at(-1)}T00:00:00Z`).getTime() : 0;
-  const t = (record) => new Date(`${record.date}T00:00:00Z`).getTime();
-  const recent = rows.filter((record) => record.date && t(record) > end - 365 * 864e5).length;
-  const previous = rows.filter((record) => record.date && t(record) <= end - 365 * 864e5 && t(record) > end - 730 * 864e5).length;
-  const top = bench.filter((row) => row.count).slice(0, 3);
-  const strengths = bench.filter((row) => row.status === "strength").sort((a, b) => b.ratio - a.ratio).slice(0, 3);
-  const gaps = bench.filter((row) => row.status === "gap").sort((a, b) => b.peer - a.peer).slice(0, 3);
-  const inst = countBy(rows, (record) => instrumentsOf(record).keys);
-  const instText = listJoin(["legislation", "strategy", "investment", "agreement", "programme"].map((key) => [key, inst.find(([k]) => k === key)?.[1] || 0]).filter(([, count]) => count).map(([key, count]) => `${num(count)} ${NOUNS[key][count === 1 ? 0 : 1]}`));
-  const trend = previous ? (recent > previous * 1.1 ? `rising (${num(recent)} measures in the latest 12 months against ${num(previous)} the year before)` : recent < previous * .9 ? `slowing (${num(recent)} measures in the latest 12 months against ${num(previous)} the year before)` : `steady (${num(recent)} measures in the latest 12 months)`) : "";
-  return [
-    `${cap(short(country))} has <strong>${num(rows.length)} recorded food and agriculture policy measures</strong> in the current selection, ${pct(rows.length / (all.length || 1))} of the regional record${dated.length ? `, from ${ui.formatDate(dated[0])} to ${ui.formatDate(dated.at(-1))}` : ""}. ${frameworks ? `${num(frameworks)} are long-term frameworks.` : "All are short-term decisions."}${trend ? ` Activity is ${trend}.` : ""}`,
-    top.length ? `Its policy concentrates on ${listJoin(top.map((row) => `${lower(row.label)} (${pct(row.share)} of measures)`))}.${strengths.length ? ` Compared with its regional peers it stands out for ${listJoin(strengths.map((row) => `${lower(row.label)} (${row.ratio.toFixed(1)}× the peer share)`))}.` : ""}` : "",
-    gaps.length ? `Areas that are comparatively thin and worth investigating: ${listJoin(gaps.map((row) => `${lower(row.label)} (${pct(row.share)} against ${pct(row.peer)} among peers)`))}. A low share can reflect a genuine policy gap, a different national priority, or limited public reporting.` : "No policy area is markedly under-represented compared with regional peers.",
-    instText ? `By instrument, the record includes ${instText}.` : "",
-  ].filter(Boolean);
-}
-
-function foodContext(ui, food, country) {
+function foodContext(food, country) {
   const diet = dietSummary(food).rows.find((row) => row.country === country && row.latest !== undefined);
   const prices = countryPriceSummary(food).find((row) => row.country === country);
   const parts = [];
-  if (diet) parts.push(`A healthy diet cost <strong>${formatLocal(perMonth(diet.lcuLatest), country, { digits: ["BHD", "KWD", "OMR"].includes(CURRENCY[country]) ? 1 : 0 })}</strong> per person per month in ${diet.latestYear}, ${diet.lcuChange >= 0 ? "up" : "down"} ${Math.abs(Math.round(diet.lcuChange))}% since ${diet.firstYear} in local currency.${diet.puaLatest ? ` ${Number(diet.puaLatest.value).toFixed(1)}% of people could not afford it (${diet.puaLatest.year}).` : ""}`);
-  else parts.push("FAO and the World Bank do not publish a healthy diet cost estimate for this country.");
-  if (prices?.medianChange !== null && prices?.medianChange !== undefined) parts.push(`Prices received by farmers rose by a median ${Math.round(prices.medianChange)}% across ${num(prices.assessed)} commodities between ${prices.firstYear} and ${prices.latestYear}.`);
+  if (diet) parts.push(`A healthy diet cost about ${formatLocal(perMonth(diet.lcuLatest), country, { digits: ["BHD", "KWD", "OMR"].includes(CURRENCY[country]) ? 1 : 0 })} per person per month in ${diet.latestYear}, ${diet.lcuChange >= 0 ? "up" : "down"} ${Math.abs(Math.round(diet.lcuChange))}% since ${diet.firstYear} in local currency.${diet.puaLatest ? ` ${Number(diet.puaLatest.value).toFixed(1)}% of people could not afford it in ${diet.puaLatest.year}.` : ""}`);
+  else parts.push("FAO and the World Bank do not publish an estimate of the cost of a healthy diet for this country, so affordability cannot be tracked from these sources.");
+  if (prices?.medianChange !== null && prices?.medianChange !== undefined) parts.push(`Prices received by farmers ${prices.medianChange >= 0 ? "rose" : "fell"} by a median ${Math.abs(Math.round(prices.medianChange))}% between ${prices.firstYear} and ${prices.latestYear}.`);
   else parts.push("Producer prices are not reported to FAOSTAT for this country.");
-  return parts;
+  return parts.join(" ");
+}
+
+function countryAnalysis(rows, peers) {
+  const bench = benchmark(rows, peers);
+  const dated = rows.filter((record) => record.date);
+  const end = dated.length ? Math.max(...dated.map(time)) : 0;
+  const recent = dated.filter((record) => time(record) > end - YEAR).length, previous = dated.filter((record) => time(record) <= end - YEAR && time(record) > end - 2 * YEAR).length;
+  return {
+    bench, end,
+    top: bench.filter((row) => row.count).slice(0, 3),
+    strengths: bench.filter((row) => row.status === "strength").sort((a, b) => b.ratio - a.ratio).slice(0, 2),
+    gaps: bench.filter((row) => row.status === "gap").sort((a, b) => b.peer - a.peer).slice(0, 3),
+    pace: previous >= 10 ? (recent > previous * 1.15 ? "picked up" : recent < previous * .85 ? "slowed" : "held steady") : null,
+    rising: bench.filter((row) => row.count >= 6 && trendOf(rows, row.key) === "rising").slice(0, 1),
+  };
+}
+function countrySummaryText(country, a) {
+  const name = cap(short(country));
+  if (!a.top.length) return [`No measures are recorded for ${short(country)} in the current selection.`];
+  return [
+    `${name}'s food and agriculture policy is oriented above all towards ${listJoin(a.top.slice(0, 2).map((row) => approachPhrase(row.key)))}.${a.strengths.length ? ` It stands out in the region for ${listJoin(a.strengths.map((row) => lower(row.label)))}, which it pursues ${ratioWords(a.strengths[0].ratio)} its neighbours.` : ""}${a.gaps.length ? ` By contrast, ${listJoin(a.gaps.map((row) => lower(row.label)))} ${a.gaps.length > 1 ? "receive" : "receives"} comparatively little attention.` : ""}`,
+    a.pace ? `Policy activity has ${a.pace} over the past year${a.rising.length ? `, with attention moving towards ${lower(a.rising[0].label)}` : ""}.` : "",
+  ].filter(Boolean);
+}
+
+export function countryReport(ui, records, country, food) {
+  const rows = records.filter((record) => record.country === country), peers = records.filter((record) => record.country !== country);
+  const a = countryAnalysis(rows, peers);
+  if (!rows.length) return { title: "Country policy report", subtitle: country, sections: [["Summary", paras(`No measures are recorded for ${short(country)} in this scope.`), ""]] };
+  const used = new Set();
+  const direction = a.top.map((row) => {
+    const picks = fit(row.rows, row.key, 2, used);
+    return `<h4>${ui.escapeHtml(row.label)}</h4>${paras(`This is ${weightWords(row.share)} of ${short(country)}'s policy${row.status === "strength" ? ", and one in which it leads the region" : ""}. ${picks.map((record) => prose(ui, record)).join(" ")}`)}<p class="report-why"><strong>Why it matters.</strong> ${THEME_TEXT[row.key].why}</p>`;
+  }).join("");
+  const lessons = a.gaps.map((row) => ({ row, from: learningFrom(peers, row.key) })).filter((item) => item.from?.example);
+  const compare = paras(
+    a.strengths.length ? `${cap(short(country))}'s most distinctive commitments are to ${listJoin(a.strengths.map((row) => lower(row.label)))}. ${THEME_TEXT[a.strengths[0].key].why}` : `${cap(short(country))}'s policy mix broadly follows the regional pattern, without an area it pursues markedly more than its neighbours.`,
+    a.gaps.length ? `Areas that receive comparatively little attention are ${listJoin(a.gaps.map((row) => lower(row.label)))}. A thin area can reflect a genuine gap, a different national priority or limited public reporting, so each deserves a closer look rather than a conclusion.` : "",
+    ...lessons.map(({ row, from }) => `On ${lower(row.label)}, ${short(from.country)} offers the clearest regional reference. ${prose(ui, from.example)}`),
+  );
+  const recentRows = rows.filter((record) => record.date && time(record) > a.end - YEAR);
+  const decisions = pickSpread(recentRows.length ? recentRows : rows, 5, false);
+  const watch = [
+    ...recentRows.filter((record) => ["legislation", "strategy"].includes(instrumentsOf(record).primary)).sort((x, y) => y.date.localeCompare(x.date)).slice(0, 2).map((record) => `<strong>Implementation.</strong> ${prose(ui, record, { limit: 180 })} Watch for the implementing decisions, budget and results.`),
+    ...recentRows.filter(restrictionOf).slice(0, 1).map((record) => `<strong>Trade restriction.</strong> ${ui.escapeHtml(sentence(restrictionOf(record), 200))} Its effect on prices and supply is worth following.`),
+    ...a.top.slice(0, 1).map((row) => `<strong>${ui.escapeHtml(row.label)}.</strong> As the main strand of policy, follow ${THEME_TEXT[row.key].watch}.`),
+    ...a.gaps.slice(0, 1).map((row) => `<strong>${ui.escapeHtml(row.label)}.</strong> Check whether the limited attention reflects policy or reporting, and follow ${THEME_TEXT[row.key].watch}.`),
+  ];
+  return {
+    title: "Country policy report", subtitle: country,
+    highlights: [["Main focus", a.top[0]?.label || "–"], ["Distinctive in region", a.strengths[0]?.label || "None marked"], ["Thin area", a.gaps[0]?.label || "None marked"], ["Activity trend", a.pace ? cap(a.pace) : "–"]],
+    sections: [
+      ["Summary", paras(countrySummaryText(country, a)), ""],
+      ["Policy direction", direction, ""],
+      ["How it compares with the region", compare, ""],
+      ["Food security context", paras(food ? foodContext(food, country) : "Food indicators are loading."), ""],
+      ["Recent significant decisions", bullets(decisions.map((record) => prose(ui, record, { limit: 240 }))), ""],
+      ["What to watch", bullets(watch), ""],
+      ["About this report", about("The country is compared with the other six countries under the same scope. An area is described as distinctive when its share of measures is at least 1.3 times the peer share, and as comparatively thin when it is below 60% of a peer share of 6% or more."), ""],
+    ],
+  };
 }
 
 export function profileCards(ui, country, rows, peers) {
-  const bench = benchmark(rows, peers);
-  const narrative = profileNarrative(ui, country, rows, peers, bench);
-  const shown = bench.filter((row) => row.count || row.peer >= .04).slice(0, 12).sort((a, b) => Math.max(b.share, b.peer) - Math.max(a.share, a.peer));
+  const a = countryAnalysis(rows, peers);
+  const shown = a.bench.filter((row) => row.count || row.peer >= .04).slice(0, 12).sort((x, y) => Math.max(y.share, y.peer) - Math.max(x.share, x.peer));
   const max = Math.max(.01, ...shown.map((row) => Math.max(row.share, row.peer)));
-  const chip = (status) => status === "strength" ? `<span class="bench-chip chip-strength">Distinctive</span>` : status === "gap" ? `<span class="bench-chip chip-gap">Worth investigating</span>` : "";
+  const chip = (status) => status === "strength" ? `<span class="bench-chip chip-strength">Distinctive</span>` : status === "gap" ? `<span class="bench-chip chip-gap">Worth a closer look</span>` : "";
+  const lessons = a.gaps.map((row) => ({ row, from: learningFrom(peers, row.key) })).filter((item) => item.from?.example);
   const benchRows = shown.map((row) => `<div class="bench-row"><div class="bench-label"><span>${ui.escapeHtml(row.label)}</span>${chip(row.status)}</div><div class="bench-bars"><div class="bench-bar bench-own" style="width:${row.share / max * 100}%"><span>${pct(row.share)}</span></div><div class="bench-bar bench-peer" style="width:${row.peer / max * 100}%"><span>${pct(row.peer)}</span></div></div></div>`).join("");
-  const gaps = bench.filter((row) => row.status === "gap").sort((a, b) => b.peer - a.peer).slice(0, 3);
-  const lessons = gaps.map((row) => ({ row, from: learningFrom(peers, row.key) })).filter((item) => item.from);
-  const inst = countBy(rows, (record) => instrumentsOf(record).primary);
-  const marked = bench.filter((row) => row.status !== "par").sort((a, b) => (a.status === b.status ? 0 : a.status === "strength" ? -1 : 1) || Math.abs(Math.log(b.ratio || .01)) - Math.abs(Math.log(a.ratio || .01)));
-  const sgHtml = `<h3 class="mini-head">Strengths and gaps against peers</h3>${marked.length ? `<ul class="sg-list">${marked.map((row) => `<li>${chip(row.status)}<span>${ui.escapeHtml(row.label)}</span><strong>${pct(row.share)} vs ${pct(row.peer)}</strong></li>`).join("")}</ul>` : `<p class="muted-note">In line with peers across all policy areas.</p>`}<p class="muted-note">Distinctive: at least 1.3× the peer share. Worth investigating: below 60% of a peer share of 6% or more.</p>`;
-  const instMax = Math.max(1, ...inst.map(([, count]) => count));
-  const lessonHtml = lessons.length ? lessons.map(({ row, from }) => `<article class="lesson"><div class="lesson-head"><span class="bench-chip chip-gap">${ui.escapeHtml(row.label)}</span><span>${ui.escapeHtml(short(country))} ${pct(row.share)} · ${ui.escapeHtml(short(from.country))} ${pct(from.share)}</span></div><p><strong>${cap(ui.escapeHtml(short(from.country)))}</strong> gives this area the most weight among peers (${num(from.rows.length)} measures).${from.example ? ` Example worth studying (${ui.escapeHtml(ui.formatDate(from.example.date))}): “${ui.escapeHtml(sentence(from.example.description, 220))}”` : ""}</p></article>`).join("") : `<p class="muted-note">No area is markedly under-represented, so no peer comparison is suggested.</p>`;
   return {
-    html: `<section class="card span-12 profile-summary"><div class="card-header"><div><h2 class="card-title">Policy profile at a glance</h2><p class="card-subtitle">Generated from the policy record and compared with the other six countries under the same filters.</p></div><div class="card-actions"><button class="button button-outline" id="profile-print">${ui.icon("printer")}Print / PDF</button><button class="button button-outline" id="profile-word">${ui.icon("file-text")}Download profile</button></div></div><div class="card-body profile-text">${narrative.map((text) => `<p>${text}</p>`).join("")}<p id="profile-food" class="profile-food"></p></div></section>
-    <section class="card span-7"><div class="card-header"><div><h2 class="card-title">Benchmark against regional peers</h2><p class="card-subtitle">Share of measures addressing each policy area: ${ui.escapeHtml(short(country))} against the other six countries.</p></div></div><div class="card-body"><div class="legend-row bench-legend"><span class="legend-item"><i class="bench-own"></i>${ui.escapeHtml(cap(short(country)))}</span><span class="legend-item"><i class="bench-peer"></i>Peer average</span></div><div class="bench-list">${benchRows || `<p class="muted-note">Not enough measures to benchmark.</p>`}</div><p class="report-note">One measure can address several areas, so shares do not add up to 100%.</p></div></section>
-    <section class="card span-5"><div class="card-header"><div><h2 class="card-title">Policy instruments</h2><p class="card-subtitle">What kind of action the measures are, by primary instrument.</p></div></div><div class="card-body"><div class="inst-list">${inst.map(([key, count]) => `<div class="inst-row"><span class="brief-tag tag-${key}">${instrumentShort(key)}</span><div class="inst-track"><i style="width:${count / instMax * 100}%"></i></div><strong>${num(count)}</strong></div>`).join("")}</div>${sgHtml}</div></section>
-    <section class="card span-12"><div class="card-header"><div><h2 class="card-title">Approaches worth studying elsewhere</h2><p class="card-subtitle">For each comparatively thin area, the peer country that gives it the most weight, with an example measure.</p></div></div><div class="card-body lessons">${lessonHtml}</div></section>`,
-    bind() {
-      const food = loadFoodIndicators().then((data) => { const target = $("#profile-food"); if (target) target.innerHTML = `<strong>Food context.</strong> ${foodContext(ui, data, country).join(" ")}`; return data; }).catch(() => null);
-      const doc = async () => {
-        const data = await food;
-        const foodText = data ? foodContext(ui, data, country).join(" ") : "";
-        return `<div class="report-document"><header class="report-cover"><div class="eyebrow">COUNTRY POLICY PROFILE</div><h2>${ui.escapeHtml(country)}</h2><p class="report-meta">Food and agriculture policy · ${num(rows.length)} measures · prepared ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p></header>
-        <section><h3>1. Profile at a glance</h3>${narrative.map((text) => `<p>${text}</p>`).join("")}${foodText ? `<p><strong>Food context.</strong> ${foodText}</p>` : ""}</section>
-        <section><h3>2. Benchmark against regional peers</h3><table><thead><tr><th>Policy area</th><th>${ui.escapeHtml(country)}</th><th>Peer average</th><th>Assessment</th></tr></thead><tbody>${shown.map((row) => `<tr><td>${ui.escapeHtml(row.label)}</td><td>${pct(row.share)} (${num(row.count)})</td><td>${pct(row.peer)}</td><td>${row.status === "strength" ? "Distinctive" : row.status === "gap" ? "Worth investigating" : "In line"}</td></tr>`).join("")}</tbody></table></section>
-        <section><h3>3. Approaches worth studying elsewhere</h3>${lessons.length ? `<ul class="narrative-list">${lessons.map(({ row, from }) => `<li><strong>${ui.escapeHtml(row.label)}:</strong> ${ui.escapeHtml(cap(short(from.country)))} gives this area ${pct(from.share)} of its measures, against ${pct(row.share)} for ${ui.escapeHtml(short(country))}.${from.example ? ` Example: “${ui.escapeHtml(sentence(from.example.description, 220))}”` : ""}</li>`).join("")}</ul>` : "<p>No area is markedly under-represented.</p>"}</section>
-        <section><h3>4. Most significant measures</h3><ul class="narrative-list">${pickSpread(rows, 8, false).map((record) => `<li><strong>${ui.escapeHtml(ui.formatDate(record.date))}</strong> · ${instrumentShort(instrumentsOf(record).primary)}: ${ui.escapeHtml(sentence(record.description, 220))}</li>`).join("")}</ul></section>
-        <section><h3>5. About this profile</h3><p>Generated from the monitored policy record and FAOSTAT indicators. Policy areas and instruments are identified from the wording of each measure and are indicative. “Worth investigating” marks areas where the share of measures is well below the peer average; it is a prompt for further review, not an assessment of performance.</p></section></div>`;
-      };
-      $("#profile-word")?.addEventListener("click", async () => { const holder = document.createElement("div"); holder.innerHTML = await doc(); exportWord(ui, holder, `${country}-policy-profile`); });
-      $("#profile-print")?.addEventListener("click", async () => printDocument(await doc()));
-    },
+    html: `<section class="card span-12 profile-summary"><div class="card-body"><div class="story-head"><div><div class="eyebrow">IN SHORT</div>${countrySummaryText(country, a).map((text) => `<p class="story-lead">${text}</p>`).join("")}</div><button class="button button-gold" type="button" id="open-country-report">${ui.icon("file-text")}Read the full country report</button></div>
+      <div class="insight-row">${[["Main focus", a.top[0]?.label], ["Distinctive in the region", a.strengths[0]?.label], ["Worth a closer look", a.gaps[0]?.label]].map(([label, value]) => `<div class="insight"><span>${label}</span><strong>${ui.escapeHtml(value || "Nothing marked")}</strong></div>`).join("")}</div></div></section>
+    <section class="card span-7"><div class="card-header"><div><h2 class="card-title">How ${ui.escapeHtml(short(country))} compares with its neighbours</h2><p class="card-subtitle">Share of measures addressing each policy area, against the average of the other six countries.</p></div></div><div class="card-body"><div class="legend-row bench-legend"><span class="legend-item"><i class="bench-own"></i>${ui.escapeHtml(cap(short(country)))}</span><span class="legend-item"><i class="bench-peer"></i>Peer average</span></div><div class="bench-list">${benchRows || `<p class="muted-note">Not enough measures to compare.</p>`}</div></div></section>
+    <section class="card span-5"><div class="card-header"><div><h2 class="card-title">Ideas from neighbours</h2><p class="card-subtitle">For each area that gets little attention, the peer that does most, with an example.</p></div></div><div class="card-body lessons-stack">${lessons.length ? lessons.map(({ row, from }) => `<article class="lesson"><div class="lesson-head"><span class="bench-chip chip-gap">${ui.escapeHtml(row.label)}</span><strong>${ui.escapeHtml(cap(short(from.country)))}</strong></div><p>${prose(ui, from.example, { limit: 220 })}</p></article>`).join("") : `<p class="muted-note">No area stands out as thin compared with the neighbours.</p>`}</div></section>`,
+    bind(openReport) { $("#open-country-report")?.addEventListener("click", () => openReport({ type: "country", country })); },
   };
 }
 
 // =====================================================================
-// Thematic comparison across all seven countries
+// Thematic review (narrative), Themes page and Home story
 // =====================================================================
-export function themeCard(ui, records) {
-  const key = ui.state.compareTheme ||= "water";
-  const label = approachLabel(key);
+function themeAnalysis(records, key) {
   const regional = records.length ? records.filter((record) => approachesOf(record).includes(key)).length / records.length : 0;
-  const rows = ui.COUNTRIES.map((country) => {
+  const countries = COUNTRY_LIST.map((country) => {
     const all = records.filter((record) => record.country === country);
     const theme = all.filter((record) => approachesOf(record).includes(key));
     const share = all.length ? theme.length / all.length : 0;
     const status = theme.length >= 4 && share >= regional * 1.3 ? "strength" : all.length >= 10 && share < regional * .6 ? "gap" : "par";
-    return { country, total: all.length, theme, share, status, strategic: theme.filter((record) => ["legislation", "strategy"].includes(instrumentsOf(record).primary)).length, example: pickSpread(theme, 1, false)[0] };
+    return { country, total: all.length, theme, share, status };
   }).sort((a, b) => b.share - a.share);
-  const leaders = rows.filter((row) => row.status === "strength").map((row) => cap(short(row.country)));
-  const gaps = rows.filter((row) => row.status === "gap").map((row) => short(row.country));
-  const summary = `${label} accounts for ${pct(regional)} of measures across the region. ${leaders.length ? `${listJoin(leaders)} ${leaders.length > 1 ? "give" : "gives"} it clearly more weight than average` : "No country gives it markedly more weight than average"}${gaps.length ? `, while it is comparatively thin in ${listJoin(gaps)}` : ""}.`;
-  const status = (row) => row.status === "strength" ? `<span class="bench-chip chip-strength">Leading</span>` : row.status === "gap" ? `<span class="bench-chip chip-gap">Worth investigating</span>` : `<span class="bench-chip">In line</span>`;
-  const body = `<div class="theme-head"><label>Policy area<select id="theme-select">${APPROACHES.map((item) => `<option value="${item.key}" ${item.key === key ? "selected" : ""}>${ui.escapeHtml(item.label)}</option>`).join("")}</select></label><p>${ui.escapeHtml(summary)}</p></div><div class="table-wrap"><table class="data-table theme-table"><thead><tr><th>Country</th><th>Measures on this area</th><th>Share of country's measures</th><th>Laws, strategies &amp; plans</th><th>Position</th><th>Most significant measure</th></tr></thead><tbody>${rows.map((row) => `<tr><td><strong>${ui.escapeHtml(row.country)}</strong></td><td>${num(row.theme.length)}</td><td>${pct(row.share)}</td><td>${num(row.strategic)}</td><td>${status(row)}</td><td class="theme-example">${row.example ? `${ui.escapeHtml(sentence(row.example.description, 150))} <span class="muted-note">(${ui.escapeHtml(ui.formatDate(row.example.date))})</span>` : "–"}</td></tr>`).join("")}</tbody></table></div>`;
+  return { regional, countries, trend: trendOf(records, key), leaders: countries.filter((row) => row.status === "strength"), thin: countries.filter((row) => row.status === "gap"), rows: records.filter((record) => approachesOf(record).includes(key)) };
+}
+const COUNTRY_LIST = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"];
+function themeSummaryText(key, t) {
+  const label = approachLabel(key);
+  return `${label} is ${weightWords(t.regional)} of food and agriculture policy across the GCC States and Yemen${t.trend ? `, ${trendWords(t.trend)}` : ""}. ${t.leaders.length ? `${listJoin(t.leaders.map((row) => cap(short(row.country))))} ${t.leaders.length > 1 ? "give" : "gives"} it the most weight` : "No country gives it markedly more weight than the others"}${t.thin.length ? `, while it receives comparatively little attention in ${listJoin(t.thin.map((row) => short(row.country)))}` : ""}.`;
+}
+
+export function themeReport(ui, records, key) {
+  const t = themeAnalysis(records, key);
+  const label = approachLabel(key);
+  const doing = t.countries.filter((row) => row.theme.length >= 2).map((row) => {
+    const role = row.status === "strength" ? "A leading priority" : row.share >= t.regional * .6 ? "A regular part of policy" : "A minor part of policy";
+    return `<p><strong>${ui.escapeHtml(row.country)}.</strong> ${role}. ${fit(row.theme, key, row.status === "strength" ? 2 : 1).map((record) => prose(ui, record)).join(" ")}</p>`;
+  }).join("");
+  const leader = t.leaders[0] || t.countries.find((row) => row.theme.length >= 5);
+  const reference = leader && fit(leader.theme, key, 1)[0];
+  const end = Math.max(0, ...t.rows.filter((record) => record.date).map(time));
+  const recent = pickSpread(t.rows.filter((record) => record.date && time(record) > end - YEAR / 4), 3, true);
   return {
-    html: ui.card("Thematic benchmark", "Compare how all seven countries address one policy area, under the current filters.", `<div id="theme-body">${body}</div>`, "span-12"),
-    bind(rerender) { $("#theme-select")?.addEventListener("change", (event) => { ui.state.compareTheme = event.target.value; rerender(); }); },
+    title: "Thematic policy review", subtitle: label,
+    highlights: [["Weight in regional policy", cap(weightWords(t.regional).replace(/^the |^a /, ""))], ["Trend", t.trend ? cap(t.trend) : "–"], ["Leads", t.leaders.map((row) => row.country).join(", ") || "No clear leader"], ["Thin in", t.thin.map((row) => row.country).join(", ") || "None marked"]],
+    sections: [
+      ["Summary", paras(themeSummaryText(key, t), THEME_TEXT[key].why), ""],
+      ["What governments are doing", doing || paras("Too few measures address this area to describe country approaches."), ""],
+      ["Gaps and opportunities", paras(t.thin.length ? `In ${listJoin(t.thin.map((row) => short(row.country)))}, ${lower(label)} receives comparatively little attention. This can reflect a genuine gap, a different national priority or limited public reporting.` : "No country stands out as markedly behind its neighbours in this area.", reference && t.thin.length ? `${cap(short(leader.country))}'s experience offers a regional reference: ${prose(ui, reference)}` : ""), ""],
+      ["Latest developments", recent.length ? bullets(recent.map((record) => prose(ui, record))) : paras("No developments in the latest three months."), ""],
+      ["What to watch", paras(`Follow ${THEME_TEXT[key].watch}.`), ""],
+      ["About this review", about("A country leads an area when its share of measures on it is at least 1.3 times the regional share, and is comparatively thin below 60% of it."), ""],
+    ],
   };
+}
+
+export function renderThemesPage(ui, openReport) {
+  const records = ui.filtered();
+  const key = ui.state.compareTheme ||= "water";
+  const cards = APPROACHES.map((item) => {
+    const share = records.length ? records.filter((record) => approachesOf(record).includes(item.key)).length / records.length : 0;
+    const trend = trendOf(records, item.key);
+    return { item, share, trend };
+  }).sort((a, b) => b.share - a.share);
+  const t = themeAnalysis(records, key);
+  const max = Math.max(...cards.map((entry) => entry.share), .01);
+  const status = (row) => row.status === "strength" ? `<span class="bench-chip chip-strength">Leads</span>` : row.status === "gap" ? `<span class="bench-chip chip-gap">Little attention</span>` : `<span class="bench-chip">Regular</span>`;
+  $("#page-content").innerHTML = `${ui.heading("Policy themes", "How the GCC States and Yemen approach each area of food and agriculture policy: who leads, what they are doing and where the gaps are.", "THEMES")}
+  <div class="content-grid themes-layout">
+    <section class="card span-4 theme-picker-card"><div class="card-header"><div><h2 class="card-title">Policy areas</h2><p class="card-subtitle">Ordered by weight in regional policy, with the trend over the past year.</p></div></div><div class="card-body"><div class="theme-picker" role="list">${cards.map(({ item, share, trend }) => `<button type="button" class="theme-pick${item.key === key ? " active" : ""}" data-theme-key="${item.key}" aria-pressed="${item.key === key}"><span class="theme-pick-label">${ui.escapeHtml(item.label)}</span><span class="theme-pick-meta"><i style="width:${share / max * 100}%"></i></span><span class="theme-pick-trend trend-${trend || "none"}">${trend === "rising" ? "▲ Rising" : trend === "falling" ? "▼ Falling" : trend === "stable" ? "Stable" : ""}</span></button>`).join("")}</div></div></section>
+    <div class="span-8 theme-detail"><section class="card profile-summary"><div class="card-body"><div class="story-head"><div><div class="eyebrow">${ui.escapeHtml(approachLabel(key).toUpperCase())}</div><p class="story-lead">${themeSummaryText(key, t)}</p><p class="story-sub">${THEME_TEXT[key].why}</p></div><button class="button button-gold" type="button" id="open-theme-report">${ui.icon("file-text")}Read the full thematic review</button></div></div></section>
+    ${ui.card("Country by country", "How each country addresses this area, with a representative measure.", `<div class="theme-countries">${t.countries.map((row) => { const example = fit(row.theme, key, 1)[0]; return `<article class="theme-country"><div class="theme-country-head"><strong>${ui.escapeHtml(row.country)}</strong>${status(row)}</div><div class="inst-track"><i style="width:${Math.min(100, row.share / Math.max(.01, t.countries[0].share) * 100)}%"></i></div><p>${example ? prose(ui, example, { limit: 200 }) : `<span class="muted-note">No measures on this area in the current selection.</span>`}</p></article>`; }).join("")}</div>`, "")}</div>
+  </div>`;
+  document.querySelectorAll("[data-theme-key]").forEach((button) => button.addEventListener("click", () => { ui.state.compareTheme = button.dataset.themeKey; renderThemesPage(ui, openReport); ui.renderTabs?.(); }));
+  $("#open-theme-report").addEventListener("click", () => openReport({ type: "theme", theme: key }));
+  // On narrow screens the picker scrolls sideways; keep the chosen area in view.
+  const picker = $(".theme-picker"), active = $(".theme-pick.active");
+  if (picker && active && picker.scrollWidth > picker.clientWidth) picker.scrollLeft = active.offsetLeft - picker.offsetLeft - 8;
+  ui.refreshIcons();
+}
+
+// The Home page story: this month in a few sentences, the decisions that stand out, and where to go next.
+export function homeStory(ui) {
+  const month = briefMonths(ui.state.records)[0];
+  if (!month) return "";
+  const m = monthSummary(ui, ui.state.records, month, "all");
+  if (m.empty) return "";
+  return `<section class="home-story"><div class="home-story-text"><div class="eyebrow">THIS MONTH · ${monthName(month).toUpperCase()}</div><p class="story-lead">${m.lead}</p><div class="story-decisions">${m.key.map((record) => `<article class="story-decision"><span class="brief-tag tag-${instrumentsOf(record).primary}">${instrumentShort(instrumentsOf(record).primary)}</span><p>${prose(ui, record, { limit: 170 })}</p></article>`).join("")}</div></div><div class="home-story-actions"><button class="button button-gold" type="button" data-open-report="monthly">${ui.icon("newspaper")}Read this month's brief</button><button class="button button-outline" type="button" data-nav-to="country">${ui.icon("map-pinned")}Explore a country</button><button class="button button-outline" type="button" data-nav-to="themes">${ui.icon("shapes")}Compare by theme</button></div></section>`;
 }

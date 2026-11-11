@@ -1,11 +1,16 @@
-import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261018";
+import { APPROACHES, approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261018";
+import { briefMonths, countryReport, monthName, monthlyReport, themeReport } from "./intel.js?v=pi-20261018";
 import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261018";
 
 const REPORT_TYPES = {
-  analysis: "Policy and food security analysis",
+  monthly: "Monthly policy brief",
+  country: "Country policy report",
+  theme: "Thematic policy review",
+  analysis: "Regional policy and food security analysis",
   food: "Food prices and affordability brief",
-  monthly: "Monthly monitoring update",
 };
+// Which builder fields apply to each report type.
+const FIELDS = { monthly: ["country", "month", "audience"], country: ["country", "period", "audience"], theme: ["theme", "period", "audience"], analysis: ["country", "period", "domain", "instrument", "audience", "length", "visuals"], food: ["country", "period", "audience", "length", "visuals"] };
 const AUDIENCES = ["Senior government officials", "FAO management", "Technical specialists", "General policy audience"];
 const MARKET_PATTERN = /price|market|subsid|reserve|stock|import|export|trade/i;
 const DAY = 86400000;
@@ -18,7 +23,6 @@ const startName = (country) => shortName(country).replace(/^the /, "The ");
 const lower = (text) => text ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 const time = (record) => new Date(`${record.date}T00:00:00Z`).getTime();
 const longDate = (date) => date ? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : "an undated day";
-const monthName = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 const monthlyLocal = (daily, country) => formatLocal(perMonth(daily), country, { digits: ["BHD", "KWD", "OMR"].includes(CURRENCY[country]) ? 1 : 0 });
 const paras = (...items) => items.flat().filter(Boolean).map((text) => `<p>${text}</p>`).join("");
 
@@ -351,53 +355,34 @@ function foodReport(ui, food, r) {
   return { title: REPORT_TYPES.food, subtitle: country || "GCC States & Yemen", sections: r.length === "short" ? sections.slice(0, 3) : sections };
 }
 
-function monthlyReport(ui, food, r) {
-  const records = scopeRecords(ui, { ...r, period: "all" });
-  const latest = ui.latestDate(scopeRecords(ui, r));
-  if (!latest) return { title: REPORT_TYPES.monthly, subtitle: "No dated records", sections: [["No data", "<p>No dated records match this selection.</p>", ""]] };
-  const month = latest.slice(0, 7);
-  const [year, mon] = month.split("-").map(Number);
-  const key = (y, m) => { const d = new Date(Date.UTC(y, m - 1, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
-  const prevMonth = key(year, mon - 1), lastYear = key(year - 1, mon);
-  const inMonth = (m) => records.filter((record) => record.date?.startsWith(m));
-  const rows = inMonth(month);
-  const country = r.country !== "all" ? r.country : null;
-  const byCountry = ui.COUNTRIES.map((name) => [name, rows.filter((record) => record.country === name)]).filter(([, list]) => list.length).sort((a, b) => b[1].length - a[1].length);
-  const domains = ui.groupCount(rows, (record) => record.domain).slice(0, 4);
-  const sections = [
-    ["Overview", paras(`${num(rows.length)} policy measures were recorded ${country ? `for ${shortName(country)} ` : ""}in ${monthName(month)}, compared with ${num(inMonth(prevMonth).length)} in ${monthName(prevMonth)} and ${num(inMonth(lastYear).length)} in ${monthName(lastYear)}.${domains.length ? ` The month's activity focused on ${listJoin(domains.map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${count})`))}.` : ""}${approachProfile(rows).filter((row) => row.count).length ? ` In terms of policy approach, measures mostly concerned ${listJoin(approachProfile(rows).filter((row) => row.count).slice(0, 3).map((row) => approachPhrase(row.key)))}.` : ""}`), ""],
-    ...(!country ? [["By country", byCountry.map(([name, list]) => `<p><strong>${name}.</strong> ${num(list.length)} measure${list.length === 1 ? "" : "s"}, mainly on ${listJoin(ui.groupCount(list, (record) => record.domain).slice(0, 2).map(([domain]) => lower(ui.escapeHtml(domain))))}. For example: “${ui.escapeHtml(firstSentence(list[0].description, 220))}”</p>`).join("") || "<p>No measures were recorded this month.</p>", ""]] : []),
-    ["Highlights", recentNarrative(ui, rows, r.length === "short" ? 5 : r.length === "extended" ? 20 : 10), ""],
-    ["About this report", methodNarrative(food, r), ""],
-  ];
-  return { title: REPORT_TYPES.monthly, subtitle: `${country || "GCC States & Yemen"} · ${monthName(month)}`, sections };
-}
-
 // ---------- page ----------
 export function renderReportsPage(ui, food) {
   const { state, escapeHtml } = ui;
   // The builder owns the report scope; it starts from the dashboard filters the first time.
-  state.report ||= { type: "analysis", country: state.country, period: state.year !== "all" ? String(state.year) : "all", domain: state.domain, instrument: state.type, audience: AUDIENCES[0], length: "standard", visuals: true };
+  // Other pages can open a report with a preset (for example a country report), so merge rather than replace.
+  state.report = { type: "monthly", country: state.country, period: "all", domain: "all", instrument: "all", audience: AUDIENCES[0], length: "standard", visuals: true, month: briefMonths(state.records)[0], theme: "water", ...state.report };
   const r = state.report;
   const domains = ui.groupCount(state.records, (record) => record.domain).map(([domain]) => domain);
-  $("#page-content").innerHTML = `${ui.heading("Reports", "Build a narrative analysis report from the policy record and FAOSTAT food data. Choose the scope below; the report updates as you change it.", "REPORTING & EXPORT")}
+  $("#page-content").innerHTML = `${ui.heading("Reports", "Narrative briefs and reports that explain what governments are doing, why it matters and what to watch. Choose a report; it updates as you change the options, and you can download it to share.", "REPORTING & EXPORT")}
   <div class="content-grid">
     <section class="card span-12 report-builder"><div class="card-header"><div><h2 class="card-title">Report builder</h2><p class="card-subtitle" id="report-scope-label"></p></div></div><div class="card-body">
       <div class="report-form report-form-wide">
         <label>Report type<select id="report-type">${Object.entries(REPORT_TYPES).map(([key, label]) => `<option value="${key}" ${r.type === key ? "selected" : ""}>${label}</option>`).join("")}</select></label>
-        <label>Country<select id="report-country"><option value="all">All countries (GCC States &amp; Yemen)</option>${ui.COUNTRIES.map((country) => `<option value="${escapeHtml(country)}" ${r.country === country ? "selected" : ""}>${escapeHtml(country)}</option>`).join("")}</select></label>
-        <label>Period<select id="report-period">${periodOptions(ui).map(([value, label]) => `<option value="${value}" ${r.period === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
-        <label>Policy domain<select id="report-domain"><option value="all">All policy domains</option>${domains.map((domain) => `<option value="${escapeHtml(domain)}" ${r.domain === domain ? "selected" : ""}>${escapeHtml(domain)}</option>`).join("")}</select></label>
-        <label>Instrument<select id="report-instrument"><option value="all">All instruments</option><option value="decision" ${r.instrument === "decision" ? "selected" : ""}>Short-term decisions</option><option value="framework" ${r.instrument === "framework" ? "selected" : ""}>Long-term frameworks</option></select></label>
-        <label>Audience<select id="report-audience">${AUDIENCES.map((audience) => `<option ${r.audience === audience ? "selected" : ""}>${audience}</option>`).join("")}</select></label>
-        <label>Length<select id="report-length"><option value="short" ${r.length === "short" ? "selected" : ""}>Brief</option><option value="standard" ${r.length === "standard" ? "selected" : ""}>Standard</option><option value="extended" ${r.length === "extended" ? "selected" : ""}>Detailed</option></select></label>
-        <label class="report-check"><input type="checkbox" id="report-visuals" ${r.visuals ? "checked" : ""}>Include supporting charts and tables</label>
+        <label data-field="month">Month<select id="report-month">${briefMonths(state.records).map((key) => `<option value="${key}" ${r.month === key ? "selected" : ""}>${monthName(key)}</option>`).join("")}</select></label>
+        <label data-field="theme">Policy area<select id="report-theme">${APPROACHES.map((item) => `<option value="${item.key}" ${r.theme === item.key ? "selected" : ""}>${escapeHtml(item.label)}</option>`).join("")}</select></label>
+        <label data-field="country">Country<select id="report-country"><option value="all">All countries</option>${ui.COUNTRIES.map((country) => `<option value="${escapeHtml(country)}" ${r.country === country ? "selected" : ""}>${escapeHtml(country)}</option>`).join("")}</select></label>
+        <label data-field="period">Period<select id="report-period">${periodOptions(ui).map(([value, label]) => `<option value="${value}" ${r.period === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+        <label data-field="domain">Policy domain<select id="report-domain"><option value="all">All policy domains</option>${domains.map((domain) => `<option value="${escapeHtml(domain)}" ${r.domain === domain ? "selected" : ""}>${escapeHtml(domain)}</option>`).join("")}</select></label>
+        <label data-field="instrument">Instrument<select id="report-instrument"><option value="all">All instruments</option><option value="decision" ${r.instrument === "decision" ? "selected" : ""}>Short-term decisions</option><option value="framework" ${r.instrument === "framework" ? "selected" : ""}>Long-term frameworks</option></select></label>
+        <label data-field="audience">Audience<select id="report-audience">${AUDIENCES.map((audience) => `<option ${r.audience === audience ? "selected" : ""}>${audience}</option>`).join("")}</select></label>
+        <label data-field="length">Length<select id="report-length"><option value="short" ${r.length === "short" ? "selected" : ""}>Brief</option><option value="standard" ${r.length === "standard" ? "selected" : ""}>Standard</option><option value="extended" ${r.length === "extended" ? "selected" : ""}>Detailed</option></select></label>
+        <label class="report-check" data-field="visuals"><input type="checkbox" id="report-visuals" ${r.visuals ? "checked" : ""}>Include supporting charts and tables</label>
       </div>
       <div class="report-actions"><button class="button button-outline" id="report-reset">${ui.icon("rotate-ccw")}Reset scope</button><button class="button button-outline" id="print-report">${ui.icon("printer")}Print / Save PDF</button><button class="button button-outline" id="word-brief">${ui.icon("file-text")}Word</button><button class="button button-outline" id="md-brief">${ui.icon("file-code")}Markdown</button><button class="button button-outline" id="copy-brief">${ui.icon("copy")}Copy text</button></div>
     </div></section>
     <section class="card span-12"><div class="card-body"><article class="generated-report" id="generated-report" aria-live="polite"></article></div></section>
   </div>`;
-  const read = () => { r.type = $("#report-type").value; r.country = $("#report-country").value; r.period = $("#report-period").value; r.domain = $("#report-domain").value; r.instrument = $("#report-instrument").value; r.audience = $("#report-audience").value; r.length = $("#report-length").value; r.visuals = $("#report-visuals").checked; };
+  const read = () => { r.month = $("#report-month").value; r.theme = $("#report-theme").value; r.type = $("#report-type").value; r.country = $("#report-country").value; r.period = $("#report-period").value; r.domain = $("#report-domain").value; r.instrument = $("#report-instrument").value; r.audience = $("#report-audience").value; r.length = $("#report-length").value; r.visuals = $("#report-visuals").checked; };
   document.querySelectorAll(".report-form select, .report-form input").forEach((control) => control.addEventListener("change", () => { read(); generate(ui, food); }));
   $("#report-reset").addEventListener("click", () => { Object.assign(r, { country: "all", period: "all", domain: "all", instrument: "all" }); renderReportsPage(ui, food); });
   $("#print-report").addEventListener("click", () => { document.body.classList.add("printing-report"); window.print(); setTimeout(() => document.body.classList.remove("printing-report"), 500); });
@@ -407,15 +392,32 @@ export function renderReportsPage(ui, food) {
   generate(ui, food);
   ui.refreshIcons();
 }
+function showFields(r) {
+  document.querySelectorAll(".report-form [data-field]").forEach((label) => { label.hidden = !FIELDS[r.type].includes(label.dataset.field); });
+  // A country report needs one country; the "All countries" option does not apply.
+  const all = $("#report-country option[value='all']");
+  if (all) all.hidden = all.disabled = r.type === "country";
+  if (r.type === "country" && r.country === "all") { r.country = "Saudi Arabia"; $("#report-country").value = r.country; }
+}
 
 function generate(ui, food) {
   const r = ui.state.report;
+  showFields(r);
+  const target = $("#generated-report");
+  const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  if (["monthly", "country", "theme"].includes(r.type)) {
+    // Narrative reports: the period applies, the dashboard's domain and instrument choices do not.
+    const records = r.type === "monthly" ? ui.state.records : scopeRecords(ui, { ...r, country: "all", domain: "all", instrument: "all" });
+    const report = r.type === "monthly" ? monthlyReport(ui, records, { month: r.month, country: r.country }) : r.type === "country" ? countryReport(ui, records, r.country, food) : themeReport(ui, records, r.theme);
+    $("#report-scope-label").textContent = `${report.title}: ${report.subtitle}`;
+    const period = r.type === "monthly" ? "" : ` · ${periodOptions(ui).find(([value]) => value === r.period)?.[1] || "All periods"}`;
+    target.innerHTML = `<div class="report-document"><header class="report-cover"><div class="eyebrow">POLICY INTELLIGENCE · ${ui.escapeHtml(report.title.toUpperCase())}</div><h2>${ui.escapeHtml(report.subtitle)}</h2><p class="report-meta">Prepared for ${ui.escapeHtml(r.audience)} · ${today}${period} · Evidence through ${longDate(ui.latestDate(records))}</p>${report.highlights ? `<div class="report-kpis">${report.highlights.map(([label, value]) => `<div><span>${ui.escapeHtml(label)}</span><strong>${ui.escapeHtml(value)}</strong></div>`).join("")}</div>` : ""}</header>${report.sections.map(([title, narrative], i) => `<section><h3>${i + 1}. ${ui.escapeHtml(title)}</h3>${narrative}</section>`).join("")}<p class="report-note">Generated by the Policy Intelligence dashboard from the monitored policy record and FAOSTAT indicators. This is an analytical summary, not a legal interpretation; consult each original source.</p></div>`;
+    return;
+  }
   const records = scopeRecords(ui, r);
   $("#report-scope-label").textContent = `Scope: ${scopeLabel(r)} · ${num(records.length)} measures`;
-  const target = $("#generated-report");
   if (!records.length && r.type !== "food") { target.innerHTML = `<div class="empty-state"><h2>No measures match this scope</h2><p>Widen the country, period, domain or instrument selection.</p></div>`; return; }
-  const report = r.type === "food" ? foodReport(ui, food, r) : r.type === "monthly" ? monthlyReport(ui, food, r) : analysisReport(ui, food, r);
-  const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const report = r.type === "food" ? foodReport(ui, food, r) : analysisReport(ui, food, r);
   target.innerHTML = `<div class="report-document"><header class="report-cover"><div class="eyebrow">POLICY INTELLIGENCE · ${ui.escapeHtml(report.title.toUpperCase())}</div><h2>${ui.escapeHtml(report.title)}: ${ui.escapeHtml(report.subtitle)}</h2><p class="report-meta">Prepared for ${ui.escapeHtml(r.audience)} · ${today} · Scope: ${ui.escapeHtml(scopeLabel(r))} · ${num(records.length)} measures${records.length ? `, evidence through ${longDate(ui.latestDate(records))}` : ""}</p></header>${report.sections.map(([title, narrative, visual], i) => `<section><h3>${i + 1}. ${ui.escapeHtml(title)}</h3>${narrative}${r.visuals && visual ? `<div class="report-visual">${visual}</div>` : ""}</section>`).join("")}<p class="report-note">Generated by the Policy Intelligence dashboard from the monitored policy record and FAOSTAT indicators. This is an analytical summary, not a legal interpretation; consult each original source.</p></div>`;
 }
 
