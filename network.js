@@ -1,5 +1,3 @@
-import { loadThree, mountNetwork3D, webglAvailable } from "./network3d.js?v=pi-20261018";
-import { COUNTRY_COLORS } from "./prices.js?v=pi-20261018";
 // Policy network: focus orb → dimension cards → fan of linked items → detail panel.
 
 const DIMENSIONS = {
@@ -10,23 +8,6 @@ const DIMENSIONS = {
   family: { label: "Policy families", singular: "Policy family", icon: "folder-tree", filter: "family" },
 };
 const MAX_ITEMS = 14;
-const MAX_ITEMS_3D = 18;
-let current3D = null;
-
-// 3D is the default where WebGL works; the 2D layout stays available and is the fallback.
-export function renderNetworkPage(ui) {
-  current3D?.dispose(); current3D = null;
-  ui.state.networkView ||= webglAvailable() ? "3d" : "2d";
-  if (ui.state.networkView === "3d" && webglAvailable()) render3D(ui);
-  else render2D(ui);
-}
-function viewToggle(ui) {
-  const view = ui.state.networkView;
-  return `<div class="chart-toolbar pn-view-toggle" role="group" aria-label="Network view"><button type="button" data-pn-view="3d" aria-pressed="${view === "3d"}" ${webglAvailable() ? "" : "disabled title='3D is not supported on this device'"}>${ui.icon("box", 14)}3D</button><button type="button" data-pn-view="2d" aria-pressed="${view === "2d"}">${ui.icon("orbit", 14)}2D</button></div>`;
-}
-function bindViewToggle(ui) {
-  $$("[data-pn-view]").forEach((button) => button.addEventListener("click", () => { if (ui.state.networkView === button.dataset.pnView) return; ui.state.networkView = button.dataset.pnView; renderNetworkPage(ui); }));
-}
 const DAY = 86400000;
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -63,7 +44,7 @@ function monthlyBars(records, periods, months = 24) {
   return `<svg class="pn-spark" viewBox="0 0 ${width} ${height}" role="img" aria-label="Monthly measures, last ${months} months">${counts.map(([key, count], i) => { const h = Math.max(2, count / max * (height - 4)); return `<rect x="${(i * (bar + gap)).toFixed(1)}" y="${(height - h).toFixed(1)}" width="${bar.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"><title>${key}: ${count}</title></rect>`; }).join("")}</svg>`;
 }
 
-function render2D(ui) {
+export function renderNetworkPage(ui) {
   const { state, escapeHtml, COUNTRIES } = ui;
   const all = ui.filtered();
   const focus = state.country !== "all" ? state.country : null;
@@ -87,7 +68,7 @@ function render2D(ui) {
   const maxCount = Math.max(1, ...items.map((item) => item.count));
   const fan = items.length ? items.map((item, i) => `<button type="button" class="pn-item${item.name === state.networkItem ? " active" : ""}" data-pn-item="${escapeHtml(item.name)}" style="--offset:${(Math.sin(Math.PI * (i + .5) / items.length) * 46).toFixed(1)}px" title="${escapeHtml(item.name)}: ${escapeHtml(activityText(item.trend))}"><span class="pn-dot"></span><span class="pn-item-body"><span class="pn-item-name">${escapeHtml(truncate(item.name, 38))}</span><span class="pn-item-meta"><span class="pn-count">${item.count.toLocaleString()} measures</span><span class="pn-share"><i style="width:${(item.count / maxCount * 100).toFixed(0)}%"></i></span></span></span></button>`).join("") : `<div class="pn-empty">No measures match the current filters.</div>`;
 
-  $("#page-content").innerHTML = `${ui.heading("Policy network", "Trace how countries connect to policy domains, institutions and instruments. Select an orb, a card or a linked item.", "RELATIONSHIPS", viewToggle(ui))}
+  $("#page-content").innerHTML = `${ui.heading("Policy network", "Trace how countries connect to policy domains, institutions and instruments. Select an orb, a card or a linked item.", "RELATIONSHIPS")}
   <section class="pn-stage" id="pn-stage" aria-label="Policy relationship network">
     <svg class="pn-links" id="pn-links" aria-hidden="true"></svg>
     <div class="pn-col pn-left">
@@ -110,7 +91,6 @@ function render2D(ui) {
   $$("[data-pn-dim]").forEach((button) => button.addEventListener("click", () => { state.networkDim = button.dataset.pnDim; state.networkItem = null; renderNetworkPage(ui); }));
   $$("[data-pn-item]").forEach((button) => button.addEventListener("click", () => { state.networkItem = button.dataset.pnItem; renderNetworkPage(ui); }));
   bindDetail(ui, { dim, focus, selected });
-  bindViewToggle(ui);
   ui.refreshIcons();
   requestAnimationFrame(drawLinks);
   window.__pnResize ||= (() => { let timer; window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => { if ($("#pn-stage")) drawLinks(); }, 120); }); return true; })();
@@ -174,78 +154,4 @@ function drawLinks() {
     paths += `<circle class="pn-hub" cx="${from.x.toFixed(1)}" cy="${from.y.toFixed(1)}" r="4"/>`;
   }
   svg.innerHTML = paths;
-}
-
-function render3D(ui) {
-  const { state, escapeHtml, COUNTRIES } = ui;
-  const all = ui.filtered();
-  const focus = state.country !== "all" ? state.country : null;
-  const records = focus ? all.filter((record) => record.country === focus) : all;
-  const dims = ["domain", "institution", "group", "family"];
-  if (!dims.includes(state.networkDim)) state.networkDim = "domain";
-  const dim = state.networkDim;
-  const periods = windows(state.records);
-  const items = ui.groupCount(records, (record) => record[dim]).slice(0, MAX_ITEMS_3D).map(([name, count]) => ({ name, count, trend: trend(records.filter((record) => record[dim] === name), periods) }));
-  if (!items.some((item) => item.name === state.networkItem)) state.networkItem = items[0]?.name ?? null;
-  const selected = items.find((item) => item.name === state.networkItem);
-  const cards = dims.map((key) => `<button type="button" class="pn-card${key === dim ? " active" : ""}" data-pn-dim="${key}"><span class="pn-card-icon">${ui.icon(DIMENSIONS[key].icon, 15)}</span><strong>${new Set(records.map((record) => record[key]).filter(Boolean)).size.toLocaleString()}</strong><span>${DIMENSIONS[key].label}</span></button>`).join("");
-
-  $("#page-content").innerHTML = `${ui.heading("Policy network", "Explore how countries connect to policy domains, institutions and instruments in 3D. Drag to rotate, scroll to zoom, click a node.", "RELATIONSHIPS", viewToggle(ui))}
-  <section class="pn-stage pn-stage-3d" id="pn-stage" aria-label="3D policy relationship network">
-    <div class="pn3d-main">
-      <div class="pn3d-bar">
-        <div class="pn-focus-3d"><strong>${escapeHtml(focus || "GCC States & Yemen")}</strong><span>${records.length.toLocaleString()} measures</span>${focus ? `<button type="button" class="pn-btn" id="pn-region">${ui.icon("globe", 14)}Whole region</button>` : ""}</div>
-        <div class="pn-cards" id="pn-cards">${cards}</div>
-      </div>
-      <div class="pn3d" id="pn3d" role="img" aria-label="3D network of ${escapeHtml(focus || "GCC States and Yemen")} and its top ${DIMENSIONS[dim].label.toLowerCase()}">
-        <div class="pn3d-loading"><span class="loading-mark"></span>Loading 3D view…</div>
-        <div class="pn3d-legend"><span><i class="lg-orb"></i>${focus ? "Focus country" : "Countries"}</span><span><i class="lg-sat"></i>${DIMENSIONS[dim].label}</span><span><i class="lg-link"></i>Selected</span><small>Size and brightness show the number of measures</small></div>
-        <div class="pn3d-hint">${ui.icon("mouse-pointer-2", 13)}${window.matchMedia("(pointer: coarse)").matches ? "Drag to rotate · pinch to zoom · tap a node" : "Drag to rotate · scroll to zoom · click a node"}</div>
-      </div>
-    </div>
-    <aside class="pn-col pn-detail" id="pn-detail">${selected ? detailPanel(ui, { dim, focus, records, selected, periods }) : ""}</aside>
-  </section>`;
-
-  $$("[data-pn-dim]").forEach((button) => button.addEventListener("click", () => { state.networkDim = button.dataset.pnDim; state.networkItem = null; renderNetworkPage(ui); }));
-  $("#pn-region")?.addEventListener("click", () => ui.setFilter("country", "all"));
-  bindDetail(ui, { dim, focus, selected });
-  bindViewToggle(ui);
-  ui.refreshIcons();
-
-  const countryCounts = COUNTRIES.map((country) => [country, records.filter((record) => record.country === country).length]).filter(([, count]) => count);
-  const maxCountry = Math.max(1, ...countryCounts.map(([, count]) => count));
-  const graph = {
-    centers: countryCounts.map(([country, count]) => ({ id: `c:${country}`, name: country === "United Arab Emirates" ? "UAE" : country, color: COUNTRY_COLORS[country] || "#5aaee8", size: focus ? 30 : 17 + Math.sqrt(count / maxCountry) * 21 })),
-    items: items.map((item, i) => ({ id: `i:${i}`, name: item.name, count: item.count, selected: item.name === state.networkItem })),
-    links: [],
-  };
-  countryCounts.forEach(([country]) => items.forEach((item, i) => {
-    const value = records.filter((record) => record.country === country && record[dim] === item.name).length;
-    if (value) graph.links.push({ from: `c:${country}`, to: `i:${i}`, value });
-  }));
-  const fullName = (name) => name === "UAE" ? "United Arab Emirates" : name;
-  const host = $("#pn3d");
-  loadThree().then(() => {
-    if (!host.isConnected) return;
-    host.querySelector(".pn3d-loading")?.remove();
-    current3D = mountNetwork3D(host, graph, {
-      onItem: (name) => {
-        state.networkItem = name;
-        const chosen = items.find((item) => item.name === name);
-        $("#pn-detail").innerHTML = chosen ? detailPanel(ui, { dim, focus, records, selected: chosen, periods }) : "";
-        bindDetail(ui, { dim, focus, selected: chosen });
-        ui.refreshIcons();
-      },
-      onCenter: (name) => ui.setFilter("country", focus && fullName(name) === focus ? "all" : fullName(name)),
-      tooltip: (node) => {
-        if (node.kind === "center") {
-          const country = fullName(node.name);
-          const count = records.filter((record) => record.country === country).length;
-          return `<strong>${escapeHtml(country)}</strong><span>${count.toLocaleString()} measures · click to ${focus === country ? "show the whole region" : "focus"}</span>`;
-        }
-        const item = items.find((entry) => entry.name === node.name);
-        return `<strong>${escapeHtml(node.name)}</strong><span>${item ? item.count.toLocaleString() : 0} measures · click for details</span>`;
-      },
-    });
-  }).catch(() => { state.networkView = "2d"; ui.showToast("3D view could not load; showing the 2D network.", "error"); renderNetworkPage(ui); });
 }
