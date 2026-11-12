@@ -1,5 +1,5 @@
-import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261009";
-import { CURRENCY, countryPriceSummary, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261009";
+import { approachesOf, approachLabel, approachPhrase, approachProfile, approachShifts, distinctiveApproaches, examples } from "./policy-analysis.js?v=pi-20261112";
+import { CURRENCY, countryPriceSummary, cpiSentences, dietComponents, dietSummary, formatLocal, perMonth, priceChanges } from "./food-analysis.js?v=pi-20261112";
 
 const REPORT_TYPES = {
   analysis: "Policy and food security analysis",
@@ -315,7 +315,7 @@ function analysisReport(ui, food, r) {
   const extended = r.length === "extended";
   const profile = approachProfile(records);
   const foodText = foodNarrative(food, country);
-  const ctx = { a, region, profile, subject, country, shifts: approachShifts(records), food: foodText, foodCtx: foodText };
+  const ctx = { a, region, profile, subject, country, shifts: approachShifts(records), food: foodText, foodCtx: [...cpiSentences(food, country), ...foodText] };
   const sections = [
     ["Executive summary", executiveSummary(ui, { ...ctx, food: [foodText[0]] }), ""],
     ["Main policy directions", directionsSection(ui, ctx, extended ? 7 : 5), table(["Approach", "Measures", "Share of measures", "Countries"], profile.slice(0, 10).map((row) => [row.label, num(row.count), pctOf(row.share), row.countries]), "Table: policy approaches identified in the measures.")],
@@ -342,7 +342,8 @@ function foodReport(ui, food, r) {
     : `Across the region, ${num(a.families.find(([name]) => name === "Consumer oriented")?.[1] || 0)} of the ${num(a.total)} recorded measures in this scope are consumer-oriented and ${num(a.families.find(([name]) => name === "Trade oriented")?.[1] || 0)} trade-oriented; ${num(records.filter((record) => MARKET_PATTERN.test(`${record.domain} ${record.group}`)).length)} touch markets, prices, reserves or trade. The countries with the fastest-rising diet costs are not necessarily those with the most consumer-oriented measures. This comparison is descriptive and does not establish cause or response.`;
   const top = priceChanges(food, "lcu").filter((item) => !item.flat && item.country !== "Yemen" && (!country || item.country === country)).sort((x, y) => y.change - x.change).slice(0, 5);
   const sections = [
-    ["Summary", paras(text[0], priceText), ""],
+    ["Summary", paras(text[0], cpiSentences(food, country)[0], priceText), ""],
+    ["Food price inflation", paras(cpiSentences(food, country), country ? cpiSentences(food)[0] : ""), ""],
     ["The cost of a healthy diet", paras(dietText), foodVisuals(food, country)],
     ["Prices received by farmers", paras(priceText, top.length ? `Among individual commodities, the largest increases were ${listJoin(top.map((item) => `${lower(item.item)} in ${shortName(item.country)} (${Math.round(item.change)}%, ${item.firstYear}–${item.latestYear}${item.swing ? ", including a large one-year swing that should be verified" : ""})`))}.` : ""), ""],
     ["Policy response", paras(policyText) + responseSection(ui, { a, profile: approachProfile(records), country, foodCtx: [] }), ""],
@@ -362,10 +363,14 @@ function monthlyReport(ui, food, r) {
   const inMonth = (m) => records.filter((record) => record.date?.startsWith(m));
   const rows = inMonth(month);
   const country = r.country !== "all" ? r.country : null;
+  // The newest month is often still in progress when the data are compiled.
+  const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+  const recordEnd = ui.latestDate(ui.state.records);
+  const partial = recordEnd?.startsWith(month) && Number(recordEnd.slice(8, 10)) < lastDay - 2;
   const byCountry = ui.COUNTRIES.map((name) => [name, rows.filter((record) => record.country === name)]).filter(([, list]) => list.length).sort((a, b) => b[1].length - a[1].length);
   const domains = ui.groupCount(rows, (record) => record.domain).slice(0, 4);
   const sections = [
-    ["Overview", paras(`${num(rows.length)} policy measures were recorded ${country ? `for ${shortName(country)} ` : ""}in ${monthName(month)}, compared with ${num(inMonth(prevMonth).length)} in ${monthName(prevMonth)} and ${num(inMonth(lastYear).length)} in ${monthName(lastYear)}.${domains.length ? ` The month's activity focused on ${listJoin(domains.map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${count})`))}.` : ""}${approachProfile(rows).filter((row) => row.count).length ? ` In terms of policy approach, measures mostly concerned ${listJoin(approachProfile(rows).filter((row) => row.count).slice(0, 3).map((row) => approachPhrase(row.key)))}.` : ""}`), ""],
+    ["Overview", paras(partial ? `${monthName(month)} is covered only up to ${longDate(recordEnd)}, so comparisons with complete months understate activity.` : "", `${num(rows.length)} policy measures were recorded ${country ? `for ${shortName(country)} ` : ""}in ${monthName(month)}, compared with ${num(inMonth(prevMonth).length)} in ${monthName(prevMonth)} and ${num(inMonth(lastYear).length)} in ${monthName(lastYear)}.${domains.length ? ` The month's activity focused on ${listJoin(domains.map(([domain, count]) => `${lower(ui.escapeHtml(domain))} (${count})`))}.` : ""}${approachProfile(rows).filter((row) => row.count).length ? ` In terms of policy approach, measures mostly concerned ${listJoin(approachProfile(rows).filter((row) => row.count).slice(0, 3).map((row) => approachPhrase(row.key)))}.` : ""}`), ""],
     ...(!country ? [["By country", byCountry.map(([name, list]) => `<p><strong>${name}.</strong> ${num(list.length)} measure${list.length === 1 ? "" : "s"}, mainly on ${listJoin(ui.groupCount(list, (record) => record.domain).slice(0, 2).map(([domain]) => lower(ui.escapeHtml(domain))))}. For example: “${ui.escapeHtml(firstSentence(list[0].description, 220))}”</p>`).join("") || "<p>No measures were recorded this month.</p>", ""]] : []),
     ["Highlights", recentNarrative(ui, rows, r.length === "short" ? 5 : r.length === "extended" ? 20 : 10), ""],
     ["About this report", methodNarrative(food, r), ""],

@@ -1,4 +1,4 @@
-import { CURRENCY, comparableItems, countryPriceSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261009";
+import { CURRENCY, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261112";
 
 export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];
@@ -9,25 +9,29 @@ const monthly = (daily, country) => formatLocal(perMonth(daily), country, { digi
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-function lineChart(selector, series, { height = 290, format = (value) => value, highlight = null } = {}) {
+function lineChart(selector, series, { height = 290, format = (value) => value, highlight = null, xFormat = String } = {}) {
   const host = d3.select(selector);
   host.selectAll("*").remove();
   const points = series.flatMap((entry) => entry.points);
   if (!points.length) { host.html(`<div class="empty-state"><h2>No values for this selection</h2><p>Choose another commodity or country.</p></div>`); return; }
   const width = Math.max(320, host.node().clientWidth || 640);
   const margin = { top: 16, right: 22, bottom: 34, left: 62 };
-  const years = [...new Set(points.map(([year]) => year))].sort((a, b) => a - b);
+  // x values are years or months ("2026-06"); both sort correctly as strings.
+  const years = [...new Set(points.map(([year]) => year))].sort((a, b) => String(a).localeCompare(String(b)));
   const x = d3.scalePoint().domain(years).range([margin.left, width - margin.right]).padding(.35);
-  const y = d3.scaleLinear().domain([0, (d3.max(points, ([, value]) => value) || 1) * 1.12]).nice().range([height - margin.bottom, margin.top]);
+  const low = Math.min(0, d3.min(points, ([, value]) => value));
+  const y = d3.scaleLinear().domain([low * 1.12, (d3.max(points, ([, value]) => value) || 1) * 1.12]).nice().range([height - margin.bottom, margin.top]);
   const svg = host.append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img").attr("aria-label", "Line chart by country");
   svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickFormat((value) => format(value)));
-  svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickFormat(String));
+  const step = Math.ceil(years.length / Math.max(4, Math.floor((width - margin.left) / 70)));
+  svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickValues(years.filter((_, i) => i % step === 0 || i === years.length - 1)).tickFormat(xFormat));
+  if (low < 0) svg.append("line").attr("x1", margin.left).attr("x2", width - margin.right).attr("y1", y(0)).attr("y2", y(0)).attr("stroke", "#9fb0bc").attr("stroke-dasharray", "3 3");
   series.forEach((entry) => {
     const dim = highlight && highlight !== entry.name;
     const group = svg.append("g").attr("opacity", dim ? .22 : 1);
     group.append("path").datum(entry.points).attr("fill", "none").attr("stroke", entry.color).attr("stroke-width", dim ? 1.6 : 2.6).attr("d", d3.line().x(([year]) => x(year)).y(([, value]) => y(value)).curve(d3.curveMonotoneX));
     group.selectAll("circle").data(entry.points).join("circle").attr("cx", ([year]) => x(year)).attr("cy", ([, value]) => y(value)).attr("r", 3.6).attr("fill", "white").attr("stroke", entry.color).attr("stroke-width", 2)
-      .append("title").text(([year, value]) => `${entry.name} · ${year}: ${format(value)}`);
+      .append("title").text(([year, value]) => `${entry.name} · ${xFormat(year)}: ${format(value)}`);
   });
 }
 
@@ -116,6 +120,13 @@ export function renderPricesPage(ui, food) {
   }).join("")}</tr>`).join("");
   const changeTable = `<div class="table-wrap"><table class="data-table change-table"><thead><tr><th>Commodity</th>${boardCountries.map((country) => `<th>${escapeHtml(shortName(country))}${country === "Yemen" ? " (USD)" : ""}</th>`).join("")}</tr></thead><tbody>${changeRows}</tbody></table></div><p class="method-note">Change from the first to the latest available year (${food.prices.years[0]}–${latestPriceYear}), in local currency; Yemen in USD. A grey 0% means FAOSTAT reports the same value in every year. <sup>!</sup> one year moved by more than 60%.</p>`;
 
+  // Monthly food price inflation (FAOSTAT consumer price indices)
+  const cpi = cpiSummary(food);
+  const monthLabel = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" });
+  const cpiSeries = cpi ? cpi.rows.map((row) => ({ name: row.country, color: COUNTRY_COLORS[row.country], points: row.points })) : [];
+  const cpiTable = cpi ? `<div class="table-wrap"><table class="data-table compact-table fit-table"><thead><tr><th>Country</th><th>Food price inflation</th><th>Month</th><th>Peak since ${monthLabel(cpi.first)}</th><th>Food prices, last 12 months</th><th>All prices, last 12 months</th></tr></thead><tbody>${cpi.rows.map((row) => `<tr${focus === row.country ? ' class="row-focus"' : ""}><td><strong>${escapeHtml(row.country)}</strong></td><td><span class="change-cell" style="background:${row.inflation >= 3 ? "rgba(194, 120, 63, .38)" : "rgba(63, 127, 117, .18)"}">${fmtPct(row.inflation, 1)}</span></td><td>${cpiMonthName(row.latest)}</td><td>${fmtPct(row.peak, 1)} <small>(${monthLabel(row.peakMonth)})</small></td><td>${fmtPct(row.foodChange, 1)}</td><td>${fmtPct(row.generalChange, 1)}</td></tr>`).join("")}</tbody></table></div><p class="method-note">Food price inflation is the change in the food consumer price index on the same month a year earlier (FAOSTAT estimate). The last two columns compare the latest month with the same month a year before (n/a where that month is not in this release). Months that only repeat the previous year's index are excluded. Yemen is not covered.</p>` : "";
+  const cpiCard = cpi ? ui.card("Food price inflation", `What consumers pay for food, monthly, ${cpiMonthName(cpi.first)} to ${cpiMonthName(cpi.latest)} · FAOSTAT consumer price indices · click a country to filter`, `<p class="card-lead">${escapeHtml(cpiSentences(food, focus)[0])}</p><div class="chart-wrap" id="cpi-chart"></div>${legend(ui, cpiSeries, focus)}${cpiTable}`, "span-12") : "";
+
   const records = ui.filtered();
   const linkRows = ui.COUNTRIES.map((country) => {
     const rows = records.filter((record) => record.country === country);
@@ -129,7 +140,8 @@ export function renderPricesPage(ui, food) {
   const groupTiles = `<div class="group-tiles">${groups.map((group) => `<div><span>${escapeHtml(group.group)}</span><strong>${fmtPct(group.medianChange)}</strong><small>median of ${group.series} series</small></div>`).join("")}</div>`;
   const notes = `<ul class="method-list"><li>Producer prices are annual farm-gate prices received by producers (FAOSTAT), not retail prices paid by consumers.</li>${food.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}<li>FAOSTAT's "number of people unable to afford a healthy diet" is not shown: for Qatar it is inconsistent with the reported prevalence.</li></ul><details class="swing-details"><summary>Large one-year price movements flagged for verification (${food.prices.swings.length})</summary><ul>${food.prices.swings.slice().sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).map((swing) => `<li>${escapeHtml(swing.country)} · ${escapeHtml(items.get(swing.code)?.name || swing.code)}: ${swing.from}→${swing.to} ${fmtPct(swing.change)}</li>`).join("")}</ul></details><p class="method-note">Sources: ${escapeHtml(food.sources.prices.name)}; ${escapeHtml(food.sources.diet.name)}. Processed ${escapeHtml(food.generatedAt)}.</p>`;
 
-  $("#page-content").innerHTML = `${ui.heading("Food prices & healthy diets", "What a healthy diet costs people in each country, and the prices farmers receive for staple foods, alongside the policy record.", "FOOD PRICES & AFFORDABILITY")}${kpis}<div class="content-grid">
+  $("#page-content").innerHTML = `${ui.heading("Food prices & healthy diets", "How fast food prices are rising for consumers, what a healthy diet costs, and the prices farmers receive for staple foods, alongside the policy record.", "FOOD PRICES & AFFORDABILITY")}${kpis}<div class="content-grid">
+    ${cpiCard}
     ${ui.card("What a healthy diet costs", `Per person, ${diet.firstYear}–${diet.latestYear} · chart in PPP dollars for comparison · click a country to filter`, `<div class="chart-wrap" id="diet-chart"></div>${legend(ui, dietSeries, focus)}${dietTable}`, "span-7")}
     ${ui.card("Where the money goes", `Cost of each food group in a healthy diet, PPP $ per person per day (${components.year}, the only year published)`, `<div class="chart-wrap" id="diet-components"></div><div class="legend-row">${components.groups.map((group, i) => `<span class="legend-item"><i style="background:${COMPONENT_COLORS[i % COMPONENT_COLORS.length]}"></i>${escapeHtml(group)}</span>`).join("")}</div>`, "span-5")}
     ${ui.card("Farm-gate price board", "Latest price per kg received by producers · click a commodity to see its history", board, "span-12")}
@@ -139,6 +151,7 @@ export function renderPricesPage(ui, food) {
     ${ui.card("About these figures", "Coverage, definitions and quality checks", notes, "span-12")}
   </div>`;
 
+  if (cpi) lineChart("#cpi-chart", cpiSeries, { format: (value) => `${Number(value).toFixed(1)}%`, highlight: focus, xFormat: monthLabel });
   lineChart("#diet-chart", dietSeries, { format: (value) => `$${Number(value).toFixed(2)}`, highlight: focus });
   componentBars("#diet-components", components, focus);
   drawExplorer(ui, food, focus);

@@ -1015,3 +1015,4 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
   *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   svg animateMotion { display: none; }
 }
+.card-lead { margin: 0 0 12px; max-width: 90ch; color: #2c4556; font-size: 15px; line-height: 1.6; }

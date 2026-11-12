@@ -110,3 +110,39 @@ export function latestPricePerKg(series) {
   if (!year) return null;
   return { year, usd: series.usd[year] / 1000, lcu: series.lcu[year] !== undefined ? series.lcu[year] / 1000 : null };
 }
+
+// Monthly consumer prices (FAOSTAT CP): latest food price inflation and how food prices moved against all prices.
+export const cpiMonthName = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+const monthsBack = (key, count) => { const [y, m] = key.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 - count, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
+export function cpiSummary(food) {
+  if (!food.cpi) return null;
+  const rows = Object.entries(food.cpi.countries).map(([country, entry]) => {
+    const months = Object.keys(entry.inflation).sort();
+    const latest = months.at(-1);
+    const peakMonth = months.reduce((best, month) => entry.inflation[month] > entry.inflation[best] ? month : best, months[0]);
+    const yearAgo = latest && monthsBack(latest, 12);
+    const foodChange = pctChange(entry.food[yearAgo], entry.food[latest]);
+    const generalChange = pctChange(entry.general[yearAgo], entry.general[latest]);
+    return { country, latest, inflation: entry.inflation[latest], peakMonth, peak: entry.inflation[peakMonth], foodChange, generalChange, gap: foodChange !== null && generalChange !== null ? foodChange - generalChange : null, foodIndex: entry.food[latest], points: months.map((month) => [month, entry.inflation[month]]) };
+  }).sort((a, b) => b.inflation - a.inflation);
+  return { rows, latest: rows.map((row) => row.latest).sort().at(-1), first: food.cpi.months[0], highest: rows[0], lowest: rows.at(-1) };
+}
+// One or two sentences on food price inflation, for the prices page and reports.
+export function cpiSentences(food, country = null) {
+  const cpi = cpiSummary(food);
+  if (!cpi) return [];
+  const name = (value) => value === "United Arab Emirates" ? "the UAE" : value;
+  const pct = (value) => `${value.toFixed(1)}%`;
+  if (country) {
+    const row = cpi.rows.find((item) => item.country === country);
+    if (!row) return [`FAOSTAT's monthly consumer price indices do not cover ${name(country)}.`];
+    const vsAll = row.gap === null ? "" : Math.abs(row.gap) < .5 ? ", in line with prices overall" : row.gap > 0 ? `, faster than prices overall (${pct(row.generalChange)})` : `, slower than prices overall (${pct(row.generalChange)})`;
+    return [`Food prices in ${name(country)} were ${pct(row.inflation)} higher in ${cpiMonthName(row.latest)} than a year earlier${row.peakMonth !== row.latest && row.peak > row.inflation + 1 ? `, down from a peak of ${pct(row.peak)} in ${cpiMonthName(row.peakMonth)}` : ""}.${row.foodChange === null ? "" : ` Over the past 12 months the food price index ${row.foodChange >= 0 ? "rose" : "fell"} ${pct(Math.abs(row.foodChange))}${vsAll}.`}${row.latest !== cpi.latest ? ` More recent months are not yet reported.` : ""}`];
+  }
+  const rising = cpi.rows.filter((row) => row.inflation >= 3);
+  const above = cpi.rows.filter((row) => row.gap !== null && row.gap > .5);
+  // Countries report with different delays, so name the month wherever it differs from the latest.
+  const late = cpi.rows.filter((row) => row.latest !== cpi.latest);
+  const when = late.length ? `in the latest month available (${cpiMonthName(cpi.latest)}; ${late.map((row) => `${cpiMonthName(row.latest)} for ${name(row.country)}`).join(", ")})` : `in ${cpiMonthName(cpi.latest)}`;
+  return [`Food price inflation ${when} ranged from ${pct(cpi.lowest.inflation)} in ${name(cpi.lowest.country)} to ${pct(cpi.highest.inflation)} in ${name(cpi.highest.country)}.${rising.length ? ` Food prices were rising markedly (3% or more a year) in ${rising.map((row) => name(row.country)).join(", ").replace(/, ([^,]*)$/, " and $1")}.` : ""}${above.length ? ` In ${above.map((row) => name(row.country)).join(", ").replace(/, ([^,]*)$/, " and $1")}, food prices rose faster than prices overall, so food took a larger share of household budgets.` : ""}`];
+}

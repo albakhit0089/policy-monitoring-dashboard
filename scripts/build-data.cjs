@@ -210,6 +210,16 @@ async function main() {
   const files = [...new Set(roots.flatMap(walk))].sort((a, b) => a.localeCompare(b));
   const unique = new Map();
   let parsedRows = 0;
+  // --merge keeps every record already in data/measures.json and adds only new ones,
+  // so a new month's workbooks can be added without the earlier workbook folders.
+  const merge = process.argv.includes('--merge');
+  const existingPath = path.resolve(__dirname, '..', 'data', 'measures.json');
+  if (merge) {
+    if (!fs.existsSync(existingPath)) throw new Error('--merge needs an existing data/measures.json');
+    JSON.parse(fs.readFileSync(existingPath, 'utf8')).records.forEach((record) => unique.set(dedupeKey(record), record));
+    console.log(`Merging into ${unique.size.toLocaleString()} existing records.`);
+  }
+  const before = unique.size;
   const failures = [];
   for (const file of files) {
     try {
@@ -238,7 +248,7 @@ async function main() {
   const regionalRecords = records.filter((record) => REGIONAL_COUNTRIES.has(record.country));
   fs.writeFileSync(regionalOutput, `${JSON.stringify({ recordCount: regionalRecords.length, records: regionalRecords })}\n`, 'utf8');
   const countries = new Set(records.map((record) => record.country));
-  console.log(`Read ${files.length} workbooks; parsed ${parsedRows.toLocaleString()} rows; wrote ${records.length.toLocaleString()} unique records across ${countries.size} countries.`);
+  console.log(`Read ${files.length} workbooks; parsed ${parsedRows.toLocaleString()} rows; wrote ${records.length.toLocaleString()} unique records across ${countries.size} countries${merge ? ` (${(records.length - before).toLocaleString()} new)` : ''}.`);
   console.log(`Wrote ${regionalRecords.length.toLocaleString()} GCC and Yemen records to ${regionalOutput}.`);
   console.log(`Output: ${output}`);
   if (failures.length) {

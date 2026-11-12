@@ -33,6 +33,12 @@ Then supply the local workbook folders:
 npm run build-data -- --roots "../Monthly Monitoring 2023" "../Monthly Monitoring 2024" "../Monthly Monitoring 2025" "../Monthly Monitoring 2026"
 ```
 
+To add new monthly workbooks without the earlier folders, merge them into the existing local `data/measures.json` (records already present are kept; duplicates are skipped):
+
+```sh
+node scripts/build-data.cjs --merge --roots "../Monthly Monitoring 2026 new months"
+```
+
 The generator rewrites the complete `data/measures.json` and a separate GCC/Yemen-only `data/gcc-yemen-measures.json`. It does not delete or edit the Excel workbooks. Workbook files and `data/measures.json` are ignored by Git. When `data/measures.json` is present locally, `npm run build` also cross-checks the regional records against it. Deduplication, date conversion, country normalisation and classification are handled in `scripts/build-data.cjs`.
 
 ## Food price and healthy diet indicators
@@ -44,6 +50,12 @@ npm run build-indicators -- --prices "Prices_E_All_Data_(Normalized).csv" --diet
 ```
 
 The script keeps GCC States and Yemen, uses official annual prices from 2018 and fills missing or carried-forward annual values with the average of at least six monthly FAOSTAT prices. It drops live-weight ("biological") meat duplicates and non-food items, recomputes USD values that contradict official currency pegs, and records coverage and quality notes that the dashboard displays alongside the figures. The UAE does not report producer prices to FAOSTAT, and Yemen has no healthy diet cost estimate from FAO or the World Bank.
+
+Monthly food price inflation comes from a FAOSTAT Consumer Price Indices (CP) export with Food Indices, General Indices and Food price inflation, saved as CSV. Running it rebuilds the `cpi` section of `data/food-indicators.json`; months that only repeat the previous year's index are dropped:
+
+```sh
+node scripts/build-cpi.cjs "FAOSTAT_data_en_11-12-2026.csv"
+```
 
 ## Pages and reports
 
