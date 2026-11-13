@@ -3,8 +3,10 @@ import { renderNetworkPage } from "./network.js?v=pi-20261113";
 import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261113";
 import { renderReportsPage } from "./reports.js?v=pi-20261113";
 import { renderThisMonthPage } from "./thismonth.js?v=pi-20261113";
+import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261113";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
 const ISO3 = { Bahrain: "BHR", Kuwait: "KWT", Oman: "OMN", Qatar: "QAT", "Saudi Arabia": "SAU", "United Arab Emirates": "ARE", Yemen: "YEM" };
 const COUNTRY_CODES = { Bahrain: "048", Kuwait: "414", Oman: "512", Qatar: "634", "Saudi Arabia": "682", "United Arab Emirates": "784", Yemen: "887" };
@@ -60,21 +62,51 @@ function showToast(message, kind = "info") {
   setTimeout(() => toast.remove(), 4400);
 }
 function activeFilterEntries() {
-  const labels = { country: "Country", year: "Year", month: "Month", type: "Type", family: "Family", domain: "Domain", group: "Group", institution: "Institution", from: "From", to: "To", keyword: "Search" };
-  return Object.entries(labels).filter(([key]) => state[key] && state[key] !== "all").map(([key, label]) => [key, label, key === "month" ? MONTHS[Number(state.month) - 1] : key === "type" ? state.type === "decision" ? "Short-term" : "Long-term" : state[key]]);
+  const keys = ["country", "year", "month", "type", "family", "domain", "group", "institution", "from", "to", "keyword"];
+  return keys.filter((key) => state[key] && state[key] !== "all").map((key) => [key, t(`f.${key === "keyword" ? "search" : key}`), key === "month" ? MONTHS[Number(state.month) - 1] : key === "type" ? state.type === "decision" ? "Short-term" : "Long-term" : key === "keyword" ? `“${state.keyword}”` : state[key]]);
 }
-function setFiltersCollapsed(collapsed) {
-  $(".global-filters").classList.toggle("collapsed", collapsed);
-  $("#toggle-filters").setAttribute("aria-expanded", String(!collapsed));
-  try { localStorage.setItem("filtersCollapsed", collapsed ? "1" : "0"); } catch { /* Storage may be unavailable. */ }
-}
+// Active filters as removable chips ("Saudi Arabia · 2026 · Trade oriented ×"); the full form is in a drawer.
 function renderActiveFilters() {
-  const count = activeFilterEntries().length;
-  $("#filter-count").hidden = !count;
-  $("#filter-count").textContent = `${count} active`;
-  $("#active-filters").innerHTML = activeFilterEntries().map(([key, label, value]) => `<span class="filter-chip">${escapeHtml(label)}: ${escapeHtml(value)}<button type="button" data-remove-filter="${key}" aria-label="Remove ${escapeHtml(label)} filter" title="Remove filter">${icon("x", 12)}</button></span>`).join("");
+  const entries = activeFilterEntries();
+  $("#active-filters").innerHTML = entries.length
+    ? entries.map(([key, label, value]) => `<span class="filter-chip" title="${escapeHtml(label)}"><span class="sr-only">${escapeHtml(label)}: </span>${escapeHtml(value)}<button type="button" data-remove-filter="${key}" aria-label="${escapeHtml(t("filters.remove"))}: ${escapeHtml(label)} ${escapeHtml(value)}">${icon("x", 12)}</button></span>`).join('<span class="chip-sep" aria-hidden="true">·</span>')
+    : `<span class="filter-none">${escapeHtml(t("filters.none"))}</span>`;
+  $("#toggle-filters span").textContent = entries.length ? `${t("filters.edit")} (${entries.length})` : t("filters.edit");
+  $("#reset-filters").hidden = !entries.length;
   $$("[data-remove-filter]").forEach((button) => button.addEventListener("click", () => { clearFilter(button.dataset.removeFilter); render(); }));
   refreshIcons();
+}
+function openFilterDrawer() {
+  const drawer = $("#filter-drawer");
+  drawer.hidden = false;
+  requestAnimationFrame(() => drawer.classList.add("open"));
+  $("#filter-scrim").classList.add("visible");
+  $("#toggle-filters").setAttribute("aria-expanded", "true");
+  setTimeout(() => drawer.querySelector("select")?.focus(), 60);
+}
+function closeFilterDrawer() {
+  const drawer = $("#filter-drawer");
+  if (drawer.hidden) return;
+  drawer.classList.remove("open");
+  $("#filter-scrim").classList.remove("visible");
+  $("#toggle-filters").setAttribute("aria-expanded", "false");
+  setTimeout(() => { if (!drawer.classList.contains("open")) drawer.hidden = true; }, 220);
+  $("#toggle-filters").focus();
+}
+// ---------- URL state: page and every filter live in the hash (#records?country=Oman&year=2026) ----------
+const FILTER_KEYS = ["country", "year", "month", "from", "to", "type", "family", "domain", "group", "institution", "keyword"];
+const OWN_SCOPE_PAGES = ["thismonth", "reports"];
+function writeHash() {
+  if (OWN_SCOPE_PAGES.includes(state.page)) return; // these pages encode their own scope
+  const params = new URLSearchParams();
+  FILTER_KEYS.forEach((key) => { const value = state[key]; if (value && value !== "all") params.set(key === "keyword" ? "q" : key, value); });
+  const query = params.toString();
+  history.replaceState(null, "", `#${state.page}${query ? `?${query}` : ""}`);
+}
+function readHashFilters() {
+  if (OWN_SCOPE_PAGES.includes(hashPage())) return;
+  const params = new URLSearchParams(location.hash.split("?")[1] || "");
+  FILTER_KEYS.forEach((key) => { const value = params.get(key === "keyword" ? "q" : key); state[key] = value || (["keyword", "from", "to"].includes(key) ? "" : "all"); });
 }
 function clearFilter(key) {
   state[key] = ["country", "year", "month", "type", "family", "domain", "group", "institution"].includes(key) ? "all" : "";
@@ -123,30 +155,43 @@ function periodCompare(records) {
   const previousCount = previousKey ? monthly.at(-2)[1].total : 0;
   return { latestKey, latestCount, previousKey, previousCount, change: previousCount ? (latestCount - previousCount) / previousCount * 100 : null };
 }
-function kpi(label, value, meta, iconName, tone = "") {
-  return `<article class="kpi-card ${tone}"><div class="kpi-label"><span>${escapeHtml(label)}</span>${icon(iconName, 17)}</div><div class="kpi-value${/^[\d,.%\s]+$/.test(value) || value.length <= 12 ? "" : " kpi-value-text"}" title="${escapeHtml(value)}">${escapeHtml(value)}</div><div class="kpi-meta">${meta}</div></article>`;
+function kpi(label, value, meta, iconName, tone = "", labelHtml = null) {
+  return `<article class="kpi-card ${tone}"><div class="kpi-label"><span>${labelHtml || escapeHtml(label)}</span>${icon(iconName, 17)}</div><div class="kpi-value${/^[\d,.%\s]+$/.test(value) || value.length <= 12 ? "" : " kpi-value-text"}" title="${escapeHtml(value)}">${escapeHtml(value)}</div><div class="kpi-meta">${meta}</div></article>`;
+}
+// Counts over whole months, for "vs previous period" comparisons.
+const shiftKey = (key, months) => { const [year, month] = key.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1 + months, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`; };
+const inMonths = (records, from, to) => records.filter((record) => { const key = monthKey(record); return key && key >= from && key <= to; });
+function changeMeta(now, before, label) {
+  if (before === null || before === undefined) return escapeHtml(label);
+  const diff = now - before, pct = before ? Math.round(diff / before * 100) : null;
+  return `<span class="kpi-change ${diff > 0 ? "up" : diff < 0 ? "down" : "flat"}">${diff > 0 ? "▲ +" : diff < 0 ? "▼ " : "● "}${diff.toLocaleString()}${pct !== null ? ` (${pct > 0 ? "+" : ""}${pct}%)` : ""}</span> vs ${escapeHtml(label)}`;
 }
 function renderOverview() {
   const items = filtered();
   const period = periodCompare(items);
-  const latestLabel = period ? formatDate(`${period.latestKey}-01`, { month: "short", year: "numeric", day: undefined }) : "Not available";
   const lastDate = latestDate(items);
-  const countryCount = new Set(items.map((record) => record.country)).size;
-  const institutionCount = new Set(items.map((record) => record.institution).filter(Boolean)).size;
-  const monthly = aggregateMonthly(items);
-  const monthsInYear = items.filter((record) => record.year === (period ? Number(period.latestKey.slice(0, 4)) : null));
   const intro = `<div class="hero-strip"><div class="hero-copy"><div class="eyebrow">FOOD &amp; AGRICULTURE · GCC STATES &amp; YEMEN</div><h1 class="page-title">Policy Intelligence</h1><p class="page-subtitle">Monitor food, agriculture, trade, water and food security developments across the region, grounded in the policy record.</p></div><div class="hero-asof"><span>DATA THROUGH</span><strong>${escapeHtml(formatDate(lastDate, { day: "2-digit", month: "short", year: "numeric" }))}</strong></div></div>`;
-  const kpis = `<div class="kpi-grid">${kpi("Policy measures", items.length.toLocaleString(), "In the current selection", "files", "kpi-primary")}${kpi("Countries covered", countryCount.toString(), "GCC States and Yemen", "map-pinned", "kpi-teal")}${kpi("Measures in latest complete month", period?.latestCount.toLocaleString() || "0", `${latestLabel}${partialMonth() ? ` · ${monthLabel(partialMonth(), true)} is partial` : ""}`, "calendar-days", "kpi-gold")}${kpi("Short-term decisions", totalCount(items, "decision").toLocaleString(), `${totalCount(items, "framework").toLocaleString()} long-term frameworks`, "scale")}${kpi("Long-term frameworks", totalCount(items, "framework").toLocaleString(), "Records classified as frameworks", "book-open")}${kpi("Institutions monitored", institutionCount.toLocaleString(), "Distinct names in source records", "building-2")}${kpi("Policy domains", new Set(items.map((record) => record.domain)).size.toLocaleString(), "Domains represented in selection", "shapes")}${kpi("Latest update", lastDate ? formatDate(lastDate, { day: "2-digit", month: "short", year: "numeric" }) : "Not available", "Latest dated policy measure", "clock-3")}</div>`;
+  const entries = `<nav class="entry-points" aria-label="Where to start">${[["thismonth", "calendar-check", "entry.new", "entry.newText"], ["country", "map-pinned", "entry.country", "entry.countryText"], ["compare", "git-compare-arrows", "entry.compare", "entry.compareText"]].map(([page, iconName, title, text]) => `<button type="button" class="entry-point" data-nav-to="${page}">${icon(iconName, 22)}<span><strong>${escapeHtml(t(title))}</strong><small>${escapeHtml(t(text))}</small></span>${icon("chevron-right", 18)}</button>`).join("")}</nav>`;
+  let kpis = "";
+  if (period) {
+    const end = period.latestKey, start12 = shiftKey(end, -11), prevEnd = shiftKey(end, -12), prevStart = shiftKey(end, -23);
+    const last12 = inMonths(items, start12, end), prev12 = inMonths(items, prevStart, prevEnd);
+    const thisMonth = inMonths(items, end, end), lastMonth = period.previousKey ? inMonths(items, period.previousKey, period.previousKey) : null;
+    const distinct = (rows, field) => new Set(rows.map((record) => record[field]).filter(Boolean)).size;
+    const prevLabel = period.previousKey ? monthLabel(period.previousKey, true) : "";
+    kpis = `<div class="kpi-grid kpi-grid-5">
+      ${kpi(t("kpi.month"), period.latestCount.toLocaleString(), `${escapeHtml(monthLabel(end, true))} · ${changeMeta(period.latestCount, period.previousKey ? period.previousCount : null, prevLabel)}${partialMonth() ? ` · <span class="term" tabindex="0" data-def="${escapeHtml(t("def.partial"))}">${escapeHtml(monthLabel(partialMonth(), true))} partial</span>` : ""}`, "calendar-days", "kpi-gold")}
+      ${kpi(t("kpi.year"), last12.length.toLocaleString(), changeMeta(last12.length, prev12.length ? prev12.length : null, "previous 12 months"), "files", "kpi-primary")}
+      ${kpi(t("kpi.frameworks"), totalCount(last12, "framework").toLocaleString(), changeMeta(totalCount(last12, "framework"), prev12.length ? totalCount(prev12, "framework") : null, "previous 12 months"), "book-open", "", term(escapeHtml(t("kpi.frameworks")), "def.framework"))}
+      ${kpi(t("kpi.countries"), `${distinct(thisMonth, "country")} of 7`, changeMeta(distinct(thisMonth, "country"), lastMonth ? distinct(lastMonth, "country") : null, prevLabel), "map-pinned", "kpi-teal")}
+      ${kpi(t("kpi.institutions"), distinct(last12, "institution").toLocaleString(), changeMeta(distinct(last12, "institution"), prev12.length ? distinct(prev12, "institution") : null, "previous 12 months"), "building-2", "", term(escapeHtml(t("kpi.institutions")), "def.institution"))}
+    </div>`;
+  }
   const activity = `<div class="chart-toolbar" id="activity-mode">${[["all", "Total"], ["decision", "Short-term"], ["framework", "Long-term"]].map(([mode, label]) => `<button type="button" data-activity="${mode}" aria-pressed="${state.activityMode === mode}">${label}</button>`).join("")}</div><div class="chart-wrap chart-tall" id="activity-chart"></div>`;
-  const countryBars = `<div class="rank-list" id="country-rank"></div>`;
-  const typeBars = `<div class="chart-wrap" id="type-by-country-chart"></div>`;
-  const families = `<div class="chart-wrap" id="family-chart"></div><div class="legend-row family-legend" id="family-legend"></div>`;
-  const heatmap = `<div class="table-wrap heatmap-wrap" id="heatmap-wrap"></div>`;
-  const map = `<div class="map-wrap" id="regional-map"></div>`;
   const latestItems = items.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
   const latest = latestItems.length ? `<div class="record-list">${latestItems.map((record) => recordCard(record)).join("")}</div>` : emptyMarkup();
-  const themes = renderEmerging(items);
-  return `${intro}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12")}${card("Policy measures by country", "Ranked counts from the selected records", countryBars, "span-6")}${card("Short-term and long-term orientation", "Country totals by measure type", typeBars, "span-6")}${card("Policy family distribution", "Counts from recorded family classifications", families, "span-6")}${card("Policy domains by country", "Top 12 domains · select a cell, domain or country to filter", heatmap, "span-6")}${card("Regional map", "Policy measure volume by country", map, "span-7")}${card("Emerging policy themes", "Recent 12 months compared with the preceding 12 months", themes, "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-12")}</div>`;
+  // One map for country volume and one share chart; the separate country rank and type-by-country charts were duplicates.
+  return `${intro}${entries}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12")}${card("Regional map", "Policy measures by country · select a country to filter", `<div class="map-wrap" id="regional-map"></div>`, "span-7")}${card(`Share of measures by ${term("policy family", "def.family")}`, "Percentage of measures in the current selection, with counts", `<div id="family-chart"></div>`, "span-5")}${card(`${term("Policy domains", "def.domain")} by country`, "Top 12 domains · select a cell, domain or country to filter", `<div class="table-wrap heatmap-wrap" id="heatmap-wrap"></div>`, "span-7")}${card("Emerging policy themes", "Latest 12 months against the 12 months before", renderEmerging(items), "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-12")}</div>`;
 }
 
 function drawActivityChart(selector, records, mode = state.activityMode, onMonth = true) {
@@ -165,7 +210,7 @@ function drawActivityChart(selector, records, mode = state.activityMode, onMonth
   svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickFormat(d3.format("~s")));
   svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickValues(monthTicks(data.map(([key]) => key), width - margin.left - margin.right)).tickFormat((key) => monthLabel(key)));
   const valueFor = ([, values]) => mode === "all" ? values.total : values[mode];
-  const color = mode === "decision" ? FAMILY_COLORS["Consumer oriented"] : mode === "framework" ? FAMILY_COLORS["Long-term frameworks"] : "#116aab";
+  const color = TYPE_COLORS[mode] || TYPE_COLORS.all;
   const partial = partialMonth();
   const complete = data.filter(([key]) => key !== partial);
   markPartial(svg, x, partial, margin.top, height - margin.bottom);
@@ -199,39 +244,6 @@ function renderRankEntries(counts, target, onSelect = null) {
     row.addEventListener("click", () => onSelect(row.dataset.rankLabel));
     row.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); onSelect(row.dataset.rankLabel); } });
   });
-}
-function drawTypeBars(records) {
-  const target = d3.select("#type-by-country-chart");
-  target.selectAll("*").remove();
-  if (!records.length) { target.html(emptyMarkup()); wireEmptyActions(); return; }
-  const data = COUNTRIES.map((country) => ({ country, decision: records.filter((record) => record.country === country && record.type === "decision").length, framework: records.filter((record) => record.country === country && record.type === "framework").length }));
-  const width = Math.max(330, target.node().clientWidth || 500), height = 260, margin = { top: 8, right: 14, bottom: 43, left: 43 };
-  const svg = target.append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img").attr("aria-label", "Short-term and long-term policy measures by country");
-  const x = d3.scaleBand().domain(data.map((d) => d.country)).range([margin.left, width - margin.right]).padding(.22);
-  const y = d3.scaleLinear().domain([0, (d3.max(data, (d) => d.decision + d.framework) || 1) * 1.12]).nice().range([height - margin.bottom, margin.top]);
-  svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(width - margin.left - margin.right)).tickFormat(d3.format("~s")));
-  svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).tickFormat((name) => name === "United Arab Emirates" ? "UAE" : name === "Saudi Arabia" ? "Saudi" : name).tickSizeOuter(0));
-  const stack = d3.stack().keys(["decision", "framework"])(data);
-  const colors = { decision: "#287bb0", framework: "#40836d" };
-  const bars = svg.append("g").selectAll("g").data(stack).join("g").attr("fill", (d) => colors[d.key]).selectAll("rect").data((d) => d.map((entry) => Object.assign(entry, { key: d.key }))).join("rect").attr("x", (d) => x(d.data.country)).attr("y", (d) => y(d[1])).attr("height", (d) => Math.max(0, y(d[0]) - y(d[1]))).attr("width", x.bandwidth()).attr("rx", 2).attr("class", "chart-mark").attr("tabindex", 0).attr("role", "button").attr("aria-label", (d) => `Filter ${d.data.country} by ${d.key === "decision" ? "short-term decisions" : "long-term frameworks"}`)
-    .on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); state.country = entry.data.country; state.type = entry.key; syncFilters(); render(); });
-  bars.append("title").text((d) => `${d.data.country} · ${d.key === "decision" ? "Short-term decisions" : "Long-term frameworks"}: ${d[1] - d[0]} (${percentage(d[1] - d[0], d.data.decision + d.data.framework)}). Click to filter.`);
-}
-function drawFamilyDonut(records) {
-  const target = d3.select("#family-chart"); target.selectAll("*").remove();
-  const entries = groupCount(records, (record) => record.family);
-  if (!entries.length) { target.html(emptyMarkup()); return; }
-  const width = Math.max(250, target.node().clientWidth || 360), height = 245, radius = Math.min(width * .31, 96);
-  const svg = target.append("svg").attr("viewBox", `0 0 ${width} ${height}`).attr("role", "img").attr("aria-label", "Policy measures by family");
-  const group = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
-  const pie = d3.pie().sort(null).value((entry) => entry[1])(entries);
-  const arc = d3.arc().innerRadius(radius * .63).outerRadius(radius);
-  const slices = group.selectAll("path").data(pie).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "white").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).attr("role", "button").attr("aria-label", (entry) => `Filter to ${entry.data[0]}, ${entry.data[1]} measures`).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); });
-  slices.append("title").text((entry) => `${entry.data[0]}: ${entry.data[1]} measures (${percentage(entry.data[1], records.length)}). Click to filter.`);
-  group.append("text").attr("class", "donut-center-value").attr("y", -2).text(records.length.toLocaleString());
-  group.append("text").attr("class", "donut-center-label").attr("y", 18).text("measures");
-  $("#family-legend").innerHTML = entries.map(([family, count]) => `<button class="legend-item" data-family="${escapeHtml(family)}"><i style="background:${familyColor(family)}"></i><span>${escapeHtml(family)}</span><strong>${count.toLocaleString()}</strong></button>`).join("");
-  $$('[data-family]').forEach((button) => button.addEventListener("click", () => setFilter("family", button.dataset.family)));
 }
 function drawHeatmap(records) {
   const target = $("#heatmap-wrap");
@@ -308,11 +320,10 @@ function renderOverviewPage() {
   root.innerHTML = renderOverview();
   const records = filtered();
   drawActivityChart("#activity-chart", records);
-  renderCountryRank(records);
-  drawTypeBars(records);
-  drawFamilyDonut(records);
+  drawFamilyBars("#family-chart", records);
   drawHeatmap(records);
   renderMap(records);
+  $$("[data-nav-to]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.navTo)));
   $$('[data-theme]').forEach((button) => button.addEventListener("click", () => { state.domain = button.dataset.theme; syncFilters(); render(); }));
   $$("[data-activity]").forEach((button) => button.addEventListener("click", () => { state.activityMode = button.dataset.activity; $$("[data-activity]").forEach((item) => item.setAttribute("aria-pressed", String(item === button))); drawActivityChart("#activity-chart", filtered(), state.activityMode); }));
   refreshIcons();
@@ -321,12 +332,12 @@ function renderOverviewPage() {
 function renderTrendsPage() {
   const records = filtered();
   const actions = `<div class="chart-toolbar" id="activity-range">${["1m", "3m", "6m", "ytd", "1y", "all"].map((range) => `<button type="button" data-range="${range}" aria-pressed="${state.activityRange === range}">${({ "1m": "1 month", "3m": "3 months", "6m": "6 months", ytd: "YTD", "1y": "1 year", all: "All" })[range]}</button>`).join("")}</div>`;
-  $("#page-content").innerHTML = `${heading("Policy trends", "Monthly activity and measure orientation across the current regional selection.", "POLICY ACTIVITY", actions)}<div class="kpi-grid">${kpi("Policy measures", records.length.toLocaleString(), "In current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Dated policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Dated policy frameworks", "book-open")}${kpi("Countries active", new Set(records.map((record) => record.country)).size.toString(), "Countries with measures", "map-pinned")}</div><div class="content-grid">${card("Monthly policy activity", "Select a month to cross-filter the dashboard.", `<div class="chart-wrap chart-tall" id="trend-main"></div>`, "span-12")}${card("Country activity", "Measures by country in the selected period.", `<div class="rank-list" id="trend-country-rank"></div>`, "span-6")}${card("Policy family mix", "Distribution from recorded categories.", `<div class="chart-wrap" id="trend-family"></div><div class="legend-row" id="trend-family-legend"></div>`, "span-6")}</div>`;
+  $("#page-content").innerHTML = `${heading("Policy trends", "Monthly activity and measure orientation across the current regional selection.", "POLICY ACTIVITY", actions)}<div class="kpi-grid">${kpi("Policy measures", records.length.toLocaleString(), "In current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Dated policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Dated policy frameworks", "book-open")}${kpi("Countries active", new Set(records.map((record) => record.country)).size.toString(), "Countries with measures", "map-pinned")}</div><div class="content-grid">${card("Monthly policy activity", "Select a month to cross-filter the dashboard.", `<div class="chart-wrap chart-tall" id="trend-main"></div>`, "span-12")}${card("Country activity", "Measures by country in the selected period.", `<div class="rank-list" id="trend-country-rank"></div>`, "span-6")}${card("Policy family mix", "Distribution from recorded categories.", `<div id="trend-family"></div>`, "span-6")}</div>`;
   const rangeButton = (range) => { state.activityRange = range; $$("[data-range]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.range === range))); drawActivityChart("#trend-main", rangeRecords(records, range), "all"); };
   $$("[data-range]").forEach((button) => button.addEventListener("click", () => rangeButton(button.dataset.range)));
   drawActivityChart("#trend-main", rangeRecords(records, state.activityRange), "all");
   renderCountryRank(records, "#trend-country-rank");
-  drawFamilyDonutInto("#trend-family", "#trend-family-legend", records);
+  drawFamilyBars("#trend-family", records);
   refreshIcons();
 }
 function rangeRecords(records, range) {
@@ -338,26 +349,22 @@ function rangeRecords(records, range) {
   const start = range === "ytd" ? `${year}-01` : (() => { const amount = range === "1m" ? 1 : range === "3m" ? 3 : range === "6m" ? 6 : 12; const date = new Date(Date.UTC(year, month - amount, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`; })();
   return records.filter((record) => monthKey(record) >= start && monthKey(record) <= last);
 }
-function drawFamilyDonutInto(selector, legendSelector, records) {
-  const target = d3.select(selector); target.selectAll("*").remove();
+function drawFamilyBars(selector, records) {
+  const target = $(selector);
+  if (!target) return;
   const entries = groupCount(records, (record) => record.family);
-  if (!entries.length) { target.html(emptyMarkup()); return; }
-  const width = Math.max(250, target.node().clientWidth || 360), height = 245, radius = Math.min(width * .31, 96);
-  const svg = target.append("svg").attr("viewBox", `0 0 ${width} ${height}`);
-  const group = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
-  const arc = d3.arc().innerRadius(radius * .63).outerRadius(radius);
-  group.selectAll("path").data(d3.pie().sort(null).value((entry) => entry[1])(entries)).join("path").attr("d", arc).attr("fill", (entry) => familyColor(entry.data[0])).attr("stroke", "white").attr("stroke-width", 2).attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, entry) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); setFilter("family", entry.data[0]); }).append("title").text((entry) => `${entry.data[0]}: ${entry.data[1]}`);
-  group.append("text").attr("class", "donut-center-value").attr("y", -2).text(records.length.toLocaleString());
-  group.append("text").attr("class", "donut-center-label").attr("y", 18).text("measures");
-  $(legendSelector).innerHTML = entries.map(([family, count]) => `<span class="legend-item"><i style="background:${familyColor(family)}"></i>${escapeHtml(family)} <strong>${count}</strong></span>`).join("");
+  if (!entries.length) { target.innerHTML = emptyMarkup(); wireEmptyActions(); return; }
+  const total = records.length;
+  target.innerHTML = `<div class="share-bars">${entries.map(([family, count]) => `<button type="button" class="share-row" data-family="${escapeHtml(family)}" aria-label="Filter to ${escapeHtml(family)}: ${count} measures, ${percentage(count, total)}"><span class="share-label"><i style="background:${familyColor(family)}"></i>${escapeHtml(family)}</span><span class="share-track"><span style="width:${count / entries[0][1] * 100}%;background:${familyColor(family)}"></span></span><span class="share-value"><strong>${percentage(count, total)}</strong><small>${count.toLocaleString()}</small></span></button>`).join("")}</div>`;
+  $$("[data-family]", target).forEach((button) => button.addEventListener("click", () => setFilter("family", button.dataset.family)));
 }
 
 function renderAreasPage() {
   const records = filtered();
   const domains = groupCount(records, (record) => record.domain);
-  $("#page-content").innerHTML = `${heading("Policy areas", "Explore recorded policy domains and their distribution across the seven countries.", "POLICY TAXONOMY")}<div class="kpi-grid">${kpi("Policy domains", domains.length.toLocaleString(), "Distinct source categories", "shapes")}${kpi("Policy groups", new Set(records.map((record) => record.group)).size.toLocaleString(), "Mapped policy groups", "layers")}${kpi("Policy families", new Set(records.map((record) => record.family)).size.toLocaleString(), "Classification families", "folder-tree")}${kpi("Records in selection", records.length.toLocaleString(), "Current filter selection", "files", "kpi-primary")}</div><div class="content-grid">${card("Policy domains by volume", "Click a domain to filter all views.", `<div class="chart-wrap chart-tall" id="area-domain-chart"></div>`, "span-7")}${card("Policy family distribution", "Recorded classification families.", `<div class="chart-wrap" id="area-family-chart"></div><div class="legend-row" id="area-family-legend"></div>`, "span-5")}${card("Policy group breakdown", "Short-term group codes and long-term framework groupings.", `<div class="rank-list" id="group-rank"></div>`, "span-12")}</div>`;
+  $("#page-content").innerHTML = `${heading("Policy areas", "Explore recorded policy domains and their distribution across the seven countries.", "POLICY TAXONOMY")}<div class="kpi-grid">${kpi("Policy domains", domains.length.toLocaleString(), "Distinct source categories", "shapes")}${kpi("Policy groups", new Set(records.map((record) => record.group)).size.toLocaleString(), "Mapped policy groups", "layers")}${kpi("Policy families", new Set(records.map((record) => record.family)).size.toLocaleString(), "Classification families", "folder-tree")}${kpi("Records in selection", records.length.toLocaleString(), "Current filter selection", "files", "kpi-primary")}</div><div class="content-grid">${card("Policy domains by volume", "Click a domain to filter all views.", `<div class="chart-wrap chart-tall" id="area-domain-chart"></div>`, "span-7")}${card("Policy family distribution", "Recorded classification families.", `<div id="area-family-chart"></div>`, "span-5")}${card("Policy group breakdown", "Short-term group codes and long-term framework groupings.", `<div class="rank-list" id="group-rank"></div>`, "span-12")}</div>`;
   drawHorizontalBars("#area-domain-chart", domains.slice(0, 20), (domain) => { state.domain = domain; syncFilters(); render(); });
-  drawFamilyDonutInto("#area-family-chart", "#area-family-legend", records);
+  drawFamilyBars("#area-family-chart", records);
   renderRankEntries(groupCount(records, (record) => record.group).slice(0, 20), "#group-rank", (group) => setFilter("group", group));
   refreshIcons();
 }
@@ -382,10 +389,10 @@ function renderCountryPage() {
   const recent = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const domains = groupCount(records, (record) => record.domain);
   const institutions = groupCount(records, (record) => record.institution).slice(0, 6);
-  $("#page-content").innerHTML = `${heading(`${country} intelligence`, "Country profile, policy mix, activity and most recent developments.", "COUNTRY INTELLIGENCE", `<label class="country-switcher">Select country<select id="country-page-select">${COUNTRIES.map((name) => `<option ${name === country ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label>`)}<div class="kpi-grid">${kpi("Total measures", records.length.toLocaleString(), "In the current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Policy frameworks", "book-open")}${kpi("Top policy area", domains[0]?.[0] || "Not available", domains[0] ? `${domains[0][1]} measures` : "No records", "shapes")}</div><div class="content-grid">${card("Monthly activity", `Measure counts for ${escapeHtml(country)}.`, `<div class="chart-wrap" id="country-activity"></div>`, "span-7")}${card("Policy family mix", "Recorded measures by family.", `<div class="chart-wrap" id="country-family"></div><div class="legend-row" id="country-family-legend"></div>`, "span-5")}${card("Top institutions", "Decision-making institutions named in the records.", `<div class="rank-list" id="institution-rank"></div>`, "span-5")}${card("Latest developments", "Most recent records, with direct source links.", `<div class="record-list">${recent.length ? recent.slice(0, 8).map(recordCard).join("") : emptyMarkup()}</div>`, "span-7")}${card("Policy timeline", "Chronological developments for this country.", `<div class="timeline-list">${recent.length ? recent.slice(0, 30).map(timelineItem).join("") : emptyMarkup()}</div>`, "span-12")}`;
+  $("#page-content").innerHTML = `${heading(`${country} intelligence`, "Country profile, policy mix, activity and most recent developments.", "COUNTRY INTELLIGENCE", `<label class="country-switcher">Select country<select id="country-page-select">${COUNTRIES.map((name) => `<option ${name === country ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label>`)}<div class="kpi-grid">${kpi("Total measures", records.length.toLocaleString(), "In the current selection", "files", "kpi-primary")}${kpi("Short-term decisions", totalCount(records, "decision").toLocaleString(), "Policy decisions", "scale")}${kpi("Long-term frameworks", totalCount(records, "framework").toLocaleString(), "Policy frameworks", "book-open")}${kpi("Top policy area", domains[0]?.[0] || "Not available", domains[0] ? `${domains[0][1]} measures` : "No records", "shapes")}</div><div class="content-grid">${card("Monthly activity", `Measure counts for ${escapeHtml(country)}.`, `<div class="chart-wrap" id="country-activity"></div>`, "span-7")}${card("Policy family mix", "Recorded measures by family.", `<div id="country-family"></div>`, "span-5")}${card("Top institutions", "Decision-making institutions named in the records.", `<div class="rank-list" id="institution-rank"></div>`, "span-5")}${card("Latest developments", "Most recent records, with direct source links.", `<div class="record-list">${recent.length ? recent.slice(0, 8).map(recordCard).join("") : emptyMarkup()}</div>`, "span-7")}${card("Policy timeline", "Chronological developments for this country.", `<div class="timeline-list">${recent.length ? recent.slice(0, 30).map(timelineItem).join("") : emptyMarkup()}</div>`, "span-12")}`;
   $("#country-page-select").addEventListener("change", (event) => setFilter("country", event.target.value));
   drawActivityChart("#country-activity", records);
-  drawFamilyDonutInto("#country-family", "#country-family-legend", records);
+  drawFamilyBars("#country-family", records);
   renderRankEntries(institutions, "#institution-rank");
   refreshIcons();
 }
@@ -421,8 +428,8 @@ function drawComparisonType(selector, countries) {
   const y = d3.scaleLinear().domain([0, d3.max(data, (d) => Math.max(d.decision, d.framework)) || 1]).nice().range([height - margin.bottom, margin.top]);
   svg.append("g").attr("class", "chart-grid").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(width - margin.left - margin.right)));
   svg.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x0).tickFormat((name) => name === "United Arab Emirates" ? "UAE" : name === "Saudi Arabia" ? "Saudi" : name));
-  target.append("div").attr("class", "legend-row").html(`<span class="legend-item"><i style="background:#287bb0"></i>Short-term decisions</span><span class="legend-item"><i style="background:#40836d"></i>Long-term frameworks</span>`);
-  svg.append("g").selectAll("g").data(data).join("g").attr("transform", (d) => `translate(${x0(d.country)},0)`).selectAll("rect").data((d) => [{ key: "decision", value: d.decision, country: d.country }, { key: "framework", value: d.framework, country: d.country }]).join("rect").attr("x", (d) => x1(d.key)).attr("y", (d) => y(d.value)).attr("width", x1.bandwidth()).attr("height", (d) => y(0) - y(d.value)).attr("fill", (d) => d.key === "decision" ? "#287bb0" : "#40836d").attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, item) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); state.country = item.country; state.type = item.key; syncFilters(); render(); }).append("title").text((d) => `${d.country} · ${d.key}: ${d.value}`);
+  target.append("div").attr("class", "legend-row").html(`<span class="legend-item"><i style="background:${TYPE_COLORS.decision}"></i>Short-term decisions</span><span class="legend-item"><i style="background:${TYPE_COLORS.framework}"></i>Long-term frameworks</span>`);
+  svg.append("g").selectAll("g").data(data).join("g").attr("transform", (d) => `translate(${x0(d.country)},0)`).selectAll("rect").data((d) => [{ key: "decision", value: d.decision, country: d.country }, { key: "framework", value: d.framework, country: d.country }]).join("rect").attr("x", (d) => x1(d.key)).attr("y", (d) => y(d.value)).attr("width", x1.bandwidth()).attr("height", (d) => y(0) - y(d.value)).attr("fill", (d) => TYPE_COLORS[d.key]).attr("class", "chart-mark").attr("tabindex", 0).on("click keydown", (event, item) => { if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return; if (event.type === "keydown") event.preventDefault(); state.country = item.country; state.type = item.key; syncFilters(); render(); }).append("title").text((d) => `${d.country} · ${d.key}: ${d.value}`);
 }
 function drawComparisonFamilies(selector, countries) {
   const target = d3.select(selector); target.selectAll("*").remove();
@@ -534,7 +541,7 @@ function renderMethodologyPage() {
 function renderDashboardPage({ keepScroll = false } = {}) {
   const scrollY = window.scrollY;
   state.pendingScroll = keepScroll ? scrollY : null;
-  $("#current-page-label").textContent = pageLabels[state.page] || "Overview";
+  $("#current-page-label").textContent = t(`nav.${state.page}`);
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
   // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
   $(".global-filters").hidden = ["thismonth", "reports", "methodology"].includes(state.page);
@@ -557,13 +564,14 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   else if (state.page === "methodology") renderMethodologyPage();
   else renderOverviewPage();
   renderActiveFilters();
+  writeHash();
   refreshIcons();
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
 const pageLabels = { thismonth: "This month", overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
 // The page name is the part of the hash before any "?" query.
 const hashPage = () => location.hash.slice(1).split("?")[0];
-function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
+function setPage(page) { if (!pageLabels[page]) return; state.page = page; closeMobileSidebar(); closeFilterDrawer(); renderDashboardPage(); }
 function setFilter(key, value) { state[key] = value || "all"; state.pageNumber = 1; syncFilters(); render(); }
 function render() { renderDashboardPage({ keepScroll: true }); }
 function resetFilters() { state.country = state.year = state.month = state.type = state.family = state.domain = state.group = state.institution = "all"; state.keyword = state.from = state.to = ""; state.pageNumber = 1; syncFilters(); render(); }
@@ -576,10 +584,15 @@ function bindShell() {
   const filterMap = [["#filter-country","country"],["#filter-year","year"],["#filter-month","month"],["#filter-type","type"],["#filter-family","family"],["#filter-domain","domain"],["#filter-group","group"],["#filter-institution","institution"],["#filter-from","from"],["#filter-to","to"]];
   filterMap.forEach(([selector,key]) => $(selector).addEventListener("change", (event) => setFilter(key,event.target.value)));
   $("#reset-filters").addEventListener("click", resetFilters);
-  $("#toggle-filters").addEventListener("click", () => setFiltersCollapsed(!$(".global-filters").classList.contains("collapsed")));
-  let storedCollapsed = null;
-  try { storedCollapsed = localStorage.getItem("filtersCollapsed"); } catch { /* Storage may be unavailable. */ }
-  setFiltersCollapsed(storedCollapsed === null ? window.matchMedia("(max-width: 760px)").matches : storedCollapsed === "1");
+  $("#drawer-reset").addEventListener("click", resetFilters);
+  $("#toggle-filters").addEventListener("click", openFilterDrawer);
+  $("#close-filters").addEventListener("click", closeFilterDrawer);
+  $("#drawer-done").addEventListener("click", closeFilterDrawer);
+  $("#filter-scrim").addEventListener("click", closeFilterDrawer);
+  $("#copy-filter-link").addEventListener("click", async () => { writeHash(); try { await navigator.clipboard.writeText(location.href); showToast("Link copied: it opens this page with the same filters."); } catch { showToast("Clipboard access is unavailable.", "error"); } });
+  $("#lang-toggle").addEventListener("click", () => { setLang(lang() === "en" ? "ar" : "en"); applyShellTerms(); renderDashboardPage({ keepScroll: true }); });
+  applyDocument();
+  applyShellTerms();
   // Search covers full descriptions, so the first keystroke loads them (titles are searched meanwhile).
   $("#global-search").addEventListener("input", (event) => { state.keyword = event.target.value; state.pageNumber = 1; render(); if (!state.fullText) ensureFullText().then(render); });
   document.addEventListener("toggle", (event) => {
@@ -590,7 +603,7 @@ function bindShell() {
   $("#panel-scrim").addEventListener("click", closeRecordDrawer);
   $("#top-export").addEventListener("click", () => setPage("reports"));
   $("#updates-button").addEventListener("click", () => showToast(`Dataset includes records through ${formatDate(latestDate(state.records))}.`));
-  document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeRecordDrawer(); closeMobileSidebar(); } });
+  document.addEventListener("keydown", (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#global-search").focus(); } if (event.key === "Escape") { closeRecordDrawer(); closeMobileSidebar(); closeFilterDrawer(); } });
   // Mobile browsers fire resize when the address bar shows or hides; only a width change needs charts redrawn.
   let resizeTimer;
   let lastWidth = window.innerWidth;
@@ -602,7 +615,15 @@ function bindShell() {
       if (["thismonth","overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage({ keepScroll: true });
     }, 180);
   });
-  window.addEventListener("popstate", () => { const page = hashPage(); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
+  window.addEventListener("popstate", () => { const page = hashPage(); state.page = pageLabels[page] ? page : "overview"; readHashFilters(); syncFilters(); renderDashboardPage(); });
+}
+// FAPDA terms in the filter form get hover and keyboard-focus definitions.
+function applyShellTerms() {
+  [["type", "def.decision"], ["family", "def.family"], ["domain", "def.domain"], ["group", "def.group"], ["institution", "def.institution"]].forEach(([key, def]) => {
+    const label = $(`#filter-grid [data-i18n="f.${key}"]`);
+    if (!label) return;
+    label.classList.add("term"); label.tabIndex = 0; label.dataset.def = t(def);
+  });
 }
 // Pages that also need FAOSTAT food indicators load them once, then render.
 function withFoodData(renderPage) {
@@ -622,9 +643,10 @@ function withFoodData(renderPage) {
 const ui = { openRecordDrawer, renderPage: () => renderDashboardPage({ keepScroll: true }), partialMonth, monthLabel, monthTicks, markPartial, ensureFullText, currentFilters, state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, downloadBlob, exportXlsx };
 // Stop the page behind an open menu or record drawer from scrolling on touch devices.
 function watchScrollLock() {
-  const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || !!$("#record-drawer"));
+  const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || !!$("#record-drawer") || $("#filter-drawer").classList.contains("open"));
   const observer = new MutationObserver(sync);
   observer.observe($("#sidebar"), { attributes: true, attributeFilter: ["class"] });
+  observer.observe($("#filter-drawer"), { attributes: true, attributeFilter: ["class"] });
   observer.observe(document.body, { childList: true });
 }
 function initialize() {
@@ -636,6 +658,8 @@ function initialize() {
     const last = latestDate(records);
     $("#data-status").textContent = `${records.length.toLocaleString()} records · through ${formatDate(last, { day: "2-digit", month: "short", year: "numeric" })}`;
     state.page = pageLabels[hashPage()] ? hashPage() : "overview";
+    readHashFilters();
+    syncFilters();
     renderDashboardPage();
   }).catch((error) => {
     $("#data-status").textContent = "Dataset unavailable";

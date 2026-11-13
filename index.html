@@ -16,7 +16,7 @@
     <title>Policy Intelligence | GCC States &amp; Yemen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=pi-20261113" />
     <link rel="preload" href="./data/gcc-yemen-summary.json" as="fetch" crossorigin />
     <script src="./assets/vendor/d3.min.js" defer></script>
@@ -29,24 +29,24 @@
       <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
         <a class="brand" href="#overview" data-nav="overview" aria-label="Policy Intelligence home">
           <span class="brand-symbol"><img src="./assets/fao-logo.svg" alt="FAO" width="30" height="30" /></span>
-          <span class="brand-copy"><strong>Policy Intelligence</strong><small>Food &amp; Agriculture</small></span>
+          <span class="brand-copy"><strong data-i18n="brand.title">Policy Intelligence</strong><small data-i18n="brand.sub">Food &amp; Agriculture</small></span>
         </a>
-        <div class="region-label">GCC STATES &amp; YEMEN</div>
+        <div class="region-label" data-i18n="region">GCC STATES &amp; YEMEN</div>
         <button class="collapse-button" id="collapse-sidebar" type="button" aria-label="Collapse navigation" title="Collapse navigation"><i data-lucide="panel-left-close"></i></button>
         <nav class="primary-nav">
-          <div class="nav-section-label">ANALYSE</div>
-          <button class="nav-item" data-nav="thismonth"><i data-lucide="calendar-check"></i><span>This month</span></button>
-          <button class="nav-item active" data-nav="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
-          <button class="nav-item" data-nav="country"><i data-lucide="map-pinned"></i><span>Country Intelligence</span></button>
-          <button class="nav-item" data-nav="trends"><i data-lucide="chart-no-axes-combined"></i><span>Policy Trends</span></button>
-          <button class="nav-item" data-nav="areas"><i data-lucide="shapes"></i><span>Policy Areas</span></button>
-          <button class="nav-item" data-nav="prices"><i data-lucide="shopping-basket"></i><span>Food Prices &amp; Diets</span></button>
-          <button class="nav-item" data-nav="compare"><i data-lucide="git-compare-arrows"></i><span>Country Comparison</span></button>
-          <button class="nav-item" data-nav="network"><i data-lucide="orbit"></i><span>Policy Network</span></button>
-          <div class="nav-section-label nav-section-spaced">EVIDENCE</div>
-          <button class="nav-item" data-nav="records"><i data-lucide="rows-3"></i><span>Policy Records</span></button>
-          <button class="nav-item" data-nav="reports"><i data-lucide="file-chart-column-increasing"></i><span>Reports</span></button>
-          <button class="nav-item" data-nav="methodology"><i data-lucide="book-open-check"></i><span>Methodology &amp; Sources</span></button>
+          <div class="nav-section-label" data-i18n="nav.analyse">ANALYSE</div>
+          <button class="nav-item" data-nav="thismonth"><i data-lucide="calendar-check"></i><span data-i18n="nav.thismonth">This month</span></button>
+          <button class="nav-item" data-nav="overview"><i data-lucide="layout-dashboard"></i><span data-i18n="nav.overview">Overview</span></button>
+          <button class="nav-item" data-nav="country"><i data-lucide="map-pinned"></i><span data-i18n="nav.country">Country Intelligence</span></button>
+          <button class="nav-item" data-nav="trends"><i data-lucide="chart-no-axes-combined"></i><span data-i18n="nav.trends">Policy Trends</span></button>
+          <button class="nav-item" data-nav="areas"><i data-lucide="shapes"></i><span data-i18n="nav.areas">Policy Areas</span></button>
+          <button class="nav-item" data-nav="prices"><i data-lucide="shopping-basket"></i><span data-i18n="nav.prices">Food Prices &amp; Diets</span></button>
+          <button class="nav-item" data-nav="compare"><i data-lucide="git-compare-arrows"></i><span data-i18n="nav.compare">Country Comparison</span></button>
+          <button class="nav-item" data-nav="network"><i data-lucide="orbit"></i><span data-i18n="nav.network">Policy Network</span></button>
+          <div class="nav-section-label nav-section-spaced" data-i18n="nav.evidence">EVIDENCE</div>
+          <button class="nav-item" data-nav="records"><i data-lucide="rows-3"></i><span data-i18n="nav.records">Policy Records</span></button>
+          <button class="nav-item" data-nav="reports"><i data-lucide="file-chart-column-increasing"></i><span data-i18n="nav.reports">Reports</span></button>
+          <button class="nav-item" data-nav="methodology"><i data-lucide="book-open-check"></i><span data-i18n="nav.methodology">Methodology &amp; Sources</span></button>
         </nav>
         <div class="sidebar-bottom">
           <div class="data-status"><span class="status-dot"></span><span id="data-status">Loading verified dataset</span></div>
@@ -59,28 +59,22 @@
           <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" title="Open navigation"><i data-lucide="menu"></i></button>
           <div class="breadcrumb"><span>Policy Intelligence</span><i data-lucide="chevron-right"></i><strong id="current-page-label">Overview</strong></div>
           <div class="topbar-actions">
-            <label class="global-search"><i data-lucide="search"></i><span class="sr-only">Search policy records</span><input id="global-search" type="search" placeholder="Search policy measures" autocomplete="off" /><kbd>⌘ K</kbd></label>
-            <button class="icon-button update-button" id="updates-button" type="button" title="Latest dataset update" aria-label="Latest dataset update"><i data-lucide="bell-dot"></i></button>
-            <button class="button button-outline" id="top-export" type="button"><i data-lucide="download"></i><span>Export</span></button>
+            <label class="global-search"><i data-lucide="search"></i><span class="sr-only">Search policy records</span><input id="global-search" type="search" placeholder="Search policy measures" data-i18n-placeholder="top.search" autocomplete="off" /><kbd>⌘ K</kbd></label>
+            <button class="button button-outline lang-toggle" id="lang-toggle" type="button" data-i18n-title="top.languageLabel" title="Switch to Arabic"><i data-lucide="languages"></i><span data-i18n="top.language">العربية</span></button>
+            <button class="icon-button update-button" id="updates-button" type="button" data-i18n-title="top.updates" title="Latest dataset update" aria-label="Latest dataset update"><i data-lucide="bell-dot"></i></button>
+            <button class="button button-outline" id="top-export" type="button"><i data-lucide="download"></i><span data-i18n="top.export">Export</span></button>
           </div>
         </header>
 
         <main class="main-content" id="main-content">
-          <section class="global-filters" aria-label="Global policy filters">
-            <div class="filter-heading"><button class="filter-toggle" id="toggle-filters" type="button" aria-expanded="true" aria-controls="filter-grid"><i data-lucide="sliders-horizontal"></i><strong>Filters</strong><span class="filter-count" id="filter-count" hidden></span><i class="filter-chevron" data-lucide="chevron-down"></i></button><button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i>Reset filters</button></div>
-            <div class="filter-grid" id="filter-grid">
-              <label>Country<select id="filter-country"><option value="all">All countries</option></select></label>
-              <label>Year<select id="filter-year"><option value="all">All years</option></select></label>
-              <label>Month<select id="filter-month"><option value="all">All months</option></select></label>
-              <label>Policy type<select id="filter-type"><option value="all">All types</option><option value="decision">Short-term</option><option value="framework">Long-term</option></select></label>
-              <label>Policy family<select id="filter-family"><option value="all">All families</option></select></label>
-              <label>Policy domain<select id="filter-domain"><option value="all">All domains</option></select></label>
-              <label>Policy group<select id="filter-group"><option value="all">All groups</option></select></label>
-              <label>Institution<select id="filter-institution"><option value="all">All institutions</option></select></label>
-              <label>From<input id="filter-from" type="date" aria-label="Start date" /></label>
-              <label>To<input id="filter-to" type="date" aria-label="End date" /></label>
-            </div>
+          <section class="global-filters filter-bar" aria-label="Active filters">
+            <span class="filter-bar-label"><i data-lucide="sliders-horizontal"></i><strong data-i18n="filters.label">Filters</strong></span>
             <div class="active-filters" id="active-filters" aria-live="polite"></div>
+            <div class="filter-bar-actions">
+              <button class="button button-outline" id="toggle-filters" type="button" aria-expanded="false" aria-controls="filter-drawer"><i data-lucide="sliders-horizontal"></i><span data-i18n="filters.edit">Edit filters</span></button>
+              <button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i><span data-i18n="filters.reset">Reset</span></button>
+              <button class="text-button" id="copy-filter-link" type="button"><i data-lucide="link"></i><span data-i18n="filters.copy">Copy link</span></button>
+            </div>
           </section>
           <div class="page-content" id="page-content" aria-live="polite">
           <!-- static-summary:start (generated by scripts/build-static.cjs) -->
@@ -95,10 +89,27 @@
           </article>
           <!-- static-summary:end -->
           </div>
-          <footer class="app-footer"><span>Policy Intelligence · GCC States &amp; Yemen</span><span>Policy measures are short summaries for monitoring and analysis, not legal texts. Always consult the original source.</span></footer>
+          <footer class="app-footer"><span data-i18n="footer.name">Policy Intelligence · GCC States &amp; Yemen</span><span data-i18n="footer.disclaimer">Policy measures are short summaries for monitoring and analysis, not legal texts. Always consult the original source.</span></footer>
         </main>
       </div>
 
+      <aside class="filter-drawer" id="filter-drawer" role="dialog" aria-modal="true" aria-labelledby="filter-drawer-title" hidden>
+        <div class="filter-drawer-head"><h2 id="filter-drawer-title" data-i18n="filters.title">Edit filters</h2><button class="icon-button" id="close-filters" type="button" aria-label="Close filters"><i data-lucide="x"></i></button></div>
+        <div class="filter-grid" id="filter-grid">
+              <label><span data-i18n="f.country">Country</span><select id="filter-country"><option value="all">All countries</option></select></label>
+              <label><span data-i18n="f.year">Year</span><select id="filter-year"><option value="all">All years</option></select></label>
+              <label><span data-i18n="f.month">Month</span><select id="filter-month"><option value="all">All months</option></select></label>
+              <label><span data-i18n="f.type">Policy type</span><select id="filter-type"><option value="all">All types</option><option value="decision">Short-term</option><option value="framework">Long-term</option></select></label>
+              <label><span data-i18n="f.family">Policy family</span><select id="filter-family"><option value="all">All families</option></select></label>
+              <label><span data-i18n="f.domain">Policy domain</span><select id="filter-domain"><option value="all">All domains</option></select></label>
+              <label><span data-i18n="f.group">Policy group</span><select id="filter-group"><option value="all">All groups</option></select></label>
+              <label><span data-i18n="f.institution">Institution</span><select id="filter-institution"><option value="all">All institutions</option></select></label>
+              <label><span data-i18n="f.from">From</span><input id="filter-from" type="date" /></label>
+              <label><span data-i18n="f.to">To</span><input id="filter-to" type="date" /></label>
+        </div>
+        <div class="filter-drawer-foot"><button class="text-button" id="drawer-reset" type="button"><i data-lucide="rotate-ccw"></i><span data-i18n="filters.reset">Reset</span></button><button class="button button-primary" id="drawer-done" type="button" data-i18n="filters.done">Show results</button></div>
+      </aside>
+      <div class="filter-scrim" id="filter-scrim"></div>
       <div class="sidebar-scrim" id="sidebar-scrim"></div>
       <div class="panel-scrim" id="panel-scrim"></div>
       <div class="toast-region" id="toast-region" aria-live="polite"></div>
