@@ -2,6 +2,7 @@ import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, l
 import { renderNetworkPage } from "./network.js?v=pi-20261113";
 import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261113";
 import { renderReportsPage } from "./reports.js?v=pi-20261113";
+import { renderThisMonthPage } from "./thismonth.js?v=pi-20261113";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -20,7 +21,7 @@ const formatDate = (date, options = {}) => date ? new Date(`${date}T00:00:00Z`).
 const currentFilters = () => ({ country: state.country, year: state.year, month: state.month, from: state.from, to: state.to, type: state.type, family: state.family, domain: state.domain, group: state.group, institution: state.institution, keyword: state.keyword });
 const filtered = () => filterRecords(state.records, currentFilters());
 // Pages that show full descriptions or source links load the full records first.
-const FULL_TEXT_PAGES = ["records", "reports", "country", "network"];
+const FULL_TEXT_PAGES = ["thismonth", "records", "reports", "country", "network"];
 function ensureFullText() { return loadFullRecords(state.records).then(() => { state.fullText = true; }); }
 // The newest month is partial when the data stop before its last day.
 function partialMonth(records = state.records) {
@@ -536,14 +537,15 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   $("#current-page-label").textContent = pageLabels[state.page] || "Overview";
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
   // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
-  $(".global-filters").hidden = ["reports", "methodology"].includes(state.page);
+  $(".global-filters").hidden = ["thismonth", "reports", "methodology"].includes(state.page);
   if (FULL_TEXT_PAGES.includes(state.page) && !state.fullText) {
     const page = state.page;
     $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading policy records…</span></div>`;
     ensureFullText().then(() => { if (state.page === page) renderDashboardPage({ keepScroll }); }).catch((error) => { $("#page-content").innerHTML = emptyMarkup("Policy records could not be loaded", `${error.message}. Reload the page to try again.`); wireEmptyActions(); });
     return;
   }
-  if (state.page === "overview") renderOverviewPage();
+  if (state.page === "thismonth") withFoodData(renderThisMonthPage);
+  else if (state.page === "overview") renderOverviewPage();
   else if (state.page === "country") renderCountryPage();
   else if (state.page === "trends") renderTrendsPage();
   else if (state.page === "areas") renderAreasPage();
@@ -558,7 +560,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   refreshIcons();
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
-const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
+const pageLabels = { thismonth: "This month", overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
 // The page name is the part of the hash before any "?" query.
 const hashPage = () => location.hash.slice(1).split("?")[0];
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
@@ -597,7 +599,7 @@ function bindShell() {
     resizeTimer = setTimeout(() => {
       if (window.innerWidth === lastWidth) return;
       lastWidth = window.innerWidth;
-      if (["overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage({ keepScroll: true });
+      if (["thismonth","overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage({ keepScroll: true });
     }, 180);
   });
   window.addEventListener("popstate", () => { const page = hashPage(); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
@@ -617,7 +619,7 @@ function withFoodData(renderPage) {
     wireEmptyActions();
   });
 }
-const ui = { partialMonth, monthLabel, monthTicks, markPartial, ensureFullText, currentFilters, state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, downloadBlob, exportXlsx };
+const ui = { openRecordDrawer, renderPage: () => renderDashboardPage({ keepScroll: true }), partialMonth, monthLabel, monthTicks, markPartial, ensureFullText, currentFilters, state, COUNTRIES, MONTHS, escapeHtml, formatDate, safeUrl, filtered, totalCount, percentage, latestDate, groupCount, monthKey, aggregateMonthly, activeFilterEntries, icon, refreshIcons, showToast, heading, card, kpi, emptyMarkup, wireEmptyActions, setFilter, setPage, syncFilters, downloadBlob, exportXlsx };
 // Stop the page behind an open menu or record drawer from scrolling on touch devices.
 function watchScrollLock() {
   const sync = () => document.documentElement.classList.toggle("scroll-locked", $("#sidebar").classList.contains("mobile-open") || !!$("#record-drawer"));

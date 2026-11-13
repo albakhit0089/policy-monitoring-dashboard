@@ -5,7 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'food-analysis.js', 'policy-analysis.js', 'prices.js', 'network.js', 'reports.js', 'narrative.js', 'docx.js', 'data/events.json', 'data/gcc-yemen-measures.json', 'data/gcc-yemen-summary.json', 'data/food-indicators.json',
+const required = ['index.html', 'styles.css', 'app.js', 'data-service.js', 'food-analysis.js', 'policy-analysis.js', 'prices.js', 'network.js', 'reports.js', 'narrative.js', 'docx.js', 'thismonth.js', 'data/events.json', 'data/gcc-yemen-measures.json', 'data/gcc-yemen-summary.json', 'data/food-indicators.json',
   'assets/vendor/d3.min.js', 'assets/vendor/topojson-client.min.js', 'assets/vendor/lucide-icons.js', 'assets/vendor/xlsx.full.min.js', 'assets/vendor/countries-110m.json'];
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
 if (missing.length) throw new Error(`Required static files are missing: ${missing.join(', ')}`);

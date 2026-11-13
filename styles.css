@@ -1055,3 +1055,31 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 .ai-draft-text { margin-top: 8px; color: #2c3a44; line-height: 1.6; }
 @media (max-width: 600px) { .report-cover-meta { grid-template-columns: 1fr; } }
 @media print { body.printing-report .report-cover-meta dt, body.printing-report .report-cover-sub { color: #4d6573; } body.printing-report .report-cover-meta dd { color: #12364d; } body.printing-report .ai-draft { display: none; } }
+
+/* ---------- This month (Phase 3) ---------- */
+.tm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tm-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 0 0 16px; }
+.tm-country { display: flex; align-items: center; gap: 8px; color: #526675; font-size: 13px; font-weight: 600; }
+.tm-country select { min-height: 36px; padding: 0 10px; border: 1px solid #d9e3e8; border-radius: 8px; background: #fff; color: #243746; }
+.tm-partial { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; color: #5b3d06; background: #f8e7bd; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.generated-text p, .generated-text li { color: #2f4858; line-height: 1.6; }
+.generated-text a.cite { color: #0f5d96; font-weight: 600; }
+.generated-text .cite-meta { color: #5b707d; font-size: 12.5px; }
+.tm-key .narrative-list { padding-left: 18px; }
+.tm-list { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.tm-list li { display: grid; gap: 2px; }
+.tm-list small { color: #637986; font-size: 12px; }
+.link-button { padding: 0; color: #0f5d96; background: none; border: 0; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.link-button:hover, .link-button:focus-visible { text-decoration: underline; }
+.tm-price-controls { margin-bottom: 10px; }
+.tm-marker { cursor: pointer; }
+.tm-marker:focus-visible circle, .tm-marker:hover circle { stroke: #102f46; stroke-width: 3; }
+.tm-price-detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dfe7ec; }
+.tm-price-detail h3 { margin: 0 0 6px; font: 600 15px var(--condensed); color: #20475f; }
+.tm-watch-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.tm-watch-chip { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.tm-watch-chip.active { color: #fff; background: var(--blue); border-color: var(--blue); }
+.tm-watch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tm-watch-item { padding: 12px 14px; background: #f7fafc; border: 1px solid #e0e8ee; border-radius: 10px; }
+.tm-watch-item h3 { margin: 0 0 4px; font: 600 15px var(--condensed); color: #20475f; }
+.print-only { position: absolute; left: -10000px; top: 0; width: 900px; }
