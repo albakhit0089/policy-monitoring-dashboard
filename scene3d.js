@@ -20,7 +20,8 @@ const ROUTES = [
   [[54.0, 16.6], [56.4, 17.6], [57.9, 19.6], [59.6, 21.9], [59.0, 23.5], [57.8, 24.6], [56.9, 25.3]],
 ];
 const STRAITS = [["Strait of Hormuz", 56.45, 26.55], ["Bab el-Mandeb", 43.4, 12.55]];
-const SEAS = [["Arabian Gulf", 52.7, 27.95], ["Red Sea", 37.6, 21.6], ["Arabian Sea", 60.5, 16.5], ["Gulf of Aden", 48.0, 12.9]];
+// The Gulf itself is left unlabelled: it is evident on the map, and its name is contested.
+const SEAS = [["Red Sea", 37.6, 21.6], ["Arabian Sea", 60.5, 16.5], ["Gulf of Aden", 48.0, 12.9]];
 // Small offsets keep the Gulf states' labels from overlapping (x east, z south, in scene units).
 const LABEL_OFFSET = { Bahrain: [-8, -16], Qatar: [6, 10], Kuwait: [0, -8], "United Arab Emirates": [12, 6] };
 

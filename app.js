@@ -1,8 +1,11 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261113";
-import { renderNetworkPage } from "./network.js?v=pi-20261113";
-import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261113";
-import { renderReportsPage } from "./reports.js?v=pi-20261113";
-import { renderThisMonthPage } from "./thismonth.js?v=pi-20261113";
+import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261113";
+// Page modules load on first visit, so the overview does not download the report engine, Word writer and others.
+const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261113"), prices: () => import("./prices.js?v=pi-20261113"), reports: () => import("./reports.js?v=pi-20261113"), thismonth: () => import("./thismonth.js?v=pi-20261113") })[name]();
+const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args));
+const renderNetworkPage = lazyPage("network", "renderNetworkPage");
+const renderPricesPage = lazyPage("prices", "renderPricesPage");
+const renderReportsPage = lazyPage("reports", "renderReportsPage");
+const renderThisMonthPage = lazyPage("thismonth", "renderThisMonthPage");
 import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261113";
 import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261113";
 
@@ -24,6 +27,11 @@ const formatDate = (date, options = {}) => date ? new Date(`${date}T00:00:00Z`).
 const currentFilters = () => ({ country: state.country, year: state.year, month: state.month, from: state.from, to: state.to, type: state.type, family: state.family, domain: state.domain, group: state.group, institution: state.institution, keyword: state.keyword });
 const filtered = () => filterRecords(state.records, currentFilters());
 // Pages that show full descriptions or source links load the full records first.
+let chartsReady = null;
+function loadCharts() {
+  chartsReady ||= loadScript("./assets/vendor/d3.min.js").then(() => loadScript("./assets/vendor/topojson-client.min.js"));
+  return chartsReady;
+}
 const FULL_TEXT_PAGES = ["thismonth", "records", "reports", "country", "network"];
 function ensureFullText() { return loadFullRecords(state.records).then(() => { state.fullText = true; }); }
 // The newest month is partial when the data stop before its last day.
@@ -143,8 +151,16 @@ function card(title, subtitle, body, className = "span-6", actions = "") {
 }
 function familyColor(family) { return FAMILY_COLORS[family] || FAMILY_COLORS["Other decision family"]; }
 function aggregateMonthly(records) {
-  const grouped = d3.rollups(records.filter((record) => record.date), (values) => ({ total: values.length, decision: totalCount(values, "decision"), framework: totalCount(values, "framework") }), monthKey).sort((a, b) => a[0].localeCompare(b[0]));
-  return grouped;
+  const months = new Map();
+  records.forEach((record) => {
+    const key = monthKey(record);
+    if (!key) return;
+    const entry = months.get(key) || { total: 0, decision: 0, framework: 0 };
+    entry.total += 1;
+    if (record.type === "decision" || record.type === "framework") entry[record.type] += 1;
+    months.set(key, entry);
+  });
+  return [...months.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
 function periodCompare(records) {
   const partial = partialMonth();
@@ -190,6 +206,7 @@ function renderOverview() {
   }
   const activity = `<div class="chart-toolbar" id="activity-mode">${[["all", "Total"], ["decision", "Short-term"], ["framework", "Long-term"]].map(([mode, label]) => `<button type="button" data-activity="${mode}" aria-pressed="${state.activityMode === mode}">${label}</button>`).join("")}</div><div class="chart-wrap chart-tall" id="activity-chart"></div>`;
   const latestItems = items.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
+  if (latestItems.some((record) => record.title === undefined) && !state.fullText) ensureFullText().then(() => { if (state.page === "overview") render(); });
   const latest = latestItems.length ? `<div class="record-list">${latestItems.map((record) => recordCard(record)).join("")}</div>` : emptyMarkup();
   // One map for country volume and one share chart; the separate country rank and type-by-country charts were duplicates.
   const scene = `<section class="scene-card" aria-label="Regional orientation map"><div class="scene-host" id="scene-host"></div><div class="scene-bar"><p class="scene-note">Countries shaded by measures in the last 12 months · schematic shipping lanes through the Strait of Hormuz and Bab el-Mandeb · gold markers are main ports · select a country to open it</p><div class="scene-controls" id="scene-controls"></div></div></section>`;
@@ -382,10 +399,14 @@ function renderOverviewPage() {
   const root = $("#page-content");
   root.innerHTML = renderOverview();
   const records = filtered();
-  drawActivityChart("#activity-chart", records);
   drawFamilyBars("#family-chart", records);
-  drawHeatmap(records);
-  renderScene(records);
+  // Headline cards and entry points are already on screen; the charts follow when D3 has arrived.
+  loadCharts().then(() => {
+    if (state.page !== "overview" || !$("#activity-chart")) return;
+    drawActivityChart("#activity-chart", records);
+    drawHeatmap(records);
+    renderScene(records);
+  });
   $$("[data-nav-to]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.navTo)));
   $$('[data-theme]').forEach((button) => button.addEventListener("click", () => { state.domain = button.dataset.theme; syncFilters(); render(); }));
   $$("[data-activity]").forEach((button) => button.addEventListener("click", () => { state.activityMode = button.dataset.activity; $$("[data-activity]").forEach((item) => item.setAttribute("aria-pressed", String(item === button))); drawActivityChart("#activity-chart", filtered(), state.activityMode); }));
@@ -609,6 +630,12 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
   $(".global-filters").hidden = ["thismonth", "reports", "methodology"].includes(state.page);
   if (state.page !== "overview") { currentScene?.dispose(); currentScene = null; }
+  // Every page except the overview draws charts straight away, so it waits for D3.
+  if (state.page !== "overview" && !window.d3) {
+    $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading charts…</span></div>`;
+    loadCharts().then(() => renderDashboardPage({ keepScroll }));
+    return;
+  }
   if (FULL_TEXT_PAGES.includes(state.page) && !state.fullText) {
     const page = state.page;
     $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading policy records…</span></div>`;
@@ -695,10 +722,11 @@ function withFoodData(renderPage) {
   $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading food price indicators…</span></div>`;
   loadFoodIndicators().then((food) => {
     if (state.page !== page) return;
-    renderPage(ui, food);
+    return Promise.resolve(renderPage(ui, food)).then(() => {
     renderActiveFilters();
     if (state.pendingScroll !== null && state.pendingScroll !== undefined) window.scrollTo({ top: state.pendingScroll, behavior: "instant" });
     state.pendingScroll = null;
+    });
   }).catch((error) => {
     $("#page-content").innerHTML = emptyMarkup("Food indicators could not be loaded", `${error.message}. Reload the page to try again.`);
     wireEmptyActions();
@@ -718,6 +746,7 @@ function initialize() {
   enableCardTilt();
   watchScrollLock();
   loadSummaryRecords().then((records) => {
+    loadCharts();
     state.records = records;
     initializeFilters(records);
     const last = latestDate(records);

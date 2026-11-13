@@ -1,6 +1,7 @@
 import { CURRENCY, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261113";
 
-export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
+export { COUNTRY_COLORS } from "./data-service.js?v=pi-20261113";
+import { COUNTRY_COLORS } from "./data-service.js?v=pi-20261113";
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];
 const shortName = (country) => country === "United Arab Emirates" ? "UAE" : country;
 const fmtPct = (value, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? "n/a" : `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;

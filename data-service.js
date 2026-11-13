@@ -12,6 +12,7 @@ export const COUNTRIES = [
 export const SUMMARY_URL = "./data/gcc-yemen-summary.json";
 const TYPE_LABELS = { decision: "Short-term policy decision", framework: "Long-term policy framework" };
 
+export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
 const REGION = new Set(COUNTRIES);
 const searchableText = (record) => [record.country, record.title, record.description || "", record.typeLabel, record.family, record.group, record.domain, record.institution].join(" ").toLocaleLowerCase();
 
@@ -30,7 +31,7 @@ export async function loadSummaryRecords() {
   const records = payload.rows.map((row) => {
     const date = row[at.date] || null;
     const type = value(row, "type");
-    const record = { id: row[at.id], type, typeLabel: TYPE_LABELS[type], family: value(row, "family"), group: value(row, "group"), domain: value(row, "domain"), domainCode: row[at.domainCode], country: value(row, "country"), date, year: date ? Number(date.slice(0, 4)) : null, title: row[at.title], institution: value(row, "institution") };
+    const record = { id: row[at.id], type, typeLabel: TYPE_LABELS[type], family: value(row, "family"), group: value(row, "group"), domain: value(row, "domain"), domainCode: row[at.domainCode], country: value(row, "country"), date, year: date ? Number(date.slice(0, 4)) : null, title: row[at.title] || undefined, institution: value(row, "institution") };
     if (row[at.institutionBranch]) record.institutionBranch = row[at.institutionBranch];
     if (row[at.tags]) record.tags = row[at.tags].split(" ");
     return record;
@@ -49,6 +50,7 @@ export function loadFullRecords(records) {
       const full = byId.get(record.id);
       if (!full) return;
       record.description = full.description;
+      record.title = full.title;
       record.source = full.source;
     });
     return records;

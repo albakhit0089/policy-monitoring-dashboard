@@ -283,7 +283,9 @@ function writeSummary(records, dataThrough) {
   const fields = ['type', 'family', 'group', 'domain', 'country', 'institution'];
   const dict = Object.fromEntries(fields.map((field) => [field, [...new Set(records.map((record) => record[field] || ''))].sort()]));
   const index = Object.fromEntries(fields.map((field) => [field, new Map(dict[field].map((value, i) => [value, i]))]));
-  const rows = records.map((record) => [record.id, record.date || '', ...fields.map((field) => index[field].get(record[field] || '')), record.domainCode || '', record.title, record.institutionBranch || '', (record.tags || []).join(' ')]);
+  // Titles only for the latest measures (shown on the overview); the rest arrive with the full records.
+  const titled = new Set([...records].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 60).map((record) => record.id));
+  const rows = records.map((record) => [record.id, record.date || '', ...fields.map((field) => index[field].get(record[field] || '')), record.domainCode || '', titled.has(record.id) ? record.title : '', record.institutionBranch || '', (record.tags || []).join(' ')]);
   const columns = ['id', 'date', ...fields, 'domainCode', 'title', 'institutionBranch', 'tags'];
   const output = path.resolve(__dirname, '..', 'data', 'gcc-yemen-summary.json');
   fs.writeFileSync(output, `${JSON.stringify({ recordCount: rows.length, dataThrough, columns, dict, rows })}\n`, 'utf8');
