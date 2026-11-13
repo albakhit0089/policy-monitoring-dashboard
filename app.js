@@ -1,13 +1,18 @@
-import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261113";
+import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261114";
 // Page modules load on first visit, so the overview does not download the report engine, Word writer and others.
-const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261113"), prices: () => import("./prices.js?v=pi-20261113"), reports: () => import("./reports.js?v=pi-20261113"), thismonth: () => import("./thismonth.js?v=pi-20261113") })[name]();
-const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args));
+const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261114"), prices: () => import("./prices.js?v=pi-20261114"), reports: () => import("./reports.js?v=pi-20261114"), thismonth: () => import("./thismonth.js?v=pi-20261114") })[name]();
+// A page that cannot load says so, instead of leaving a loading message on screen.
+const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args)).catch((error) => {
+  console.error(error);
+  document.querySelector("#page-content").innerHTML = emptyMarkup("This page could not be loaded", `${error.message || error}. Reload the page; if it persists, try an up-to-date browser.`);
+  wireEmptyActions();
+});
 const renderNetworkPage = lazyPage("network", "renderNetworkPage");
 const renderPricesPage = lazyPage("prices", "renderPricesPage");
 const renderReportsPage = lazyPage("reports", "renderReportsPage");
 const renderThisMonthPage = lazyPage("thismonth", "renderThisMonthPage");
-import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261113";
-import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261113";
+import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261114";
+import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261114";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };

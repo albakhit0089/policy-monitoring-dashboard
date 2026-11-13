@@ -5,8 +5,8 @@
 // - every number in the prose passes through the Writer, which records it, so tests can trace it to the data;
 // - every measure named in the text is a cited record with a source link, listed again in the annex;
 // - counts support a statement but never open one; interpretation stays measured ("suggests", "is consistent with").
-import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261113";
-import { cpiSummary, dietSummary } from "./food-analysis.js?v=pi-20261113";
+import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261114";
+import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261114";
 
 export const COUNTRIES = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"];
 const DAY = 864e5;
@@ -39,7 +39,9 @@ export const INSTRUMENTS = [
 // Market news rather than a policy decision ("is projected to grow", "recorded growth").
 const NEWS = /\b(projected|is expected to|forecast|reported|recorded [a-z ]{0,20}growth|grew by|growth of|percent year-on-year|according to data|will participate|participat\w* in|showcas\w*|increased in value|declined? by|rose by)\b/i;
 const INSTRUMENT = Object.fromEntries(INSTRUMENTS.map((item) => [item.key, item]));
-const lead = (record) => String(record.description || record.title || "").split(/(?<=[.!?])\s+/).slice(0, 2).join(" ");
+// Sentence split without regex lookbehind, which older Safari (before 16.4) cannot parse.
+const sentences = (text) => String(text || "").replace(/([.!?])\s+/g, "$1\u0000").split("\u0000");
+const lead = (record) => sentences(record.description || record.title).slice(0, 2).join(" ");
 const instrumentCache = new WeakMap();
 export function instrumentOf(record) {
   if (!instrumentCache.has(record)) instrumentCache.set(record, INSTRUMENTS.find((item) => item.pattern.test(lead(record)))?.key || "other");
@@ -52,10 +54,10 @@ export function themesOf(record) {
 const RESTRICTION = /\b(bann?(ed|ing|s)?|prohibit\w*|suspend\w*|halt\w*|restrict(s|ed|ing|ions?)?)\b/i;
 const TRADE_FLOW = /\b(imports?|imported|importing|exports?|exported|exporting|shipments?|entry of|re-export\w*|trade in)\b/i;
 export function restrictionOf(record) {
-  return String(record.description || "").split(/(?<=[.!?])\s+/).slice(0, 3).find((part) => RESTRICTION.test(part) && TRADE_FLOW.test(part)) || null;
+  return sentences(record.description).slice(0, 3).find((part) => RESTRICTION.test(part) && TRADE_FLOW.test(part)) || null;
 }
 // Measures whose opening sentence is the restriction come first, so the cited title shows the restriction itself.
-const restrictionRank = (record) => String(record.description || "").split(/(?<=[.!?])\s+/).findIndex((part) => RESTRICTION.test(part) && TRADE_FLOW.test(part));
+const restrictionRank = (record) => sentences(record.description).findIndex((part) => RESTRICTION.test(part) && TRADE_FLOW.test(part));
 const SHOCK = /\b(disrupt\w*|shortage\w*|rerout\w*|blockade|conflict|congestion|supply chain|shipping|hormuz|bab el-mandeb|red sea)\b/i;
 const SEASON = /\b(ramadan|eid al|harvest season|harvest of|(date|fishing|rainy|summer|winter|planting|agricultural|growing) season|seasonal|khareef)\b/i;
 const MONEY = /(\$|US\$|USD|SAR|SR|AED|QR|QAR|KD|KWD|BD|BHD|RO|OMR|YER)\s?[\d.,]+\s?(million|billion|bn)\b|[\d.,]+\s?(million|billion)\s?(US )?(dollars|riyals?|dirhams?|dinars?|rials?)/i;
@@ -161,6 +163,94 @@ function cpiFor(food, country, from, to) {
   const inPeriod = months.filter((month) => month >= from.slice(0, 7) && month <= to.slice(0, 7));
   const row = cpi.rows.find((item) => item.country === country);
   return { row, inPeriod, latest: months.at(-1), value: (month) => entry.inflation[month], general: entry.general, food: entry.food };
+}
+
+// ---------- exhibits: numbered figures and tables, as in a technical report ----------
+// Charts are plain SVG strings (no D3) so they render the same on screen, in print and in tests;
+// every chart also carries its data table, which the Word export uses.
+const svgEsc = (value) => String(value ?? "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+const fmt = (value, digits = 0) => Number(value).toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+function hbars(rows, { digits = 0, suffix = "", series = null } = {}) {
+  const paired = rows.some((row) => row.previous !== undefined);
+  const rowH = paired ? 34 : 24, labelW = 230, width = 820, valueW = 64;
+  const height = rows.length * rowH + (series ? 26 : 6);
+  const max = Math.max(1e-9, ...rows.flatMap((row) => [Math.abs(row.value), Math.abs(row.previous ?? 0)]));
+  const scale = (value) => Math.max(0, value) / max * (width - labelW - valueW);
+  const bars = rows.map((row, i) => {
+    const y = i * rowH + 4;
+    const current = `<rect x="${labelW}" y="${y}" width="${scale(row.value).toFixed(1)}" height="${paired ? 12 : 16}" rx="3" fill="${row.highlight ? "#b7852f" : "#116aab"}"/><text x="${labelW + scale(row.value) + 6}" y="${y + (paired ? 10 : 12.5)}" class="ex-value">${svgEsc(fmt(row.value, digits))}${suffix}</text>`;
+    const before = paired ? `<rect x="${labelW}" y="${y + 15}" width="${scale(row.previous || 0).toFixed(1)}" height="10" rx="3" fill="#b8c5ce"/><text x="${labelW + scale(row.previous || 0) + 6}" y="${y + 24}" class="ex-value ex-muted">${svgEsc(fmt(row.previous || 0, digits))}${suffix}</text>` : "";
+    return `<text x="${labelW - 8}" y="${y + (paired ? 15 : 12.5)}" text-anchor="end" class="ex-label">${svgEsc(row.label)}</text>${current}${before}`;
+  }).join("");
+  const legend = series ? `<g transform="translate(${labelW},${height - 14})">${series.map(([label, color], i) => `<rect x="${i * 150}" y="0" width="12" height="10" rx="2" fill="${color}"/><text x="${i * 150 + 17}" y="9" class="ex-value">${svgEsc(label)}</text>`).join("")}</g>` : "";
+  return `<svg class="ex-chart" viewBox="0 0 ${width} ${height}" role="img">${bars}${legend}</svg>`;
+}
+function columns(rows) {
+  const width = 820, height = 220, left = 34, bottom = 30, top = 14;
+  const max = Math.max(1, ...rows.map((row) => row.value));
+  const step = (width - left - 8) / rows.length, barW = Math.min(30, step * .62);
+  const y = (value) => top + (1 - value / max) * (height - top - bottom);
+  const ticks = [0, Math.round(max / 2), max].map((value) => `<line x1="${left}" x2="${width - 6}" y1="${y(value)}" y2="${y(value)}" stroke="#e3eaef"/><text x="${left - 6}" y="${y(value) + 4}" text-anchor="end" class="ex-value ex-muted">${fmt(value)}</text>`).join("");
+  const bars = rows.map((row, i) => { const x = left + i * step + (step - barW) / 2; return `<rect x="${x.toFixed(1)}" y="${y(row.value).toFixed(1)}" width="${barW.toFixed(1)}" height="${(height - bottom - y(row.value)).toFixed(1)}" rx="3" fill="${row.partial ? "url(#ex-hatch)" : row.highlight ? "#b7852f" : "#116aab"}" stroke="${row.partial ? "#116aab" : "none"}"/><text x="${(x + barW / 2).toFixed(1)}" y="${(y(row.value) - 4).toFixed(1)}" text-anchor="middle" class="ex-value">${fmt(row.value)}</text><text x="${(x + barW / 2).toFixed(1)}" y="${height - 12}" text-anchor="middle" class="ex-label ex-small">${svgEsc(row.label)}</text>`; }).join("");
+  return `<svg class="ex-chart" viewBox="0 0 ${width} ${height}" role="img"><defs><pattern id="ex-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#dbe9f4"/><line x1="0" y1="0" x2="0" y2="6" stroke="#116aab" stroke-width="2"/></pattern></defs>${ticks}${bars}</svg>`;
+}
+const exhibit = (kind, caption, source, head, rows, svg = null) => ({ type: "exhibit", kind, caption, source, head, rows, svg });
+const shortMonthName = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" });
+const POLICY_SOURCE = "FAO policy monitoring record (summaries of public reporting); themes identified from the text of each measure.";
+
+function buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w }) {
+  const out = {};
+  const inScope = (record) => !one || record.country === one;
+  // Key indicators.
+  const prevThemes = prevStats ? Object.entries(prevStats).sort((a, b) => b[1] - a[1]) : [];
+  const keyRows = [
+    ["Policy measures recorded", fmt(s.rows.length), s.prevRows ? fmt(s.prevRows.length) : "–"],
+    ["of which long-term frameworks", fmt(s.rows.filter((record) => record.type === "framework").length), s.prevRows ? fmt(s.prevRows.filter((record) => record.type === "framework").length) : "–"],
+    ...(!one ? [["Countries with at least one measure", fmt(new Set(s.rows.map((record) => record.country)).size), s.prevRows ? fmt(new Set(s.prevRows.map((record) => record.country)).size) : "–"]] : []),
+    ["Leading policy theme", stats[0]?.count ? stats[0].label : "–", prevThemes[0]?.[1] ? THEME[prevThemes[0][0]].label : "–"],
+  ];
+  out.keyTable = exhibit("table", `Key indicators, ${s.kind === "event" ? s.label : one ? name(one) : "GCC States and Yemen"}`, POLICY_SOURCE, ["Indicator", s.kind === "monthly" ? "This month" : "This period", prevLabel ? `Previous (${prevLabel})` : "Previous period"], keyRows);
+  // Monthly activity over the 13 months to the end of the period (the partial month hatched).
+  const endKey = s.effectiveTo.slice(0, 7);
+  const months = Array.from({ length: 13 }, (_, i) => { const [y, m] = endKey.split("-").map(Number); const d = new Date(Date.UTC(y, m - 13 + i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; });
+  const scopeRows = s.kind === "event" ? s.rows : records.filter((record) => record.date && inScope(record));
+  // The data-through month is partial unless the data reach its last day.
+  const [ty, tm, td] = s.through.split("-").map(Number);
+  const partialKey = td < new Date(Date.UTC(ty, tm, 0)).getUTCDate() ? s.through.slice(0, 7) : null;
+  const monthly = months.map((key) => ({ label: shortMonthName(key), value: scopeRows.filter((record) => record.date.startsWith(key)).length, partial: key === partialKey }));
+  out.monthly = exhibit("figure", `Policy measures per month, ${shortMonthName(months[0])} to ${shortMonthName(endKey)}${monthly.at(-1).partial ? " (latest month partial, hatched)" : ""}`, POLICY_SOURCE, ["Month", "Measures"], monthly.map((row) => [row.label, fmt(row.value)]), columns(monthly));
+  // Food price inflation, latest month available in the period, all countries covered (scope country highlighted).
+  const cpi = food && cpiSummary(food);
+  if (cpi) {
+    const rows = COUNTRIES.map((country) => ({ country, cpi: cpiFor(food, country, s.from, s.to) })).filter((item) => item.cpi).map(({ country, cpi: c }) => { const month = c.inPeriod.at(-1) || c.latest; return { label: `${country === "United Arab Emirates" ? "UAE" : country} (${shortMonthName(month)})`, value: c.value(month), highlight: country === one }; }).filter((row) => row.value !== undefined).sort((a, b) => b.value - a.value);
+    out.inflation = exhibit("figure", "Food price inflation, latest month available (% change on the same month a year earlier)", "FAOSTAT consumer price indices (CP). Yemen is not covered; months that only repeat the previous year are excluded.", ["Country (month)", "Food price inflation (%)"], rows.map((row) => [row.label, fmt(row.value, 1)]), hbars(rows, { digits: 1, suffix: "%" }));
+  }
+  // Farm-gate prices of GCC strategic commodities.
+  if (food?.prices) {
+    const countries = one ? GCC_PRICE_COUNTRIES.filter((country) => country === one) : GCC_PRICE_COUNTRIES;
+    if (countries.length) {
+      const basket = gccBasket(food, countries);
+      const summary = gccBasketSummary(food, countries).filter((group) => group.median !== null && group.series);
+      const years = basket.flatMap((section) => section.rows.flatMap((row) => Object.values(row.cells).filter(Boolean).map((cell) => cell.firstYear))).filter(Boolean);
+      const from = years.length ? Math.min(...years) : null;
+      const up = summary.filter((group) => group.median > 0.5).sort((a, b) => b.median - a.median), down = summary.filter((group) => group.median < -0.5);
+      out.basketText = p(`Since ${w.note(String(from))}, farm-gate prices of the GCC strategic commodities${one ? ` in ${name(one)}` : ""} ${up.length ? `rose most for ${list(up.slice(0, 2).map((group) => `${group.group.toLowerCase()} (median ${w.pct(group.median, 0)})`))}` : "changed little"}${down.length ? `, while ${list(down.map((group) => group.group.toLowerCase()))} fell (median ${w.pct(Math.abs(down[0].median), 0)})` : ""}. Producer prices are annual and run to ${w.note(String(food.prices.years.at(-1)))}.`);
+      const rows = basket.flatMap((section) => [[{ group: section.group }], ...section.rows.map((row) => [row.name.replace(/, fresh( or chilled)?| in shell| \(excluding dehydrated\)|, dry/g, ""), ...countries.map((country) => { const cell = row.cells[country]; return cell ? `${formatLocal(cell.lcu, country)}${cell.change !== null ? ` (${cell.change > 0 ? "+" : ""}${fmt(cell.change)}%)` : ""}` : "–"; })])]);
+      out.basketTable = exhibit("table", `Farm-gate prices of GCC strategic commodities: latest price per kg (change since ${from})`, "FAOSTAT producer prices (PP), local currency. The UAE does not report producer prices; Yemen is excluded because rial depreciation dominates its local prices.", ["Commodity", ...countries.map((country) => country === "Saudi Arabia" ? "Saudi Arabia" : country)], rows);
+    } else out.basketText = p(`${one === "United Arab Emirates" ? "The UAE does not report producer prices to FAOSTAT" : "Yemen's farm-gate prices are not compared here because rial depreciation dominates its local prices"}, so the GCC strategic commodities table is not shown for ${name(one)}.`);
+  }
+  // Measures by theme, this period and the previous one.
+  const themeRows = stats.filter((theme) => theme.count || (prevStats && prevStats[theme.key])).slice(0, 7).map((theme) => ({ label: theme.short.charAt(0).toUpperCase() + theme.short.slice(1), value: theme.count, ...(prevStats ? { previous: prevStats[theme.key] || 0 } : {}) }));
+  out.themes = exhibit("figure", `Policy measures by theme${prevStats ? `, this period and ${prevLabel}` : ""} (a measure can address several themes)`, POLICY_SOURCE, ["Theme", "This period", ...(prevStats ? ["Previous"] : [])], themeRows.map((row) => [row.label, fmt(row.value), ...(prevStats ? [fmt(row.previous)] : [])]), hbars(themeRows, { series: prevStats ? [["This period", "#116aab"], [`Previous (${prevLabel})`, "#b8c5ce"]] : null }));
+  // Who acted: countries for regional scopes, instruments for a single country.
+  if (one) {
+    const instrumentRows = INSTRUMENTS.map((item) => ({ label: item.label.charAt(0).toUpperCase() + item.label.slice(1), value: s.rows.filter((record) => instrumentOf(record) === item.key).length })).filter((row) => row.value).sort((a, b) => b.value - a.value);
+    out.actors = exhibit("figure", `Policy measures by instrument, ${name(one)}`, POLICY_SOURCE, ["Instrument", "Measures"], instrumentRows.map((row) => [row.label, fmt(row.value)]), hbars(instrumentRows));
+  } else {
+    const countryRows = COUNTRIES.map((country) => ({ label: country, value: s.rows.filter((record) => record.country === country).length })).sort((a, b) => b.value - a.value);
+    out.actors = exhibit("figure", "Policy measures by country", POLICY_SOURCE, ["Country", "Measures"], countryRows.map((row) => [row.label, fmt(row.value)]), hbars(countryRows));
+  }
+  return out;
 }
 
 // ---------- the brief ----------
@@ -333,10 +423,11 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   if (socialShare < .05 && s.kind !== "event") recs.push([`Review options to link food security strategies with social protection, drawing on regional experience.`]);
 
   const keyMessages = km.slice(0, 5);
+  const ex = buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w });
   const sections = [
     { title: "Key messages", blocks: [bullets(keyMessages.map((block) => block.parts))] },
-    { title: "Context", blocks: context },
-    { title: "Policy developments and analysis", blocks: themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")] },
+    { title: "Context", blocks: [ex.keyTable, ...context, ex.monthly, ex.inflation, ex.basketText, ex.basketTable].filter(Boolean) },
+    { title: "Policy developments and analysis", blocks: [ex.themes, ex.actors, ...(themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")])].filter(Boolean) },
     { title: "Policy coherence and gaps", blocks: [bullets(coherence)] },
     { title: "Implications", blocks: [bullets(implications)] },
     { title: "Recommendations and areas for FAO support", blocks: [bullets(recs.length ? recs : [["Continue regular monitoring; the period shows no specific gap that calls for new support."]])] },
@@ -357,6 +448,9 @@ function dataNote(w, s, one) {
 }
 
 function finish(w, report) {
+  // Number figures and tables in order of appearance.
+  const counters = { figure: 0, table: 0 };
+  report.sections.forEach((section) => section.blocks.forEach((block) => { if (block.type === "exhibit") { counters[block.kind] += 1; block.label = `${block.kind === "figure" ? "Figure" : "Table"} ${counters[block.kind]}`; } }));
   const cited = [...w.cited.values()].sort((a, b) => b.date.localeCompare(a.date));
   return { ...report, annex: cited.map((record) => ({ id: record.id, date: record.date, country: record.country, institution: [record.institution, record.institutionBranch].filter(Boolean).join(" – "), title: record.title, source: record.source })), cited: w.cited, facts: w.facts };
 }
@@ -372,8 +466,16 @@ function partsToHtml(report, parts) {
     return `“<a class="cite" href="${esc(safeUrl(record.source))}" target="_blank" rel="noopener noreferrer" data-record="${esc(record.id)}">${esc(record.title)}</a>” <span class="cite-meta">(${esc(name(record.country))}, ${esc(shortDate(record.date))})</span>`;
   }).join("");
 }
+// A figure (chart, with its data behind a toggle) or a table, captioned and sourced.
+function exhibitTable(block) {
+  return `<table class="ex-table"><thead><tr>${block.head.map((cell) => `<th>${esc(cell)}</th>`).join("")}</tr></thead><tbody>${block.rows.map((row) => row[0] && typeof row[0] === "object" ? `<tr class="ex-group"><th colspan="${block.head.length}">${esc(row[0].group)}</th></tr>` : `<tr>${row.map((cell, i) => i ? `<td>${esc(cell)}</td>` : `<th scope="row">${esc(cell)}</th>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+function exhibitHtml(block) {
+  const body = block.svg ? `${block.svg}<details class="ex-data"><summary>Data</summary>${exhibitTable(block)}</details>` : `<div class="report-table-wrap">${exhibitTable(block)}</div>`;
+  return `<figure class="report-exhibit"><figcaption><strong>${esc(block.label)}.</strong> ${esc(block.caption)}</figcaption>${body}<p class="ex-source">Source: ${esc(block.source)}</p></figure>`;
+}
 export function toHtml(report) {
-  const blocks = (items) => items.map((block) => block.type === "h3" ? `<h4>${esc(block.text)}</h4>` : block.type === "list" ? `<ul class="narrative-list">${block.items.map((item) => `<li>${partsToHtml(report, item)}</li>`).join("")}</ul>` : `<p>${partsToHtml(report, block.parts)}</p>`).join("");
+  const blocks = (items) => items.map((block) => block.type === "exhibit" ? exhibitHtml(block) : block.type === "h3" ? `<h4>${esc(block.text)}</h4>` : block.type === "list" ? `<ul class="narrative-list">${block.items.map((item) => `<li>${partsToHtml(report, item)}</li>`).join("")}</ul>` : `<p>${partsToHtml(report, block.parts)}</p>`).join("");
   const sections = report.sections.map((section, i) => `<section><h3>${i + 1}. ${esc(section.title)}</h3>${blocks(section.blocks)}</section>`).join("");
   const annex = `<section class="report-annex"><h3>${report.sections.length + 1}. Annex: measures referenced</h3>${report.annex.length ? `<div class="report-table-wrap"><table><thead><tr><th>Date</th><th>Country</th><th>Institution</th><th>Measure</th><th>Source</th></tr></thead><tbody>${report.annex.map((row) => `<tr><td>${esc(shortDate(row.date))}</td><td>${esc(row.country)}</td><td>${esc(row.institution || "Not stated")}</td><td>${esc(row.title)}</td><td><a href="${esc(safeUrl(row.source))}" target="_blank" rel="noopener noreferrer">Source</a></td></tr>`).join("")}</tbody></table></div><p class="report-table-caption">Source: FAO policy monitoring record; summaries of public reporting.</p>` : "<p>No measures are referenced.</p>"}<h4>Data note</h4><ul class="narrative-list">${report.annexNote.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></section>`;
   return `<div class="report-document"><header class="report-cover"><div class="eyebrow">FOOD AND AGRICULTURE ORGANIZATION OF THE UNITED NATIONS · POLICY INTELLIGENCE</div><h2>${esc(report.title)}</h2><p class="report-cover-sub">${esc(report.subtitle)}</p><dl class="report-cover-meta"><div><dt>Countries</dt><dd>${esc(report.countriesLine)}</dd></div><div><dt>Prepared by</dt><dd>${esc(report.preparedBy)}</dd></div><div><dt>Date</dt><dd>${esc(shortDate(report.date))}</dd></div><div><dt>Version</dt><dd>${esc(report.version)}</dd></div></dl>${report.partial ? `<p class="report-partial">Partial month: data run to ${esc(shortDate(report.through))}.</p>` : ""}</header>${sections}${annex}<p class="report-note">Policy measures are short summaries compiled for monitoring and analysis, not legal texts. Always consult the original source.</p></div>`;
@@ -384,7 +486,7 @@ export function toMarkdown(report) {
   if (report.partial) out.push(`> Partial month: data run to ${shortDate(report.through)}.`);
   report.sections.forEach((section, i) => {
     out.push(`## ${i + 1}. ${section.title}`);
-    section.blocks.forEach((block) => out.push(block.type === "h3" ? `### ${block.text}` : block.type === "list" ? block.items.map((item) => `- ${md(item)}`).join("\n") : md(block.parts)));
+    section.blocks.forEach((block) => out.push(block.type === "exhibit" ? [`**${block.label}. ${block.caption}**`, "", `| ${block.head.join(" | ")} |`, `| ${block.head.map(() => "---").join(" | ")} |`, ...block.rows.map((row) => row[0] && typeof row[0] === "object" ? `| **${row[0].group}** |${" |".repeat(block.head.length - 1)}` : `| ${row.map((cell) => String(cell).replace(/\|/g, "/")).join(" | ")} |`), "", `_Source: ${block.source}_`].join("\n") : block.type === "h3" ? `### ${block.text}` : block.type === "list" ? block.items.map((item) => `- ${md(item)}`).join("\n") : md(block.parts)));
   });
   out.push(`## ${report.sections.length + 1}. Annex: measures referenced`, "| Date | Country | Institution | Measure | Source |", "| --- | --- | --- | --- | --- |", ...report.annex.map((row) => `| ${shortDate(row.date)} | ${row.country} | ${(row.institution || "Not stated").replace(/\|/g, "/")} | ${row.title.replace(/\|/g, "/")} | [Source](${safeUrl(row.source)}) |`), "", "_Source: FAO policy monitoring record; summaries of public reporting._", "### Data note", ...report.annexNote.map((item) => `- ${item}`), "", "> Policy measures are short summaries compiled for monitoring and analysis, not legal texts. Always consult the original source.");
   return `${out.join("\n\n")}\n`;
@@ -392,5 +494,6 @@ export function toMarkdown(report) {
 // Plain text of the narrative (for tests and "Copy text").
 export function toText(report) {
   const text = (parts) => parts.map((part) => typeof part === "string" ? part : `“${report.cited.get(part.cite).title}” (${name(report.cited.get(part.cite).country)}, ${shortDate(report.cited.get(part.cite).date)})`).join("");
-  return report.sections.map((section, i) => [`${i + 1}. ${section.title}`, ...section.blocks.map((block) => block.type === "h3" ? block.text : block.type === "list" ? block.items.map((item) => `- ${text(item)}`).join("\n") : text(block.parts))].join("\n")).join("\n\n");
+  // Prose only: figures and tables are left out of the text (and so out of the number-tracing test).
+  return report.sections.map((section, i) => [`${i + 1}. ${section.title}`, ...section.blocks.filter((block) => block.type !== "exhibit").map((block) => block.type === "h3" ? block.text : block.type === "list" ? block.items.map((item) => `- ${text(item)}`).join("\n") : text(block.parts))].join("\n")).join("\n\n");
 }

@@ -61,7 +61,7 @@ function graphData(ui, records, focus) {
   const node = (id, props) => { if (!nodes.has(id)) nodes.set(id, { id, count: 0, ...props }); return nodes.get(id); };
   const keep = { domain: new Set(ui.groupCount(records, (record) => record.domain).filter(([name]) => !/^unspecified/i.test(name)).slice(0, 12).map(([name]) => name)), institution: new Set(ui.groupCount(records, (record) => record.institution).slice(0, 8).map(([name]) => name)), group: new Set(ui.groupCount(records, (record) => record.group).slice(0, 8).map(([name]) => name)), family: new Set(records.map((record) => record.family)) };
   records.forEach((record) => {
-    const country = node(`country:${record.country}`, { name: record.country, dim: "country", color: record.country === focus ? "#116aab" : "#8ea3b1" });
+    const country = node(`country:${record.country}`, { name: record.country, dim: "country", color: record.country === focus ? "#116aab" : "#5f7686" });
     country.count += 1;
     ["domain", "institution", "group", "family"].forEach((dim) => {
       if (!keep[dim].has(record[dim])) return;
@@ -85,9 +85,9 @@ async function render3D(ui, records, focus) {
     .width(host.clientWidth).height(host.clientHeight).backgroundColor("#f4f8fb").showNavInfo(false)
     .graphData(data)
     .nodeVal((n) => 2 + Math.sqrt(n.count))
-    .nodeColor((n) => n.color).nodeOpacity(.95).nodeResolution(14)
+    .nodeColor((n) => n.color).nodeOpacity(1).nodeResolution(14)
     .nodeLabel((n) => `<div class="pn3d-tip"><strong>${ui.escapeHtml(n.name)}</strong><span>${ui.escapeHtml(DIMENSIONS[n.dim].singular)} · ${n.count.toLocaleString()} measures</span></div>`)
-    .linkColor(() => "rgba(16,47,70,.35)").linkWidth((l) => Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.35)
+    .linkColor(() => "#4f6d82").linkWidth((l) => Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.55)
     .warmupTicks(still ? 120 : 0).cooldownTicks(still ? 0 : 160)
     .onEngineStop(() => graph3d?.zoomToFit(still ? 0 : 500, 30))
     .onNodeClick((n) => { if (n.dim === "country") ui.setFilter("country", n.name); else { ui.state.networkView = "2d"; ui.state.networkDim = n.dim; ui.state.networkItem = n.name; renderNetworkPage(ui); } });
