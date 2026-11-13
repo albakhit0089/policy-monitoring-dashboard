@@ -117,7 +117,31 @@ try {
   assert.doesNotMatch(streamBody, /event: error/);
   assert.match(streamBody, /event: done/);
 
-  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, Arabic synonyms, citations, out-of-scope refusal, model refusal, and Claude streaming.");
+  // Draft mode: records are looked up server-side by id; citations to ids outside the evidence are removed.
+  const draftIds = payload.records.slice(0, 3).map((record) => record.id);
+  globalThis.fetch = async (_url, options) => {
+    const request = JSON.parse(options.body);
+    assert.equal(request.stream, true);
+    assert.equal(request.output_config.effort, "medium");
+    assert.match(request.system, /Use only the evidence supplied/);
+    const sent = JSON.parse(request.messages[0].content.split("Policy records (JSON):\n")[1].split("\n\nDraft the brief.")[0]);
+    assert.deepEqual(sent.map((record) => record.id), draftIds, "Only the requested, existing records reach the model.");
+    return claudeStream(`Key messages: a grounded point [${draftIds[0]}] and an invented one [ffffffffffffffff].`);
+  };
+  const drafted = mockResponse();
+  await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { mode: "draft", recordIds: [...draftIds, "not-an-id"], indicators: { foodInflation: { Qatar: 12.7 } }, scope: "Monthly briefing, October 2026" } }, drafted);
+  assert.equal(drafted.statusCode, 200, drafted.body);
+  const draft = JSON.parse(drafted.body);
+  assert.equal(draft.label, "AI-assisted draft – for analyst review");
+  assert.match(draft.draft, new RegExp(draftIds[0]));
+  assert.doesNotMatch(draft.draft, /ffffffffffffffff/);
+  assert.equal(draft.removedCitations, 1);
+  assert.deepEqual(draft.cited, [draftIds[0]]);
+  const emptyDraft = mockResponse();
+  await handler({ method: "POST", headers: { origin: "https://albakhit0089.github.io" }, body: { mode: "draft", recordIds: [] } }, emptyDraft);
+  assert.equal(emptyDraft.statusCode, 400);
+
+  console.log("AI API smoke checks passed: CORS, no-key handling, regional retrieval, Arabic synonyms, citations, out-of-scope refusal, model refusal, Claude streaming, and grounded drafts.");
 } finally {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;

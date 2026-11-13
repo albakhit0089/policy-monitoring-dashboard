@@ -44,8 +44,62 @@ function monthlyBars(records, periods, months = 24) {
   return `<svg class="pn-spark" viewBox="0 0 ${width} ${height}" role="img" aria-label="Monthly measures, last ${months} months">${counts.map(([key, count], i) => { const h = Math.max(2, count / max * (height - 4)); return `<rect x="${(i * (bar + gap)).toFixed(1)}" y="${(height - h).toFixed(1)}" width="${bar.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"><title>${key}: ${count}</title></rect>`; }).join("")}</svg>`;
 }
 
+// ---------- optional 3D view (3d-force-graph, loaded only when chosen; 2D stays the default) ----------
+const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
+// Dimension colours stay clear of the fixed family colours (blue, gold, purple, green).
+const DIM_COLORS = { domain: "#d0705b", institution: "#3c4f5e", group: "#a3b85c" };
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const webgl = () => { try { const canvas = document.createElement("canvas"); return !!(canvas.getContext("webgl") || canvas.getContext("experimental-webgl")); } catch { return false; } };
+let graphLib = null, graph3d = null;
+function loadGraphLib() {
+  graphLib ||= new Promise((resolve, reject) => { if (window.ForceGraph3D) { resolve(); return; } const script = document.createElement("script"); script.src = "./assets/vendor/3d-force-graph.min.js"; script.onload = resolve; script.onerror = () => { graphLib = null; reject(new Error("The 3D graph library could not be loaded.")); }; document.head.append(script); });
+  return graphLib;
+}
+function disposeGraph() { if (graph3d) { graph3d._destructor?.(); graph3d = null; } }
+function graphData(ui, records, focus) {
+  const nodes = new Map(), links = new Map();
+  const node = (id, props) => { if (!nodes.has(id)) nodes.set(id, { id, count: 0, ...props }); return nodes.get(id); };
+  const keep = { domain: new Set(ui.groupCount(records, (record) => record.domain).filter(([name]) => !/^unspecified/i.test(name)).slice(0, 12).map(([name]) => name)), institution: new Set(ui.groupCount(records, (record) => record.institution).slice(0, 8).map(([name]) => name)), group: new Set(ui.groupCount(records, (record) => record.group).slice(0, 8).map(([name]) => name)), family: new Set(records.map((record) => record.family)) };
+  records.forEach((record) => {
+    const country = node(`country:${record.country}`, { name: record.country, dim: "country", color: record.country === focus ? "#116aab" : "#8ea3b1" });
+    country.count += 1;
+    ["domain", "institution", "group", "family"].forEach((dim) => {
+      if (!keep[dim].has(record[dim])) return;
+      const item = node(`${dim}:${record[dim]}`, { name: record[dim], dim, color: dim === "family" ? FAMILY_COLORS[record[dim]] || "#71828e" : DIM_COLORS[dim] });
+      item.count += 1;
+      const key = `${country.id}|${item.id}`;
+      links.set(key, { source: country.id, target: item.id, value: (links.get(key)?.value || 0) + 1 });
+    });
+  });
+  return { nodes: [...nodes.values()], links: [...links.values()] };
+}
+async function render3D(ui, records, focus) {
+  const host = $("#pn3d");
+  host.innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading the 3D view…</span></div>`;
+  try { await loadGraphLib(); } catch (error) { host.innerHTML = `<p class="muted-note">${ui.escapeHtml(error.message)} The 2D view is unaffected.</p>`; return; }
+  if (!host.isConnected) return;
+  host.innerHTML = "";
+  const data = graphData(ui, records, focus);
+  const still = reducedMotion();
+  graph3d = window.ForceGraph3D()(host)
+    .width(host.clientWidth).height(host.clientHeight).backgroundColor("#f4f8fb").showNavInfo(false)
+    .graphData(data)
+    .nodeVal((n) => 2 + Math.sqrt(n.count))
+    .nodeColor((n) => n.color).nodeOpacity(.95).nodeResolution(14)
+    .nodeLabel((n) => `<div class="pn3d-tip"><strong>${ui.escapeHtml(n.name)}</strong><span>${ui.escapeHtml(DIMENSIONS[n.dim].singular)} · ${n.count.toLocaleString()} measures</span></div>`)
+    .linkColor(() => "rgba(16,47,70,.35)").linkWidth((l) => Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.35)
+    .warmupTicks(still ? 120 : 0).cooldownTicks(still ? 0 : 160)
+    .onEngineStop(() => graph3d?.zoomToFit(still ? 0 : 500, 30))
+    .onNodeClick((n) => { if (n.dim === "country") ui.setFilter("country", n.name); else { ui.state.networkView = "2d"; ui.state.networkDim = n.dim; ui.state.networkItem = n.name; renderNetworkPage(ui); } });
+  if (still) setTimeout(() => graph3d?.zoomToFit(0, 30), 50);
+  // Stop the render loop once the page is left.
+  const watch = setInterval(() => { if (!host.isConnected) { clearInterval(watch); disposeGraph(); } }, 1000);
+}
+
 export function renderNetworkPage(ui) {
   const { state, escapeHtml, COUNTRIES } = ui;
+  disposeGraph();
+  const view3d = state.networkView === "3d" && webgl();
   const all = ui.filtered();
   const focus = state.country !== "all" ? state.country : null;
   const records = focus ? all.filter((record) => record.country === focus) : all;
@@ -68,7 +122,15 @@ export function renderNetworkPage(ui) {
   const maxCount = Math.max(1, ...items.map((item) => item.count));
   const fan = items.length ? items.map((item, i) => `<button type="button" class="pn-item${item.name === state.networkItem ? " active" : ""}" data-pn-item="${escapeHtml(item.name)}" style="--offset:${(Math.sin(Math.PI * (i + .5) / items.length) * 46).toFixed(1)}px" title="${escapeHtml(item.name)}: ${escapeHtml(activityText(item.trend))}"><span class="pn-dot"></span><span class="pn-item-body"><span class="pn-item-name">${escapeHtml(truncate(item.name, 38))}</span><span class="pn-item-meta"><span class="pn-count">${item.count.toLocaleString()} measures</span><span class="pn-share"><i style="width:${(item.count / maxCount * 100).toFixed(0)}%"></i></span></span></span></button>`).join("") : `<div class="pn-empty">No measures match the current filters.</div>`;
 
-  $("#page-content").innerHTML = `${ui.heading("Policy network", "Trace how countries connect to policy domains, institutions and instruments. Select an orb, a card or a linked item.", "RELATIONSHIPS")}
+  const toggle = `<div class="chart-toolbar" role="group" aria-label="Network view"><button type="button" data-pn-view="2d" aria-pressed="${!view3d}">2D view</button><button type="button" data-pn-view="3d" aria-pressed="${view3d}" ${webgl() ? "" : "disabled title='3D needs WebGL'"}>3D view</button></div>`;
+  if (view3d) {
+    $("#page-content").innerHTML = `${ui.heading("Policy network", "A rotatable 3D view of how countries connect to policy domains, institutions, groups and families. Drag to rotate; select a node to open it.", "RELATIONSHIPS", toggle)}<section class="pn3d-stage"><div class="pn3d" id="pn3d" aria-label="3D policy network"></div><div class="pn3d-legend"><span><i style="background:#8ea3b1"></i>Countries</span><span><i style="background:${DIM_COLORS.domain}"></i>Policy domains</span><span><i style="background:${DIM_COLORS.institution}"></i>Institutions</span><span><i style="background:${DIM_COLORS.group}"></i>Policy groups</span>${Object.entries(FAMILY_COLORS).slice(0, 4).map(([name, color]) => `<span><i style="background:${color}"></i>${escapeHtml(name)}</span>`).join("")}</div></section>`;
+    $$("[data-pn-view]").forEach((button) => button.addEventListener("click", () => { state.networkView = button.dataset.pnView; renderNetworkPage(ui); }));
+    render3D(ui, records, focus);
+    ui.refreshIcons();
+    return;
+  }
+  $("#page-content").innerHTML = `${ui.heading("Policy network", "Trace how countries connect to policy domains, institutions and instruments. Select an orb, a card or a linked item.", "RELATIONSHIPS", toggle)}
   <section class="pn-stage" id="pn-stage" aria-label="Policy relationship network">
     <svg class="pn-links" id="pn-links" aria-hidden="true"></svg>
     <div class="pn-col pn-left">
@@ -86,6 +148,7 @@ export function renderNetworkPage(ui) {
     <aside class="pn-col pn-detail" id="pn-detail">${selected ? detailPanel(ui, { dim, focus, records, selected, periods }) : ""}</aside>
   </section>`;
 
+  $$("[data-pn-view]").forEach((button) => button.addEventListener("click", () => { state.networkView = button.dataset.pnView; renderNetworkPage(ui); }));
   $$("[data-pn-country]").forEach((button) => button.addEventListener("click", () => ui.setFilter("country", button.dataset.pnCountry)));
   $("#pn-orb").addEventListener("click", () => { if (focus) ui.setFilter("country", "all"); });
   $$("[data-pn-dim]").forEach((button) => button.addEventListener("click", () => { state.networkDim = button.dataset.pnDim; state.networkItem = null; renderNetworkPage(ui); }));

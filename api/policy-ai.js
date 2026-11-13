@@ -96,6 +96,57 @@ function claudeParams(instructions, question, evidence) {
   };
 }
 const REFUSAL_MESSAGE = "The analysis service declined to answer this question. Please rephrase it or review the supporting records directly.";
+const MAX_DRAFT_BODY = 120_000;
+const MAX_DRAFT_RECORDS = 80;
+const DRAFT_LABEL = "AI-assisted draft – for analyst review";
+const DRAFT_INSTRUCTIONS = [
+  "You draft policy technical briefs for the FAO Subregional Office for the GCC States and Yemen.",
+  "Use only the evidence supplied: the policy records and the computed indicators. Do not add facts, numbers, dates, institutions or sources from outside that evidence.",
+  "Every sentence that refers to a policy measure must cite it with its record id in square brackets, for example [0123456789abcdef]. Cite only ids from the supplied records.",
+  "Use only numbers that appear in the indicators or in the records. Do not compute new statistics.",
+  "Keep interpretation measured: use phrases such as 'suggests' or 'is consistent with', and make no causal claims the evidence does not support.",
+  "Do not open with a count of measures; lead with what governments did and why it matters for food security.",
+  "Write plain, professional English in short sentences, under the headings: Key messages; Context; Policy developments and analysis; Policy coherence and gaps; Implications; Recommendations and areas for FAO support.",
+].join(" ");
+
+// Draft mode: the client sends record ids and computed indicators; records are looked up here, so the
+// model only sees records that exist in the published dataset.
+async function handleDraft(body, res) {
+  const ids = [...new Set((Array.isArray(body.recordIds) ? body.recordIds : []).map(String))].filter((id) => /^[a-f0-9]{16}$/.test(id)).slice(0, MAX_DRAFT_RECORDS);
+  if (!ids.length) return response(res, 400, { error: "A draft needs at least one record id." });
+  const byId = new Map((await getRecords()).map((record) => [record.id, record]));
+  const evidence = ids.map((id) => byId.get(id)).filter(Boolean).map((record) => ({ id: record.id, country: record.country, date: record.date, title: record.title, institution: record.institution, domain: record.domain, description: record.description, source: record.source }));
+  if (!evidence.length) return response(res, 400, { error: "None of the requested records exist in the dataset." });
+  const indicators = body.indicators && typeof body.indicators === "object" ? body.indicators : {};
+  const scope = String(body.scope || "").slice(0, 300);
+  const permittedIds = new Set(evidence.map((record) => record.id));
+  const client = claudeClient();
+  try {
+    const stream = client.beta.messages.stream({
+      model: MODEL,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "medium" },
+      system: DRAFT_INSTRUCTIONS,
+      messages: [{ role: "user", content: `Brief scope: ${scope}\n\nComputed indicators (JSON):\n${JSON.stringify(indicators)}\n\nPolicy records (JSON):\n${JSON.stringify(evidence)}\n\nDraft the brief.` }],
+    });
+    const message = await stream.finalMessage();
+    if (message.stop_reason === "refusal") return response(res, 200, { error: REFUSAL_MESSAGE });
+    const raw = message.content.filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
+    if (!raw) return response(res, 502, { error: "The drafting service returned no text." });
+    // Validate citations: remove any id that was not supplied and report how many were removed.
+    const cited = [...raw.matchAll(/\[([a-f0-9]{16})\]/gi)].map((match) => match[1].toLowerCase());
+    const unknown = cited.filter((id) => !permittedIds.has(id));
+    const draft = keepPermittedCitations(raw, permittedIds);
+    return response(res, 200, { label: DRAFT_LABEL, draft, cited: [...new Set(cited.filter((id) => permittedIds.has(id)))], removedCitations: unknown.length, truncated: message.stop_reason === "max_tokens", model: message.model });
+  } catch (error) {
+    if (error instanceof Anthropic.RateLimitError) return response(res, 429, { error: "The drafting service is busy. Please try again shortly." });
+    if (error instanceof Anthropic.APIConnectionTimeoutError) return response(res, 504, { error: "The drafting request timed out." });
+    if (error instanceof Anthropic.APIError) return response(res, 502, { error: "The drafting service is temporarily unavailable." });
+    return response(res, 502, { error: "The drafting request could not connect." });
+  }
+}
 const keepPermittedCitations = (text, permittedIds) => text.replace(/\[([a-f0-9]{16})\]/gi, (citation, id) => permittedIds.has(id) ? citation : "");
 async function pipeResponseStream(stream, res, evidence, permittedIds) {
   res.status(200);
@@ -141,10 +192,12 @@ export default async function handler(req, res) {
     let rawBody = "";
     for await (const chunk of req) {
       rawBody += chunk;
-      if (rawBody.length > MAX_BODY) return response(res, 413, { error: "Question payload is too large." });
+      if (rawBody.length > MAX_DRAFT_BODY) return response(res, 413, { error: "Request payload is too large." });
     }
     try { body = JSON.parse(rawBody || "{}"); } catch { return response(res, 400, { error: "Request must contain valid JSON." }); }
+    if (body.mode !== "draft" && rawBody.length > MAX_BODY) return response(res, 413, { error: "Question payload is too large." });
   }
+  if (body.mode === "draft") return handleDraft(body, res);
   const question = String(body.question || "").trim();
   if (question.length < 3 || question.length > 2000) return response(res, 400, { error: "Question must be between 3 and 2,000 characters." });
   const outsideCountry = OUTSIDE_COUNTRIES.find((country) => new RegExp(`\\b${country}\\b`, "i").test(question));

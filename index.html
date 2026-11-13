@@ -4,41 +4,47 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#102f46" />
-    <meta name="description" content="Evidence-led food and agriculture policy intelligence for GCC countries and Yemen." />
+    <meta name="description" content="Food and agriculture policy intelligence for the GCC States and Yemen: 3,018 monitored policy measures to 11 November 2026, with country, trend and food price analysis." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Policy Intelligence | GCC States &amp; Yemen" />
+    <meta property="og:description" content="Food and agriculture policy intelligence for the GCC States and Yemen: 3,018 monitored policy measures to 11 November 2026, with country, trend and food price analysis." />
+    <meta property="og:image" content="./assets/fao-logo.svg" />
+    <meta name="twitter:card" content="summary" />
+    <!-- Optional: URL of the api/policy-ai.js deployment; when set, Reports offers "Draft with AI". -->
+    <meta name="pi-ai-endpoint" content="" />
     <link rel="icon" type="image/svg+xml" href="./assets/fao-logo.svg" />
     <title>Policy Intelligence | GCC States &amp; Yemen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=pi-20261112" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>
-    <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script type="module" src="./app.js?v=pi-20261112"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=pi-20261113" />
+    <link rel="preload" href="./data/gcc-yemen-summary.json" as="fetch" crossorigin />
+    <script src="./assets/vendor/lucide-icons.js" defer></script>
+    <script type="module" src="./app.js?v=pi-20261113"></script>
   </head>
   <body>
     <div class="app-shell" id="app-shell">
       <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
         <a class="brand" href="#overview" data-nav="overview" aria-label="Policy Intelligence home">
           <span class="brand-symbol"><img src="./assets/fao-logo.svg" alt="FAO" width="30" height="30" /></span>
-          <span class="brand-copy"><strong>Policy Intelligence</strong><small>Food &amp; Agriculture</small></span>
+          <span class="brand-copy"><strong data-i18n="brand.title">Policy Intelligence</strong><small data-i18n="brand.sub">Food &amp; Agriculture</small></span>
         </a>
-        <div class="region-label">GCC STATES &amp; YEMEN</div>
+        <div class="region-label" data-i18n="region">GCC STATES &amp; YEMEN</div>
         <button class="collapse-button" id="collapse-sidebar" type="button" aria-label="Collapse navigation" title="Collapse navigation"><i data-lucide="panel-left-close"></i></button>
         <nav class="primary-nav">
-          <div class="nav-section-label">ANALYSE</div>
-          <button class="nav-item active" data-nav="overview"><i data-lucide="layout-dashboard"></i><span>Overview</span></button>
-          <button class="nav-item" data-nav="country"><i data-lucide="map-pinned"></i><span>Country Intelligence</span></button>
-          <button class="nav-item" data-nav="trends"><i data-lucide="chart-no-axes-combined"></i><span>Policy Trends</span></button>
-          <button class="nav-item" data-nav="areas"><i data-lucide="shapes"></i><span>Policy Areas</span></button>
-          <button class="nav-item" data-nav="prices"><i data-lucide="shopping-basket"></i><span>Food Prices &amp; Diets</span></button>
-          <button class="nav-item" data-nav="compare"><i data-lucide="git-compare-arrows"></i><span>Country Comparison</span></button>
-          <button class="nav-item" data-nav="network"><i data-lucide="orbit"></i><span>Policy Network</span></button>
-          <div class="nav-section-label nav-section-spaced">EVIDENCE</div>
-          <button class="nav-item" data-nav="records"><i data-lucide="rows-3"></i><span>Policy Records</span></button>
-          <button class="nav-item" data-nav="reports"><i data-lucide="file-chart-column-increasing"></i><span>Reports</span></button>
-          <button class="nav-item" data-nav="methodology"><i data-lucide="book-open-check"></i><span>Methodology &amp; Sources</span></button>
+          <div class="nav-section-label" data-i18n="nav.analyse">ANALYSE</div>
+          <button class="nav-item" data-nav="thismonth"><i data-lucide="calendar-check"></i><span data-i18n="nav.thismonth">This month</span></button>
+          <button class="nav-item" data-nav="overview"><i data-lucide="layout-dashboard"></i><span data-i18n="nav.overview">Overview</span></button>
+          <button class="nav-item" data-nav="country"><i data-lucide="map-pinned"></i><span data-i18n="nav.country">Country Intelligence</span></button>
+          <button class="nav-item" data-nav="trends"><i data-lucide="chart-no-axes-combined"></i><span data-i18n="nav.trends">Policy Trends</span></button>
+          <button class="nav-item" data-nav="areas"><i data-lucide="shapes"></i><span data-i18n="nav.areas">Policy Areas</span></button>
+          <button class="nav-item" data-nav="prices"><i data-lucide="shopping-basket"></i><span data-i18n="nav.prices">Food Prices &amp; Diets</span></button>
+          <button class="nav-item" data-nav="compare"><i data-lucide="git-compare-arrows"></i><span data-i18n="nav.compare">Country Comparison</span></button>
+          <button class="nav-item" data-nav="network"><i data-lucide="orbit"></i><span data-i18n="nav.network">Policy Network</span></button>
+          <div class="nav-section-label nav-section-spaced" data-i18n="nav.evidence">EVIDENCE</div>
+          <button class="nav-item" data-nav="records"><i data-lucide="rows-3"></i><span data-i18n="nav.records">Policy Records</span></button>
+          <button class="nav-item" data-nav="reports"><i data-lucide="file-chart-column-increasing"></i><span data-i18n="nav.reports">Reports</span></button>
+          <button class="nav-item" data-nav="methodology"><i data-lucide="book-open-check"></i><span data-i18n="nav.methodology">Methodology &amp; Sources</span></button>
         </nav>
         <div class="sidebar-bottom">
           <div class="data-status"><span class="status-dot"></span><span id="data-status">Loading verified dataset</span></div>
@@ -51,34 +57,57 @@
           <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" title="Open navigation"><i data-lucide="menu"></i></button>
           <div class="breadcrumb"><span>Policy Intelligence</span><i data-lucide="chevron-right"></i><strong id="current-page-label">Overview</strong></div>
           <div class="topbar-actions">
-            <label class="global-search"><i data-lucide="search"></i><span class="sr-only">Search policy records</span><input id="global-search" type="search" placeholder="Search policy measures" autocomplete="off" /><kbd>⌘ K</kbd></label>
-            <button class="icon-button update-button" id="updates-button" type="button" title="Latest dataset update" aria-label="Latest dataset update"><i data-lucide="bell-dot"></i></button>
-            <button class="button button-outline" id="top-export" type="button"><i data-lucide="download"></i><span>Export</span></button>
+            <label class="global-search"><i data-lucide="search"></i><span class="sr-only">Search policy records</span><input id="global-search" type="search" placeholder="Search policy measures" data-i18n-placeholder="top.search" autocomplete="off" /><kbd>⌘ K</kbd></label>
+            <button class="button button-outline lang-toggle" id="lang-toggle" type="button" data-i18n-title="top.languageLabel" title="Switch to Arabic"><i data-lucide="languages"></i><span data-i18n="top.language">العربية</span></button>
+            <button class="icon-button update-button" id="updates-button" type="button" data-i18n-title="top.updates" title="Latest dataset update" aria-label="Latest dataset update"><i data-lucide="bell-dot"></i></button>
+            <button class="button button-outline" id="top-export" type="button"><i data-lucide="download"></i><span data-i18n="top.export">Export</span></button>
           </div>
         </header>
 
         <main class="main-content" id="main-content">
-          <section class="global-filters" aria-label="Global policy filters">
-            <div class="filter-heading"><button class="filter-toggle" id="toggle-filters" type="button" aria-expanded="true" aria-controls="filter-grid"><i data-lucide="sliders-horizontal"></i><strong>Filters</strong><span class="filter-count" id="filter-count" hidden></span><i class="filter-chevron" data-lucide="chevron-down"></i></button><button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i>Reset filters</button></div>
-            <div class="filter-grid" id="filter-grid">
-              <label>Country<select id="filter-country"><option value="all">All countries</option></select></label>
-              <label>Year<select id="filter-year"><option value="all">All years</option></select></label>
-              <label>Month<select id="filter-month"><option value="all">All months</option></select></label>
-              <label>Policy type<select id="filter-type"><option value="all">All types</option><option value="decision">Short-term</option><option value="framework">Long-term</option></select></label>
-              <label>Policy family<select id="filter-family"><option value="all">All families</option></select></label>
-              <label>Policy domain<select id="filter-domain"><option value="all">All domains</option></select></label>
-              <label>Policy group<select id="filter-group"><option value="all">All groups</option></select></label>
-              <label>Institution<select id="filter-institution"><option value="all">All institutions</option></select></label>
-              <label>From<input id="filter-from" type="date" aria-label="Start date" /></label>
-              <label>To<input id="filter-to" type="date" aria-label="End date" /></label>
-            </div>
+          <section class="global-filters filter-bar" aria-label="Active filters">
+            <span class="filter-bar-label"><i data-lucide="sliders-horizontal"></i><strong data-i18n="filters.label">Filters</strong></span>
             <div class="active-filters" id="active-filters" aria-live="polite"></div>
+            <div class="filter-bar-actions">
+              <button class="button button-outline" id="toggle-filters" type="button" aria-expanded="false" aria-controls="filter-drawer"><i data-lucide="sliders-horizontal"></i><span data-i18n="filters.edit">Edit filters</span></button>
+              <button class="text-button" id="reset-filters" type="button"><i data-lucide="rotate-ccw"></i><span data-i18n="filters.reset">Reset</span></button>
+              <button class="text-button" id="copy-filter-link" type="button"><i data-lucide="link"></i><span data-i18n="filters.copy">Copy link</span></button>
+            </div>
           </section>
-          <div class="page-content" id="page-content" aria-live="polite"><div class="loading-state"><span class="loading-mark"></span><span>Loading policy intelligence…</span></div></div>
-          <footer class="app-footer"><span>Policy Intelligence · GCC States &amp; Yemen</span><span>Policy measures are short summaries for monitoring and analysis, not legal texts. Always consult the original source.</span></footer>
+          <div class="page-content" id="page-content" aria-live="polite">
+          <!-- static-summary:start (generated by scripts/build-static.cjs) -->
+          <article class="static-summary">
+            <p class="eyebrow">FOOD &amp; AGRICULTURE POLICY · GCC STATES &amp; YEMEN</p>
+            <h1>Policy Intelligence</h1>
+            <p>Food and agriculture policy measures monitored for Bahrain, Kuwait, Oman, Qatar, Saudi Arabia, the United Arab Emirates and Yemen: 3,018 measures from 1 February 2023 to 11 November 2026.</p>
+            <table><caption>Policy measures by country</caption><thead><tr><th scope="col">Country</th><th scope="col">Measures</th></tr></thead><tbody><tr><td>Bahrain</td><td>83</td></tr><tr><td>Kuwait</td><td>34</td></tr><tr><td>Oman</td><td>533</td></tr><tr><td>Qatar</td><td>115</td></tr><tr><td>Saudi Arabia</td><td>1,085</td></tr><tr><td>United Arab Emirates</td><td>835</td></tr><tr><td>Yemen</td><td>333</td></tr></tbody></table>
+            <h2>Latest measures</h2>
+            <ul><li>11 November 2026, Yemen: <a href="https://www.saba.ye/en/news3832374.htm" rel="noopener noreferrer">The Ministries of Economy, Industry and Investment, and Agriculture, Fisheries and Water</a></li><li>9 November 2026, United Arab Emirates: <a href="https://livestockmiddleeast.com/news/al-dahra-expands-commercial-partnerships-and-industry-presence-at-saudi-agriculture-2026/" rel="noopener noreferrer">Al Dahra Group reaffirmed its commitment to expanding its operations in Saudi</a></li><li>8 November 2026, Saudi Arabia: <a href="https://spa.gov.sa/en/N2720621" rel="noopener noreferrer">MEWA launched the development of an agricultural produce processing and marketing facility</a></li><li>7 November 2026, Saudi Arabia: <a href="https://spa.gov.sa/en/N2720389" rel="noopener noreferrer">MEWA, Al-Jouf Region Branch organized the fourth edition of the “Ibda’at Joufiyah”</a></li><li>7 November 2026, Saudi Arabia: <a href="https://spa.gov.sa/en/N2720013" rel="noopener noreferrer">MEWA, Dumat Al-Jandal Office, organized three awareness workshops during the Agricultural Processing</a></li><li>6 November 2026, Saudi Arabia: <a href="https://spa.gov.sa/en/N2719452" rel="noopener noreferrer">The Azka Farmers&#39; Market, organized at Hayy Jameel in Jeddah, showcases seasonal</a></li><li>5 November 2026, Bahrain: <a href="https://www.bna.bh/En/UnderHMKingspatronageMaraee2026toopenonNovember11.aspx?cms=q8FmFJgiscL2fwIzON1%2bDhna2Vfq86iKehADSBCTT68%3d" rel="noopener noreferrer">The Ministry of Municipalities Affairs and Agriculture of Bahrain is organizing</a></li><li>5 November 2026, Bahrain: <a href="https://www.bna.bh/En/ApplicationsopenforsecondeditionofInnovationinIrrigationSolutionsCompetition.aspx?cms=q8FmFJgiscL2fwIzON1%2bDv0AGDHEVQC8IbGONjBCUJU%3d" rel="noopener noreferrer">The Ministry of Works and the Ministry of Municipalities Affairs and Agriculture</a></li></ul>
+            <p class="static-note">Policy measures are short summaries compiled for monitoring and analysis, not legal texts. Always consult the original source. JavaScript is needed for the interactive dashboard.</p>
+          </article>
+          <!-- static-summary:end -->
+          </div>
+          <footer class="app-footer"><span data-i18n="footer.name">Policy Intelligence · GCC States &amp; Yemen</span><span data-i18n="footer.disclaimer">Policy measures are short summaries for monitoring and analysis, not legal texts. Always consult the original source.</span></footer>
         </main>
       </div>
 
+      <aside class="filter-drawer" id="filter-drawer" role="dialog" aria-modal="true" aria-labelledby="filter-drawer-title" hidden>
+        <div class="filter-drawer-head"><h2 id="filter-drawer-title" data-i18n="filters.title">Edit filters</h2><button class="icon-button" id="close-filters" type="button" aria-label="Close filters"><i data-lucide="x"></i></button></div>
+        <div class="filter-grid" id="filter-grid">
+              <label><span data-i18n="f.country">Country</span><select id="filter-country"><option value="all">All countries</option></select></label>
+              <label><span data-i18n="f.year">Year</span><select id="filter-year"><option value="all">All years</option></select></label>
+              <label><span data-i18n="f.month">Month</span><select id="filter-month"><option value="all">All months</option></select></label>
+              <label><span data-i18n="f.type">Policy type</span><select id="filter-type"><option value="all">All types</option><option value="decision">Short-term</option><option value="framework">Long-term</option></select></label>
+              <label><span data-i18n="f.family">Policy family</span><select id="filter-family"><option value="all">All families</option></select></label>
+              <label><span data-i18n="f.domain">Policy domain</span><select id="filter-domain"><option value="all">All domains</option></select></label>
+              <label><span data-i18n="f.group">Policy group</span><select id="filter-group"><option value="all">All groups</option></select></label>
+              <label><span data-i18n="f.institution">Institution</span><select id="filter-institution"><option value="all">All institutions</option></select></label>
+              <label><span data-i18n="f.from">From</span><input id="filter-from" type="date" /></label>
+              <label><span data-i18n="f.to">To</span><input id="filter-to" type="date" /></label>
+        </div>
+        <div class="filter-drawer-foot"><button class="text-button" id="drawer-reset" type="button"><i data-lucide="rotate-ccw"></i><span data-i18n="filters.reset">Reset</span></button><button class="button button-primary" id="drawer-done" type="button" data-i18n="filters.done">Show results</button></div>
+      </aside>
+      <div class="filter-scrim" id="filter-scrim"></div>
       <div class="sidebar-scrim" id="sidebar-scrim"></div>
       <div class="panel-scrim" id="panel-scrim"></div>
       <div class="toast-region" id="toast-region" aria-live="polite"></div>

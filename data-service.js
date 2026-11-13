@@ -9,18 +9,53 @@ export const COUNTRIES = [
   "Yemen",
 ];
 
-const REGION = new Set(COUNTRIES);
-const searchableText = (record) => [record.country, record.title, record.description, record.typeLabel, record.family, record.group, record.domain, record.institution].join(" ").toLocaleLowerCase();
+export const SUMMARY_URL = "./data/gcc-yemen-summary.json";
+const TYPE_LABELS = { decision: "Short-term policy decision", framework: "Long-term policy framework" };
 
-export async function loadRegionalData() {
-  const response = await fetch(DATA_URL, { cache: "no-cache" });
-  if (!response.ok) throw new Error(`Data request failed (${response.status})`);
-  const payload = await response.json();
-  const records = (payload.records || []).filter((record) => REGION.has(record.country));
-  if (records.length !== payload.recordCount) {
-    console.warn(`Regional allowlist retained ${records.length} of ${payload.recordCount} records.`);
-  }
+export const COUNTRY_COLORS = { Bahrain: "#c2563f", Kuwait: "#776bb0", Oman: "#2a9d8f", Qatar: "#8a3f6f", "Saudi Arabia": "#116aab", "United Arab Emirates": "#b7852f", Yemen: "#3f7f5a" };
+const REGION = new Set(COUNTRIES);
+const searchableText = (record) => [record.country, record.title, record.description || "", record.typeLabel, record.family, record.group, record.domain, record.institution].join(" ").toLocaleLowerCase();
+
+async function fetchJson(url, label) {
+  const response = await fetch(url, { cache: "no-cache" });
+  if (!response.ok) throw new Error(`${label} request failed (${response.status})`);
+  return response.json();
+}
+
+// Charts and filters start from the compact summary (no descriptions or source links).
+// Records keep `description` undefined until loadFullRecords() has run.
+export async function loadSummaryRecords() {
+  const payload = await fetchJson(SUMMARY_URL, "Data");
+  const at = Object.fromEntries(payload.columns.map((name, i) => [name, i]));
+  const value = (row, field) => payload.dict[field] ? payload.dict[field][row[at[field]]] : row[at[field]];
+  const records = payload.rows.map((row) => {
+    const date = row[at.date] || null;
+    const type = value(row, "type");
+    const record = { id: row[at.id], type, typeLabel: TYPE_LABELS[type], family: value(row, "family"), group: value(row, "group"), domain: value(row, "domain"), domainCode: row[at.domainCode], country: value(row, "country"), date, year: date ? Number(date.slice(0, 4)) : null, title: row[at.title] || undefined, institution: value(row, "institution") };
+    if (row[at.institutionBranch]) record.institutionBranch = row[at.institutionBranch];
+    if (row[at.tags]) record.tags = row[at.tags].split(" ");
+    return record;
+  }).filter((record) => REGION.has(record.country));
+  if (records.length !== payload.recordCount) console.warn(`Regional allowlist retained ${records.length} of ${payload.recordCount} records.`);
+  records.dataThrough = payload.dataThrough;
   return records;
+}
+
+// Adds description and source to the summary records, once.
+let fullPromise = null;
+export function loadFullRecords(records) {
+  fullPromise ||= fetchJson(DATA_URL, "Policy records").then((payload) => {
+    const byId = new Map(payload.records.map((record) => [record.id, record]));
+    records.forEach((record) => {
+      const full = byId.get(record.id);
+      if (!full) return;
+      record.description = full.description;
+      record.title = full.title;
+      record.source = full.source;
+    });
+    return records;
+  }).catch((error) => { fullPromise = null; throw error; });
+  return fullPromise;
 }
 
 export function filterRecords(records, filters = {}) {
@@ -75,4 +110,14 @@ export function loadFoodIndicators() {
     return response.json();
   }).catch((error) => { foodIndicatorsPromise = null; throw error; });
   return foodIndicatorsPromise;
+}
+
+// Analyst-defined events (data/events.json): records are tagged by id or by workbook flag.
+let eventsPromise = null;
+export function loadEvents() {
+  eventsPromise ||= fetch("./data/events.json", { cache: "no-cache" }).then((response) => {
+    if (!response.ok) throw new Error(`Events request failed (${response.status})`);
+    return response.json();
+  }).then((payload) => payload.events || []).catch((error) => { eventsPromise = null; throw error; });
+  return eventsPromise;
 }
