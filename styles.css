@@ -1152,3 +1152,35 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 [dir="rtl"] .breadcrumb svg { transform: scaleX(-1); }
 /* English content inside the Arabic interface keeps its own direction (punctuation, dates). */
 [dir="rtl"] :is(p, li, h1, h2, h3, h4, strong, small, td, th, dd, dt, .kpi-value, .kpi-meta, .page-subtitle, .card-subtitle, .eyebrow, .record-card-title) { unicode-bidi: plaintext; }
+
+/* ---------- Phase 5: selective 3D and depth ---------- */
+/* Layered elevation: scene (base) → cards → drawers and detail panels. */
+.scene-card { position: relative; z-index: 0; margin: 0 0 16px; overflow: hidden; background: linear-gradient(180deg, #e6f0f6, #d7e8f1); border: 1px solid #d3e1ea; border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+.scene-host { position: relative; height: 440px; }
+.scene-host canvas { display: block; width: 100% !important; height: 100% !important; cursor: grab; }
+.scene-host.scene-2d { height: auto; min-height: 360px; padding: 12px; background: #fff; }
+.scene-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
+.scene-fallback-note { position: absolute; inset-inline-start: 14px; bottom: 12px; margin: 0; padding: 6px 10px; color: #3b3220; background: #fff8e8; border-radius: 8px; font-size: 13px; }
+.scene-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 10px 14px; background: rgba(255,255,255,.92); border-top: 1px solid #d3e1ea; }
+.scene-note { margin: 0; color: #4f6675; font-size: 13px; }
+.scene-controls { display: flex; gap: 8px; }
+.map-scene-tooltip { position: absolute; z-index: 5; display: grid; gap: 2px; max-width: 230px; padding: 8px 10px; color: #fff; background: rgba(16,47,70,.94); border-radius: 8px; box-shadow: 0 8px 20px rgba(16,47,70,.25); font-size: 12.5px; pointer-events: none; }
+.map-scene-tooltip span { color: #cfe0ea; }
+.card { position: relative; z-index: 1; }
+.filter-drawer, .assistant-panel { z-index: 60; }
+/* Selected items lift; on hover the rest of the group recedes slightly (≤ 300 ms). */
+.kpi-card, .entry-point { transition: transform .25s ease, box-shadow .25s ease, opacity .25s ease; will-change: transform; }
+.kpi-card.tilting, .entry-point.tilting { box-shadow: 0 14px 30px rgba(16,47,70,.14) !important; }
+.kpi-grid:hover .kpi-card:not(:hover), .entry-points:hover .entry-point:not(:hover) { opacity: .88; }
+.share-row:hover .share-track span, .share-row:focus-visible .share-track span { filter: brightness(1.08); }
+@media (max-width: 760px) { .scene-host { height: 320px; } }
+@media (prefers-reduced-motion: reduce) { .kpi-card, .entry-point { transition: none; } .kpi-grid:hover .kpi-card:not(:hover), .entry-points:hover .entry-point:not(:hover) { opacity: 1; } }
+/* Policy network: optional 3D view */
+.pn3d-stage { position: relative; overflow: hidden; background: #f4f8fb; border: 1px solid #dde6ec; border-radius: 16px; }
+.pn3d { height: 620px; }
+.pn3d-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 14px; background: #fff; border-top: 1px solid #dde6ec; font-size: 12.5px; color: #4f6675; }
+.pn3d-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.pn3d-legend i { width: 10px; height: 10px; border-radius: 50%; }
+.pn3d-tip { display: grid; gap: 2px; padding: 6px 9px; color: #fff; background: rgba(16,47,70,.94); border-radius: 7px; font: 12.5px 'IBM Plex Sans', sans-serif; }
+.pn3d-tip span { color: #cfe0ea; }
+@media (max-width: 760px) { .pn3d { height: 460px; } }

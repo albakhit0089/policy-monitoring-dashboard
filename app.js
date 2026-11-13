@@ -4,6 +4,7 @@ import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261113";
 import { renderReportsPage } from "./reports.js?v=pi-20261113";
 import { renderThisMonthPage } from "./thismonth.js?v=pi-20261113";
 import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261113";
+import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261113";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };
@@ -191,7 +192,8 @@ function renderOverview() {
   const latestItems = items.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 5);
   const latest = latestItems.length ? `<div class="record-list">${latestItems.map((record) => recordCard(record)).join("")}</div>` : emptyMarkup();
   // One map for country volume and one share chart; the separate country rank and type-by-country charts were duplicates.
-  return `${intro}${entries}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12")}${card("Regional map", "Policy measures by country · select a country to filter", `<div class="map-wrap" id="regional-map"></div>`, "span-7")}${card(`Share of measures by ${term("policy family", "def.family")}`, "Percentage of measures in the current selection, with counts", `<div id="family-chart"></div>`, "span-5")}${card(`${term("Policy domains", "def.domain")} by country`, "Top 12 domains · select a cell, domain or country to filter", `<div class="table-wrap heatmap-wrap" id="heatmap-wrap"></div>`, "span-7")}${card("Emerging policy themes", "Latest 12 months against the 12 months before", renderEmerging(items), "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-12")}</div>`;
+  const scene = `<section class="scene-card" aria-label="Regional orientation map"><div class="scene-host" id="scene-host"></div><div class="scene-bar"><p class="scene-note">Countries shaded by measures in the last 12 months · schematic shipping lanes through the Strait of Hormuz and Bab el-Mandeb · gold markers are main ports · select a country to open it</p><div class="scene-controls" id="scene-controls"></div></div></section>`;
+  return `${intro}${scene}${entries}${kpis}<div class="content-grid">${card("Policy activity over time", "Monthly measure counts · click a month to filter the workspace", activity, "span-12")}${card(`Share of measures by ${term("policy family", "def.family")}`, "Percentage of measures in the current selection, with counts", `<div id="family-chart"></div>`, "span-5")}${card(`${term("Policy domains", "def.domain")} by country`, "Top 12 domains · select a cell, domain or country to filter", `<div class="table-wrap heatmap-wrap" id="heatmap-wrap"></div>`, "span-7")}${card("Emerging policy themes", "Latest 12 months against the 12 months before", renderEmerging(items), "span-5")}${card("Latest developments", "Most recently dated records in the current selection", latest, "span-7")}</div>`;
 }
 
 function drawActivityChart(selector, records, mode = state.activityMode, onMonth = true) {
@@ -277,8 +279,8 @@ function renderEmerging(records) {
   if (!themes.length) return `<div class="empty-state"><p>No policy domain has at least ${MIN_BASE} measures in both periods for this selection.</p></div>`;
   return `<div class="theme-list">${themes.map((theme) => `<button class="theme-row" data-theme="${escapeHtml(theme.domain)}"><span class="theme-main"><strong>${escapeHtml(theme.domain)}</strong><small>${theme.count} measures in the latest 12 months against ${theme.prior} the year before · ${theme.countries} countries</small></span><span class="theme-change ${theme.change >= 0 ? "up" : "down"}">${theme.change >= 0 ? "↑" : "↓"} ${Math.abs(theme.change).toFixed(0)}%</span></button>`).join("")}<p class="method-note">Latest 12 months to ${escapeHtml(monthLabel(latestKey, true))} against the 12 months before. Domains need at least ${MIN_BASE} measures in both periods; "Unspecified" domains are excluded.</p></div>`;
 }
-async function renderMap(records) {
-  const target = $("#regional-map");
+async function renderMap(records, target = $("#regional-map")) {
+  if (!target) return;
   if (!records.length) { target.innerHTML = emptyMarkup(); wireEmptyActions(); return; }
   const generation = ++mapRenderGeneration;
   const counts = Object.fromEntries(COUNTRIES.map((country) => [country, records.filter((record) => record.country === country).length]));
@@ -315,6 +317,67 @@ async function renderMap(records) {
   }
 }
 
+// ---------- opening scene: 3D by default, 2D on request, a static image with reduced motion or no WebGL ----------
+let currentScene = null;
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function sceneView() {
+  let saved = null;
+  try { saved = localStorage.getItem("pi.sceneView"); } catch { /* not remembered */ }
+  const chosen = state.sceneView || saved;
+  if (chosen === "2d") return "2d";
+  if (!webglAvailable()) return "poster";
+  if (chosen === "3d") return "3d";
+  return reducedMotion() ? "poster" : "3d";
+}
+function setSceneView(view) { state.sceneView = view; try { localStorage.setItem("pi.sceneView", view); } catch { /* not remembered */ } renderScene(filtered()); }
+async function renderScene(records) {
+  const host = $("#scene-host"), controls = $("#scene-controls");
+  if (!host) return;
+  currentScene?.dispose(); currentScene = null;
+  host.innerHTML = "";
+  const view = sceneView();
+  const through = latestDate(state.records);
+  const since = through ? new Date(new Date(`${through}T00:00:00Z`).getTime() - 365 * 864e5).toISOString().slice(0, 10) : "";
+  const recent = records.filter((record) => record.date && record.date > since);
+  const activity = Object.fromEntries(COUNTRIES.map((country) => [country, recent.filter((record) => record.country === country).length]));
+  const button = (id, iconName, label) => `<button class="button button-outline" type="button" id="${id}">${icon(iconName)}${escapeHtml(label)}</button>`;
+  controls.innerHTML = view === "3d" ? `${button("scene-reset", "rotate-ccw", "Reset view")}${button("scene-2d", "map", "Skip to 2D")}` : `${webglAvailable() ? button("scene-3d", "box", view === "poster" ? "Interactive 3D view" : "3D view") : ""}${view === "poster" ? button("scene-2d", "map", "Interactive 2D map") : ""}`;
+  $("#scene-2d")?.addEventListener("click", () => setSceneView("2d"));
+  $("#scene-3d")?.addEventListener("click", () => setSceneView("3d"));
+  refreshIcons();
+  const openCountry = (country) => { state.country = country; state.pageNumber = 1; syncFilters(); setPage("country"); };
+  if (view === "2d") { host.classList.add("scene-2d"); renderMap(records, host); return; }
+  host.classList.remove("scene-2d");
+  if (view === "poster") {
+    host.innerHTML = `<img class="scene-poster" src="./assets/scene-poster.png" alt="Map of the Arabian Peninsula showing the GCC States and Yemen, the shipping lanes through the Strait of Hormuz and Bab el-Mandeb, and the main ports." width="1253" height="440" />${webglAvailable() ? "" : '<p class="scene-fallback-note">The interactive 3D view needs WebGL, which this browser does not provide.</p>'}`;
+    return;
+  }
+  host.innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading the 3D view…</span></div>`;
+  try {
+    worldTopologyPromise ||= d3.json("./assets/vendor/countries-110m.json");
+    const [topology] = await Promise.all([worldTopologyPromise, loadThree()]);
+    if (!host.isConnected) return;
+    host.innerHTML = "";
+    currentScene = mountScene(host, { topology, activity, handlers: { onCountry: openCountry, tooltip: (country) => `<strong>${escapeHtml(country)}</strong><span>${activity[country].toLocaleString()} measures in the last 12 months · select to open</span>` } });
+    $("#scene-reset")?.addEventListener("click", () => currentScene?.reset());
+  } catch {
+    host.innerHTML = "";
+    renderMap(records, host);
+  }
+}
+// Subtle depth: headline cards and entry points tilt toward the pointer (not on touch or with reduced motion).
+function enableCardTilt() {
+  if (reducedMotion() || window.matchMedia("(pointer: coarse)").matches) return;
+  document.addEventListener("pointermove", (event) => {
+    const card = event.target.closest?.(".kpi-card, .entry-point");
+    document.querySelectorAll(".tilting").forEach((other) => { if (other !== card) { other.classList.remove("tilting"); other.style.transform = ""; } });
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - .5, y = (event.clientY - rect.top) / rect.height - .5;
+    card.classList.add("tilting");
+    card.style.transform = `perspective(800px) rotateX(${(-y * 4).toFixed(2)}deg) rotateY(${(x * 5).toFixed(2)}deg) translateY(-2px)`;
+  });
+}
 function renderOverviewPage() {
   const root = $("#page-content");
   root.innerHTML = renderOverview();
@@ -322,7 +385,7 @@ function renderOverviewPage() {
   drawActivityChart("#activity-chart", records);
   drawFamilyBars("#family-chart", records);
   drawHeatmap(records);
-  renderMap(records);
+  renderScene(records);
   $$("[data-nav-to]").forEach((button) => button.addEventListener("click", () => setPage(button.dataset.navTo)));
   $$('[data-theme]').forEach((button) => button.addEventListener("click", () => { state.domain = button.dataset.theme; syncFilters(); render(); }));
   $$("[data-activity]").forEach((button) => button.addEventListener("click", () => { state.activityMode = button.dataset.activity; $$("[data-activity]").forEach((item) => item.setAttribute("aria-pressed", String(item === button))); drawActivityChart("#activity-chart", filtered(), state.activityMode); }));
@@ -545,6 +608,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
   // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
   $(".global-filters").hidden = ["thismonth", "reports", "methodology"].includes(state.page);
+  if (state.page !== "overview") { currentScene?.dispose(); currentScene = null; }
   if (FULL_TEXT_PAGES.includes(state.page) && !state.fullText) {
     const page = state.page;
     $("#page-content").innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading policy records…</span></div>`;
@@ -651,6 +715,7 @@ function watchScrollLock() {
 }
 function initialize() {
   bindShell();
+  enableCardTilt();
   watchScrollLock();
   loadSummaryRecords().then((records) => {
     state.records = records;
