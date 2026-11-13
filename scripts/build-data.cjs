@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const ExcelJS = require('exceljs');
+const { normalizeInstitutions, shortTitle, dedupeNear } = require('./lib/normalize.cjs');
 
 const REGIONAL_COUNTRIES = new Set([
   'Bahrain',
@@ -101,12 +102,6 @@ function canonicalCountry(value) {
   return COUNTRY_FIXES.get(country.toLocaleLowerCase()) || country;
 }
 
-function shortTitle(description) {
-  const clean = cleanText(description);
-  const firstSentence = clean.split(/(?<=[.!?])\s+/u, 1)[0] || clean;
-  if (firstSentence.length <= 140) return firstSentence;
-  return `${firstSentence.slice(0, 137).trimEnd()}...`;
-}
 
 function classify(type, rawDomain) {
   const value = cleanText(rawDomain);
@@ -154,6 +149,9 @@ function parseSheet(sheet, sheetName) {
     description: findHeader(headers, ['description']),
     institution: findHeader(headers, ['decisionmakinginstitution', 'institution']),
     title: type === 'framework' ? findHeader(headers, ['title']) : -1,
+    // Event flags added to the workbooks in 2026 (Yes/No columns).
+    conflict: findHeader(headers, ['middleeastconflict']),
+    elnino: findHeader(headers, ['elnino']),
   };
   if (columns.country < 0 || columns.description < 0) return [];
   return rows.slice(headerRow + 1).flatMap((row) => {
@@ -163,7 +161,9 @@ function parseSheet(sheet, sheetName) {
     const date = toIsoDate(readCell(row, columns.date));
     const classification = classify(type, readCell(row, columns.policyDomain));
     const rawTitle = type === 'framework' ? cleanText(readCell(row, columns.title)) : '';
-    const title = type === 'decision' ? shortTitle(description) : (rawTitle || shortTitle(description));
+    const title = rawTitle && rawTitle.split(' ').length <= 14 ? rawTitle : shortTitle(rawTitle || description);
+    const yes = (index) => /^y(es)?$/i.test(cleanText(readCell(row, index)));
+    const tags = [yes(columns.conflict) && 'middle-east-conflict-2026', yes(columns.elnino) && 'el-nino'].filter(Boolean);
     const typeLabel = type === 'decision' ? 'Short-term policy decision' : 'Long-term policy framework';
     return [{
       type,
@@ -179,6 +179,7 @@ function parseSheet(sheet, sheetName) {
       description,
       institution: cleanText(readCell(row, columns.institution)),
       source: cleanText(readCell(row, columns.source)),
+      ...(tags.length ? { tags } : {}),
     }];
   });
 }
@@ -202,8 +203,8 @@ function dedupeKey(record) {
 async function main() {
   const rootsIndex = process.argv.indexOf('--roots');
   const roots = rootsIndex >= 0 ? process.argv.slice(rootsIndex + 1) : [];
-  if (!roots.length) {
-    console.error('Usage: node scripts/build-data.cjs --roots <workbook-folder> [<workbook-folder> ...]');
+  if (!roots.length && !process.argv.includes('--merge')) {
+    console.error('Usage: node scripts/build-data.cjs [--merge] --roots <workbook-folder> [<workbook-folder> ...]');
     process.exitCode = 1;
     return;
   }
@@ -230,13 +231,24 @@ async function main() {
         parsedRows += parsed.length;
         parsed.forEach((record) => {
           const key = dedupeKey(record);
-          if (!unique.has(key)) unique.set(key, record);
+          const existing = unique.get(key);
+          if (!existing) unique.set(key, record);
+          // A record already present (for example from --merge) still picks up event flags from the workbook.
+          else if (record.tags) existing.tags = [...new Set([...(existing.tags || []), ...record.tags])];
         });
       }
     } catch (error) {
       failures.push(`${file}: ${error.message}`);
     }
   }
+  // Titles: short framework titles from the workbook are kept; everything else gets a deterministic short title.
+  const derived = (record) => record.title.endsWith('...') || record.description.startsWith(record.title.replace(/[.]{3}$/, ''));
+  unique.forEach((record) => { record.title = record.type === 'framework' && !derived(record) && record.title.split(' ').length <= 14 ? record.title : shortTitle(record.description); });
+  const institutions = normalizeInstitutions([...unique.values()]);
+  unique.forEach((record, key) => { record.id ||= createHash('sha256').update(key).digest('hex').slice(0, 16); });
+  const near = dedupeNear([...unique.values()]);
+  const keptSet = new Set(near.records);
+  [...unique].forEach(([key, record]) => { if (!keptSet.has(record)) unique.delete(key); });
   const records = [...unique.values()].sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.country.localeCompare(b.country) || a.title.localeCompare(b.title));
   records.forEach((record) => {
     record.id = createHash('sha256').update(dedupeKey(record)).digest('hex').slice(0, 16);
@@ -246,15 +258,36 @@ async function main() {
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, `${JSON.stringify({ recordCount: records.length, records })}\n`, 'utf8');
   const regionalRecords = records.filter((record) => REGIONAL_COUNTRIES.has(record.country));
-  fs.writeFileSync(regionalOutput, `${JSON.stringify({ recordCount: regionalRecords.length, records: regionalRecords })}\n`, 'utf8');
+  // Published full records (lazy-loaded); the raw institution spelling stays only in the local source file.
+  const published = regionalRecords.map(({ institutionSource, ...record }) => record);
+  const dataThrough = published.map((record) => record.date).filter(Boolean).sort().at(-1);
+  fs.writeFileSync(regionalOutput, `${JSON.stringify({ recordCount: published.length, dataThrough, records: published })}\n`, 'utf8');
+  writeSummary(published, dataThrough);
+  console.log(`Institutions (distinct per country): ${institutions.before.toLocaleString()} before normalisation, ${institutions.after.toLocaleString()} after.`);
+  console.log(`Near-duplicates removed (same country and date, near-identical description): ${near.removed.length}.`);
   const countries = new Set(records.map((record) => record.country));
   console.log(`Read ${files.length} workbooks; parsed ${parsedRows.toLocaleString()} rows; wrote ${records.length.toLocaleString()} unique records across ${countries.size} countries${merge ? ` (${(records.length - before).toLocaleString()} new)` : ''}.`);
   console.log(`Wrote ${regionalRecords.length.toLocaleString()} GCC and Yemen records to ${regionalOutput}.`);
   console.log(`Output: ${output}`);
+  // Refresh the plain-HTML summary in index.html from the new data.
+  require('./build-static.cjs');
   if (failures.length) {
     console.warn(`${failures.length} workbook(s) could not be read:`);
     failures.forEach((failure) => console.warn(`  ${failure}`));
   }
+}
+
+// Compact, dictionary-encoded records for charts and filters: everything except description and source.
+// Pages that need the full text (records, search, reports) load gcc-yemen-measures.json on demand.
+function writeSummary(records, dataThrough) {
+  const fields = ['type', 'family', 'group', 'domain', 'country', 'institution'];
+  const dict = Object.fromEntries(fields.map((field) => [field, [...new Set(records.map((record) => record[field] || ''))].sort()]));
+  const index = Object.fromEntries(fields.map((field) => [field, new Map(dict[field].map((value, i) => [value, i]))]));
+  const rows = records.map((record) => [record.id, record.date || '', ...fields.map((field) => index[field].get(record[field] || '')), record.domainCode || '', record.title, record.institutionBranch || '', (record.tags || []).join(' ')]);
+  const columns = ['id', 'date', ...fields, 'domainCode', 'title', 'institutionBranch', 'tags'];
+  const output = path.resolve(__dirname, '..', 'data', 'gcc-yemen-summary.json');
+  fs.writeFileSync(output, `${JSON.stringify({ recordCount: rows.length, dataThrough, columns, dict, rows })}\n`, 'utf8');
+  console.log(`Wrote chart summary: ${rows.length.toLocaleString()} rows, ${Math.round(fs.statSync(output).size / 1024)} KB.`);
 }
 
 main().catch((error) => {

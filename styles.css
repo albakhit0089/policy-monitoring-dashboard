@@ -1016,3 +1016,23 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
   svg animateMotion { display: none; }
 }
 .card-lead { margin: 0 0 12px; max-width: 90ch; color: #2c4556; font-size: 15px; line-height: 1.6; }
+
+/* ---------- Phase 1 fixes ---------- */
+/* Badges and toggle pills never wrap, so they cannot collapse into circles on narrow cards. */
+.type-badge, .family-badge, .chart-toolbar button, .filter-chip { flex: none; white-space: nowrap; }
+.chart-toolbar { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+/* Partial month: hatched band with a label, and a dashed legend key. */
+.partial-band { fill: rgba(16, 47, 70, .05); stroke: none; }
+.partial-label { fill: #5b707d; font: 600 11px var(--condensed); }
+.legend-partial i { background: repeating-linear-gradient(90deg, #116aab 0 5px, transparent 5px 9px) !important; height: 3px !important; border-radius: 0 !important; }
+/* Heatmap headers use three-letter codes; the full name is in the tooltip. */
+.heatmap-country { letter-spacing: .3px; }
+.chart-axis text { font-size: 11px; }
+/* Static summary (no-JavaScript readers and link previews); replaced when the app loads. */
+.static-summary { max-width: 860px; padding: 8px 0 24px; color: #243746; }
+.static-summary h1 { margin: 6px 0 10px; font: 600 32px/1.15 var(--condensed); color: #102f46; }
+.static-summary table { margin: 14px 0; border-collapse: collapse; }
+.static-summary th, .static-summary td { padding: 5px 12px; border-bottom: 1px solid #dfe6ec; text-align: left; }
+.static-summary caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
+.static-summary li { margin: 4px 0; }
+.static-note { color: #526675; font-size: 14px; }

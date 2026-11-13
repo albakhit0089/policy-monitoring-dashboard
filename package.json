@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.cjs",
+    "build": "node scripts/build-icons.cjs && node scripts/build.cjs",
     "build-data": "node scripts/build-data.cjs",
     "build-indicators": "node scripts/build-indicators.cjs",
+    "build-cpi": "node scripts/build-cpi.cjs",
+    "build-static": "node scripts/build-static.cjs",
+    "build-icons": "node scripts/build-icons.cjs",
     "test:ai": "node scripts/test-ai-api.mjs"
   },
   "dependencies": {
