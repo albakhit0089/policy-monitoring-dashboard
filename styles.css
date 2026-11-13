@@ -1036,3 +1036,22 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 .static-summary caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
 .static-summary li { margin: 4px 0; }
 .static-note { color: #526675; font-size: 14px; }
+
+/* ---------- Narrative briefs (Phase 2) ---------- */
+.report-cover-sub { margin: 0 0 12px; color: #cfe0ea; font-size: 16px; }
+.report-cover-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; margin: 0; }
+.report-cover-meta div { display: grid; gap: 2px; }
+.report-cover-meta dt { color: #b9cfdb; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }
+.report-cover-meta dd { margin: 0; color: #fff; font-size: 13.5px; }
+.report-partial { margin: 12px 0 0; padding: 6px 10px; color: #3d2a05; background: #f6dfa8; border-radius: 6px; font-size: 13px; font-weight: 600; }
+.report-document a.cite { color: #0f5d96; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.report-document .cite-meta { color: #5b707d; font-size: 13px; white-space: nowrap; }
+.report-document h4 { margin: 18px 0 6px; color: #20475f; font: 600 16px var(--condensed); }
+.report-annex table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-annex th, .report-annex td { padding: 6px 8px; border: 1px solid #d9e3e8; text-align: left; vertical-align: top; }
+.report-annex th { background: #eef3f6; }
+.ai-draft { margin: 0 0 18px; padding: 14px 16px; background: #fff8e8; border: 1px solid #ecd49b; border-left: 4px solid #b7852f; border-radius: 10px; color: #3b3220; }
+.ai-draft strong { display: block; color: #6b4a0f; }
+.ai-draft-text { margin-top: 8px; color: #2c3a44; line-height: 1.6; }
+@media (max-width: 600px) { .report-cover-meta { grid-template-columns: 1fr; } }
+@media print { body.printing-report .report-cover-meta dt, body.printing-report .report-cover-sub { color: #4d6573; } body.printing-report .report-cover-meta dd { color: #12364d; } body.printing-report .ai-draft { display: none; } }

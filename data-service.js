@@ -109,3 +109,13 @@ export function loadFoodIndicators() {
   }).catch((error) => { foodIndicatorsPromise = null; throw error; });
   return foodIndicatorsPromise;
 }
+
+// Analyst-defined events (data/events.json): records are tagged by id or by workbook flag.
+let eventsPromise = null;
+export function loadEvents() {
+  eventsPromise ||= fetch("./data/events.json", { cache: "no-cache" }).then((response) => {
+    if (!response.ok) throw new Error(`Events request failed (${response.status})`);
+    return response.json();
+  }).then((payload) => payload.events || []).catch((error) => { eventsPromise = null; throw error; });
+  return eventsPromise;
+}

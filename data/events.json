@@ -1,0 +1,33 @@
+{
+  "note": "Analysts tag records to an event by adding record ids (see Policy Records) to recordIds, or by tag. Tags come from the Yes/No columns in the monitoring workbooks.",
+  "events": [
+    {
+      "id": "middle-east-conflict-2026",
+      "name": "Middle East conflict 2026",
+      "description": "Measures the monitoring team flagged in the 2026 workbooks as related to the Middle East conflict.",
+      "tags": [
+        "middle-east-conflict-2026"
+      ],
+      "recordIds": []
+    },
+    {
+      "id": "hormuz-crisis-2026",
+      "name": "Hormuz crisis 2026",
+      "description": "Measures whose text refers to the Strait of Hormuz. Add record ids to extend the event.",
+      "tags": [],
+      "recordIds": [
+        "3f87078638273e8b",
+        "0c55285d408eb8aa"
+      ]
+    },
+    {
+      "id": "el-nino-2026",
+      "name": "El Niño 2026",
+      "description": "Measures the monitoring team flagged in the 2026 workbooks as related to El Niño weather patterns.",
+      "tags": [
+        "el-nino"
+      ],
+      "recordIds": []
+    }
+  ]
+}

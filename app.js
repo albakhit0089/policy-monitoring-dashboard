@@ -1,7 +1,7 @@
-import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261112";
-import { renderNetworkPage } from "./network.js?v=pi-20261112";
-import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261112";
-import { renderReportsPage } from "./reports.js?v=pi-20261112";
+import { COUNTRIES, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261113";
+import { renderNetworkPage } from "./network.js?v=pi-20261113";
+import { COUNTRY_COLORS, renderPricesPage } from "./prices.js?v=pi-20261113";
+import { renderReportsPage } from "./reports.js?v=pi-20261113";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
@@ -559,6 +559,8 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
 const pageLabels = { overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
+// The page name is the part of the hash before any "?" query.
+const hashPage = () => location.hash.slice(1).split("?")[0];
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; history.replaceState(null, "", `#${page}`); closeMobileSidebar(); renderDashboardPage(); }
 function setFilter(key, value) { state[key] = value || "all"; state.pageNumber = 1; syncFilters(); render(); }
 function render() { renderDashboardPage({ keepScroll: true }); }
@@ -598,7 +600,7 @@ function bindShell() {
       if (["overview","trends","country","areas","network","compare","prices"].includes(state.page)) renderDashboardPage({ keepScroll: true });
     }, 180);
   });
-  window.addEventListener("popstate", () => { const page = location.hash.slice(1); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
+  window.addEventListener("popstate", () => { const page = hashPage(); state.page = pageLabels[page] ? page : "overview"; renderDashboardPage(); });
 }
 // Pages that also need FAOSTAT food indicators load them once, then render.
 function withFoodData(renderPage) {
@@ -631,7 +633,7 @@ function initialize() {
     initializeFilters(records);
     const last = latestDate(records);
     $("#data-status").textContent = `${records.length.toLocaleString()} records · through ${formatDate(last, { day: "2-digit", month: "short", year: "numeric" })}`;
-    state.page = pageLabels[location.hash.slice(1)] ? location.hash.slice(1) : "overview";
+    state.page = pageLabels[hashPage()] ? hashPage() : "overview";
     renderDashboardPage();
   }).catch((error) => {
     $("#data-status").textContent = "Dataset unavailable";

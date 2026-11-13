@@ -10,7 +10,9 @@
     "build-cpi": "node scripts/build-cpi.cjs",
     "build-static": "node scripts/build-static.cjs",
     "build-icons": "node scripts/build-icons.cjs",
-    "test:ai": "node scripts/test-ai-api.mjs"
+    "test:ai": "node scripts/test-ai-api.mjs",
+    "test:narrative": "node scripts/test-narrative.mjs",
+    "preview-brief": "node scripts/preview-brief.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
