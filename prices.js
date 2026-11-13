@@ -1,7 +1,7 @@
-import { CURRENCY, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, groupPriceSummary, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261113";
+import { CURRENCY, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261114";
 
-export { COUNTRY_COLORS } from "./data-service.js?v=pi-20261113";
-import { COUNTRY_COLORS } from "./data-service.js?v=pi-20261113";
+export { COUNTRY_COLORS } from "./data-service.js?v=pi-20261114";
+import { COUNTRY_COLORS } from "./data-service.js?v=pi-20261114";
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];
 const shortName = (country) => country === "United Arab Emirates" ? "UAE" : country;
 const fmtPct = (value, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? "n/a" : `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;
@@ -71,7 +71,6 @@ export function renderPricesPage(ui, food) {
   const diet = dietSummary(food);
   const components = dietComponents(food);
   const countrySummary = countryPriceSummary(food);
-  const groups = groupPriceSummary(food);
   const focusDiet = focus && diet.rows.find((row) => row.country === focus);
   const focusPrices = focus && countrySummary.find((row) => row.country === focus);
   const puaRows = diet.rows.filter((row) => row.puaLatest);
@@ -94,32 +93,32 @@ export function renderPricesPage(ui, food) {
   const dietSeries = diet.rows.map((row) => ({ name: row.country, color: COUNTRY_COLORS[row.country], points: row.points }));
   const dietTable = `<div class="table-wrap"><table class="data-table compact-table fit-table"><thead><tr><th>Country</th><th>Per person per day</th><th>Per person per month</th><th>Change since ${diet.firstYear} (local currency)</th><th>PPP $ per day</th><th>Unable to afford</th></tr></thead><tbody>${diet.rows.slice().sort((a, b) => b.latest - a.latest).map((row) => `<tr${focus === row.country ? ' class="row-focus"' : ""}><td><strong>${escapeHtml(row.country)}</strong></td><td>${formatLocal(row.lcuLatest, row.country)}</td><td>${monthly(row.lcuLatest, row.country)}</td><td>${fmtPct(row.lcuChange, 1)}</td><td>$${row.latest.toFixed(2)}</td><td>${row.puaLatest ? `${row.puaLatest.value}%` : '<span class="muted">not reported</span>'}</td></tr>`).join("")}</tbody></table></div><p class="method-note">Local-currency figures show what a healthy diet costs a person in each country (${diet.latestYear}); monthly cost is the daily cost × 30.4. PPP dollars adjust for price levels so countries can be compared with each other. Yemen is not covered by FAOSTAT.</p>`;
 
-  // Price board: latest farm-gate price per kg for commodities priced in at least three countries.
-  const boardCountries = priceCountries(food);
-  const boardItems = comparableItems(food, 3).slice(0, 14);
-  const boardRows = boardItems.map((item) => `<tr><th scope="row"><button class="link-button" data-price-item="${escapeHtml(item.code)}">${escapeHtml(item.name)}</button></th>${boardCountries.map((country) => {
-    const series = food.prices.series.find((entry) => entry.country === country && entry.code === item.code);
-    const price = series && latestPricePerKg(series);
+  // GCC strategic commodities: latest farm-gate price per kg in each GCC country that reports producer prices.
+  const basket = gccBasket(food);
+  const boardCountries = GCC_PRICE_COUNTRIES;
+  const groupRow = (label) => `<tr class="basket-group"><th colspan="${boardCountries.length + 1}" scope="rowgroup">${escapeHtml(label)}</th></tr>`;
+  const boardRows = basket.map((section) => groupRow(section.group) + section.rows.map((row) => `<tr><th scope="row"><button class="link-button" data-price-item="${escapeHtml(row.code)}">${escapeHtml(row.name.replace(/, fresh( or chilled)?| in shell| \(excluding dehydrated\)|, dry/g, ""))}</button></th>${boardCountries.map((country) => {
+    const price = row.cells[country];
     if (!price) return `<td class="muted">–</td>`;
-    return `<td${focus === country ? ' class="col-focus"' : ""}><span class="price-local">${formatLocal(price.lcu, country, { digits: country === "Yemen" ? 0 : undefined })}</span><span class="price-usd">${usdKg(price.usd)}${price.year < latestPriceYear ? ` · ${price.year}` : ""}</span></td>`;
-  }).join("")}</tr>`).join("");
-  const board = `<div class="table-wrap"><table class="data-table price-board"><thead><tr><th>Commodity (per kg)</th>${boardCountries.map((country) => `<th>${escapeHtml(shortName(country))}</th>`).join("")}</tr></thead><tbody>${boardRows}</tbody></table></div><p class="method-note">Latest annual farm-gate price per kg: local currency, with USD below. A year is shown where the latest value is older than ${latestPriceYear}. These are prices received by producers, not retail shelf prices, which are typically higher.</p>`;
-
+    return `<td${focus === country ? ' class="col-focus"' : ""}><span class="price-local">${formatLocal(price.lcu, country)}</span><span class="price-usd">${usdKg(price.usd)}${price.year < latestPriceYear ? ` · ${price.year}` : ""}</span></td>`;
+  }).join("")}</tr>`).join("")).join("");
+  const yemenItems = food.prices.series.filter((entry) => entry.country === "Yemen" && basket.some((section) => section.rows.some((row) => row.code === entry.code)));
+  const board = `<div class="table-wrap"><table class="data-table price-board basket-table"><thead><tr><th>Commodity (per kg)</th>${boardCountries.map((country) => `<th>${escapeHtml(shortName(country))}</th>`).join("")}</tr></thead><tbody>${boardRows}</tbody></table></div><p class="method-note">Latest annual farm-gate price per kg received by producers (FAOSTAT): local currency, with USD below; a year is shown where the latest value is older than ${latestPriceYear}. The United Arab Emirates does not report producer prices to FAOSTAT. Yemen (${yemenItems.length} of these commodities priced) is shown in the price history and change table in USD, because rial depreciation dominates its local prices.</p>`;
   const itemOptions = [...new Set(comparable.map((item) => item.group))].map((group) => `<optgroup label="${escapeHtml(group)}">${comparable.filter((item) => item.group === group).map((item) => `<option value="${escapeHtml(item.code)}" ${item.code === state.priceItem ? "selected" : ""}>${escapeHtml(item.name)} (${item.countries} countries)</option>`).join("")}</optgroup>`).join("");
   const explorerControls = `<div class="explorer-controls"><label>Commodity<select id="price-item">${itemOptions}</select></label><div class="chart-toolbar" role="group" aria-label="Currency"><button type="button" data-currency="lcu" aria-pressed="${state.priceCurrency === "lcu"}">Local currency per kg</button><button type="button" data-currency="usd" aria-pressed="${state.priceCurrency === "usd"}">USD per kg</button></div></div>`;
 
-  // Change table: GCC in local currency; Yemen in USD because rial depreciation dominates rial changes.
+  // Change table for the same basket: GCC in local currency; Yemen in USD because rial depreciation dominates rial changes.
   const lcuChanges = priceChanges(food, "lcu");
   const usdChanges = priceChanges(food, "usd");
-  const changeItems = comparableItems(food, 3).slice(0, 14);
+  const changeCountries = [...GCC_PRICE_COUNTRIES, "Yemen"];
   const tone = (change) => { const t = Math.max(-1, Math.min(1, change / 60)); return t >= 0 ? `rgba(194, 120, 63, ${(.12 + t * .55).toFixed(2)})` : `rgba(63, 127, 117, ${(.12 - t * .5).toFixed(2)})`; };
-  const changeRows = changeItems.map((item) => `<tr><th scope="row"><button class="link-button" data-price-item="${escapeHtml(item.code)}">${escapeHtml(item.name)}</button></th>${boardCountries.map((country) => {
-    const entry = (country === "Yemen" ? usdChanges : lcuChanges).find((change) => change.country === country && change.code === item.code);
+  const changeRows = basket.map((section) => `<tr class="basket-group"><th colspan="${changeCountries.length + 1}" scope="rowgroup">${escapeHtml(section.group)}</th></tr>` + section.rows.map((row) => `<tr><th scope="row"><button class="link-button" data-price-item="${escapeHtml(row.code)}">${escapeHtml(row.name.replace(/, fresh( or chilled)?| in shell| \(excluding dehydrated\)|, dry/g, ""))}</button></th>${changeCountries.map((country) => {
+    const entry = (country === "Yemen" ? usdChanges : lcuChanges).find((change) => change.country === country && change.code === row.code);
     if (!entry) return `<td class="muted">–</td>`;
     if (entry.flat) return `<td><span class="change-cell flat" title="FAOSTAT reports the same value in every year (${entry.firstYear}–${entry.latestYear})">0%</span></td>`;
-    return `<td><span class="change-cell" style="background:${tone(entry.change)}" title="${escapeHtml(country)} · ${escapeHtml(item.name)}: ${fmtPct(entry.change, 1)} (${entry.firstYear}–${entry.latestYear})${country === "Yemen" ? " in USD" : ""}${entry.swing ? "; includes a large one-year swing, verify" : ""}">${fmtPct(entry.change)}${entry.swing ? "<sup>!</sup>" : ""}</span></td>`;
-  }).join("")}</tr>`).join("");
-  const changeTable = `<div class="table-wrap"><table class="data-table change-table"><thead><tr><th>Commodity</th>${boardCountries.map((country) => `<th>${escapeHtml(shortName(country))}${country === "Yemen" ? " (USD)" : ""}</th>`).join("")}</tr></thead><tbody>${changeRows}</tbody></table></div><p class="method-note">Change from the first to the latest available year (${food.prices.years[0]}–${latestPriceYear}), in local currency; Yemen in USD. A grey 0% means FAOSTAT reports the same value in every year. <sup>!</sup> one year moved by more than 60%.</p>`;
+    return `<td><span class="change-cell" style="background:${tone(entry.change)}" title="${escapeHtml(country)} · ${escapeHtml(row.name)}: ${fmtPct(entry.change, 1)} (${entry.firstYear}–${entry.latestYear})${country === "Yemen" ? " in USD" : ""}${entry.swing ? "; includes a large one-year swing, verify" : ""}">${fmtPct(entry.change)}${entry.swing ? "<sup>!</sup>" : ""}</span></td>`;
+  }).join("")}</tr>`).join("")).join("");
+  const changeTable = `<div class="table-wrap"><table class="data-table change-table basket-table"><thead><tr><th>Commodity</th>${changeCountries.map((country) => `<th>${escapeHtml(shortName(country))}${country === "Yemen" ? " (USD)" : ""}</th>`).join("")}</tr></thead><tbody>${changeRows}</tbody></table></div><p class="method-note">Change from the first to the latest available year (${food.prices.years[0]}–${latestPriceYear}), in local currency (Yemen in USD). 0% marks series FAOSTAT repeats unchanged every year; <sup>!</sup> marks a one-year move above 60% to verify.</p>`;
 
   // Monthly food price inflation (FAOSTAT consumer price indices)
   const cpi = cpiSummary(food);
@@ -138,16 +137,16 @@ export function renderPricesPage(ui, food) {
   }).join("");
   const linkTable = `<div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Country</th><th>Healthy diet per day (change since ${diet.firstYear})</th><th>Farm-gate prices (median change)</th><th>Policy measures</th><th>Consumer-oriented</th><th>Trade-oriented</th><th>Market, price &amp; trade measures</th></tr></thead><tbody>${linkRows}</tbody></table></div><p class="method-note">Policy counts follow the global filters. This is a descriptive comparison; it does not show that measures caused or responded to price changes.</p>`;
 
-  const groupTiles = `<div class="group-tiles">${groups.map((group) => `<div><span>${escapeHtml(group.group)}</span><strong>${fmtPct(group.medianChange)}</strong><small>median of ${group.series} series</small></div>`).join("")}</div>`;
+  const groupTiles = `<div class="group-tiles">${gccBasketSummary(food).map((group) => `<div><span>${escapeHtml(group.group)}</span><strong>${fmtPct(group.median)}</strong><small>median of ${group.series} GCC series</small></div>`).join("")}</div>`;
   const notes = `<ul class="method-list"><li>Producer prices are annual farm-gate prices received by producers (FAOSTAT), not retail prices paid by consumers.</li>${food.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}<li>FAOSTAT's "number of people unable to afford a healthy diet" is not shown: for Qatar it is inconsistent with the reported prevalence.</li></ul><details class="swing-details"><summary>Large one-year price movements flagged for verification (${food.prices.swings.length})</summary><ul>${food.prices.swings.slice().sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).map((swing) => `<li>${escapeHtml(swing.country)} · ${escapeHtml(items.get(swing.code)?.name || swing.code)}: ${swing.from}→${swing.to} ${fmtPct(swing.change)}</li>`).join("")}</ul></details><p class="method-note">Sources: ${escapeHtml(food.sources.prices.name)}; ${escapeHtml(food.sources.diet.name)}. Processed ${escapeHtml(food.generatedAt)}.</p>`;
 
   $("#page-content").innerHTML = `${ui.heading("Food prices & healthy diets", "How fast food prices are rising for consumers, what a healthy diet costs, and the prices farmers receive for staple foods, alongside the policy record.", "FOOD PRICES & AFFORDABILITY")}${kpis}<div class="content-grid">
     ${cpiCard}
     ${ui.card("What a healthy diet costs", `Per person, ${diet.firstYear}–${diet.latestYear} · chart in PPP dollars for comparison · click a country to filter`, `<div class="chart-wrap" id="diet-chart"></div>${legend(ui, dietSeries, focus)}${dietTable}`, "span-7")}
     ${ui.card("Where the money goes", `Cost of each food group in a healthy diet, PPP $ per person per day (${components.year}, the only year published)`, `<div class="chart-wrap" id="diet-components"></div><div class="legend-row">${components.groups.map((group, i) => `<span class="legend-item"><i style="background:${COMPONENT_COLORS[i % COMPONENT_COLORS.length]}"></i>${escapeHtml(group)}</span>`).join("")}</div>`, "span-5")}
-    ${ui.card("Farm-gate price board", "Latest price per kg received by producers · click a commodity to see its history", board, "span-12")}
+    ${ui.card("Farm-gate prices: GCC strategic commodities", "Cereals, vegetables, fruit and livestock products central to Gulf food security · latest price per kg received by producers · select a commodity to see its history", board, "span-12")}
     ${ui.card("Farm-gate price history", "Annual price per kg by country · FAOSTAT producer prices", `${explorerControls}<div class="chart-wrap" id="price-chart"></div><div id="price-legend"></div><div class="table-wrap" id="price-table"></div>`, "span-12")}
-    ${ui.card("How farm-gate prices changed", `${food.prices.years[0]} to latest year, by commodity and country`, `${groupTiles}<p class="method-note group-note">Median change by food group across GCC commodities with measurable change (Yemen excluded: currency depreciation dominates).</p>${changeTable}`, "span-12")}
+    ${ui.card("How farm-gate prices changed: GCC strategic commodities", `${food.prices.years[0]} to latest year · median change by group across GCC countries, then by commodity`, `${groupTiles}<p class="method-note group-note">Median change by food group across GCC commodities with measurable change (Yemen excluded: currency depreciation dominates).</p>${changeTable}`, "span-12")}
     ${ui.card("Food costs and the policy response", "Each country's food cost picture alongside its recorded policy measures", linkTable, "span-12")}
     ${ui.card("About these figures", "Coverage, definitions and quality checks", notes, "span-12")}
   </div>`;

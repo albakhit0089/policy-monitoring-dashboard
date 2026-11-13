@@ -146,3 +146,37 @@ export function cpiSentences(food, country = null) {
   const when = late.length ? `in the latest month available (${cpiMonthName(cpi.latest)}; ${late.map((row) => `${cpiMonthName(row.latest)} for ${name(row.country)}`).join(", ")})` : `in ${cpiMonthName(cpi.latest)}`;
   return [`Food price inflation ${when} ranged from ${pct(cpi.lowest.inflation)} in ${name(cpi.lowest.country)} to ${pct(cpi.highest.inflation)} in ${name(cpi.highest.country)}.${rising.length ? ` Food prices were rising markedly (3% or more a year) in ${rising.map((row) => name(row.country)).join(", ").replace(/, ([^,]*)$/, " and $1")}.` : ""}${above.length ? ` In ${above.map((row) => name(row.country)).join(", ").replace(/, ([^,]*)$/, " and $1")}, food prices rose faster than prices overall, so food took a larger share of household budgets.` : ""}`];
 }
+
+// GCC strategic commodities: staples and products central to Gulf food security that FAOSTAT prices in
+// several GCC countries. Yemen is reported separately (rial depreciation dominates its local prices) and the
+// UAE does not report producer prices.
+export const GCC_PRICE_COUNTRIES = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia"];
+export const GCC_BASKET = [
+  { group: "Cereals", codes: ["111", "115"] },
+  { group: "Vegetables", codes: ["1234", "1232", "1510", "1253.02"] },
+  { group: "Fruit", codes: ["1314", "1322", "1221"] },
+  { group: "Livestock products", codes: ["2211", "2293", "231", "21121", "21115", "21117.01"] },
+];
+export function gccBasket(food, countries = GCC_PRICE_COUNTRIES) {
+  const items = itemLookup(food);
+  const changes = priceChanges(food, "lcu");
+  return GCC_BASKET.map(({ group, codes }) => ({
+    group,
+    rows: codes.filter((code) => items.has(code)).map((code) => {
+      const cells = Object.fromEntries(countries.map((country) => {
+        const series = food.prices.series.find((entry) => entry.country === country && entry.code === code);
+        const price = series && latestPricePerKg(series);
+        const change = changes.find((entry) => entry.country === country && entry.code === code);
+        return [country, price ? { ...price, change: change && !change.flat ? change.change : null, flat: !!change?.flat, firstYear: change?.firstYear, latestYear: change?.latestYear } : null];
+      }));
+      return { code, name: items.get(code).name, cells };
+    }).filter((row) => Object.values(row.cells).some(Boolean)),
+  })).filter((section) => section.rows.length);
+}
+// Median change of the basket by group, over series with measurable change.
+export function gccBasketSummary(food, countries = GCC_PRICE_COUNTRIES) {
+  return gccBasket(food, countries).map((section) => {
+    const values = section.rows.flatMap((row) => Object.values(row.cells).filter((cell) => cell && cell.change !== null).map((cell) => cell.change));
+    return { group: section.group, median: median(values), series: values.length };
+  });
+}

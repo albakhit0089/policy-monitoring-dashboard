@@ -43,6 +43,18 @@ export function buildDocx(report) {
     return `${run("“")}${link(record.source, record.title)}${run(`” (${country(record.country)}, ${shortDate(record.date)})`)}`;
   }).join("");
 
+  // Figures and tables: caption, the data as a bordered table (charts are given as their data), source note.
+  const grid = (head, rows) => {
+    const total = 9000, first = Math.round(total * (head.length > 3 ? .3 : .5)), rest = Math.floor((total - first) / Math.max(1, head.length - 1));
+    const widths = head.map((_, i) => i ? rest : first);
+    const tc = (content, width, fill = "") => `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ""}</w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr>${content}</w:p></w:tc>`;
+    const headRow = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${head.map((text, i) => tc(run(text, { bold: true, size: 18 }), widths[i], "E8EFF4")).join("")}</w:tr>`;
+    const bodyRows = rows.map((row) => row[0] && typeof row[0] === "object"
+      ? `<w:tr><w:tc><w:tcPr><w:tcW w:w="${total}" w:type="dxa"/><w:gridSpan w:val="${head.length}"/><w:shd w:val="clear" w:color="auto" w:fill="FBF6EA"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr>${run(row[0].group, { bold: true, size: 18, color: "8A5F17" })}</w:p></w:tc></w:tr>`
+      : `<w:tr>${row.map((text, i) => tc(run(String(text), { size: 18, bold: i === 0 }), widths[i])).join("")}</w:tr>`).join("");
+    return `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="${total}" w:type="dxa"/><w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map((side) => `<w:${side} w:val="single" w:sz="4" w:color="C9D6DE"/>`).join("")}</w:tblBorders></w:tblPr><w:tblGrid>${widths.map((width) => `<w:gridCol w:w="${width}"/>`).join("")}</w:tblGrid>${headRow}${bodyRows}</w:tbl>`;
+  };
+  const exhibitXml = (block) => `${para(`${run(`${block.label}. `, { bold: true, color: "153F59" })}${run(block.caption, { bold: true, color: "153F59" })}`, { keepNext: true, spacingAfter: 80 })}${grid(block.head, block.rows)}${para(run(`Source: ${block.source}`, { italic: true, size: 17, color: "5B707D" }))}`;
   const body = [];
   // Cover
   body.push(para(run("FOOD AND AGRICULTURE ORGANIZATION OF THE UNITED NATIONS", { bold: true, size: 18, color: "8A5F17" }), { spacingAfter: 600 }));
@@ -55,7 +67,8 @@ export function buildDocx(report) {
   report.sections.forEach((section, i) => {
     body.push(para(run(`${i + 1}. ${section.title}`), { style: "Heading1", keepNext: true }));
     section.blocks.forEach((block) => {
-      if (block.type === "h3") body.push(para(run(block.text), { style: "Heading2", keepNext: true }));
+      if (block.type === "exhibit") body.push(exhibitXml(block));
+      else if (block.type === "h3") body.push(para(run(block.text), { style: "Heading2", keepNext: true }));
       else if (block.type === "list") block.items.forEach((item) => body.push(para(partsXml(item), { numbered: true })));
       else body.push(para(partsXml(block.parts)));
     });

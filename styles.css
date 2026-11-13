@@ -1184,3 +1184,40 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 .pn3d-tip { display: grid; gap: 2px; padding: 6px 9px; color: #fff; background: rgba(16,47,70,.94); border-radius: 7px; font: 12.5px 'IBM Plex Sans', sans-serif; }
 .pn3d-tip span { color: #cfe0ea; }
 @media (max-width: 760px) { .pn3d { height: 460px; } }
+
+/* Policy network: stronger contrast on the white surface (links, rings, labels and dots were too pale). */
+.pn-stage { --pn-text: #102f46; --pn-muted: #3f5868; }
+.pn-link { stroke: #6f8ea3 !important; stroke-width: 1.4px !important; stroke-dasharray: none !important; opacity: .7 !important; }
+.pn-link-active { stroke: #116aab !important; stroke-width: 2.6px !important; opacity: 1 !important; }
+.pn-link-gold { stroke: #9a6d1f !important; stroke-width: 2.4px !important; opacity: 1 !important; }
+.pn-link-detail { stroke: #116aab !important; stroke-width: 1.8px !important; stroke-dasharray: 5 4 !important; opacity: .9 !important; }
+.pn-hub { fill: #9a6d1f !important; }
+.pn-ring, .pn-ring-2 { border-color: rgba(16, 47, 70, .28) !important; }
+.pn-sat-dot { background: #116aab !important; border-color: #fff !important; box-shadow: 0 0 0 2px #116aab !important; }
+.pn-sat-label, .pn-sat-label small, .pn-item-meta, .pn-focus span, .pn-brand small, .pn-legend { color: #3f5868 !important; }
+.pn-sat-label strong, .pn-item-name, .pn-focus strong { color: #102f46 !important; }
+.pn-dot { background: #6f8ea3 !important; border: 2px solid #fff !important; box-shadow: 0 0 0 1.5px #6f8ea3 !important; }
+.pn-item.active .pn-dot { background: #b7852f !important; box-shadow: 0 0 0 2px #9a6d1f !important; }
+.pn-item.active .pn-item-name { color: #7a5312 !important; }
+.pn-orb-core { background: radial-gradient(circle at 35% 30%, #5aa3d8, #116aab 55%, #0b3f66) !important; }
+.pn-links { z-index: 0; }
+.pn-col { position: relative; z-index: 1; }
+.pn-focus strong, .pn-item-name, .pn-sat-label { background: rgba(255,255,255,.88); border-radius: 4px; padding-inline: 3px; }
+.basket-table .basket-group th { padding-top: 12px; color: #8a5f17; background: #fbf6ea; font: 600 12px var(--condensed); letter-spacing: .4px; text-transform: uppercase; }
+
+/* Report exhibits: numbered figures and tables */
+.report-exhibit { margin: 16px 0 18px; padding: 12px 14px 10px; background: #fbfcfd; border: 1px solid #e3eaef; border-radius: 10px; break-inside: avoid; }
+.report-exhibit figcaption { margin-bottom: 8px; color: #153f59; font: 600 14px/1.4 var(--condensed); }
+.ex-chart { display: block; width: 100%; height: auto; font-family: 'IBM Plex Sans', Arial, sans-serif; }
+.ex-label { fill: #2f4858; font-size: 12px; }
+.ex-small { font-size: 10.5px; }
+.ex-value { fill: #2f4858; font-size: 11px; }
+.ex-muted { fill: #7a8f9c; }
+.ex-source { margin: 6px 0 0; color: #5b707d; font-size: 12px; font-style: italic; }
+.ex-data summary { margin-top: 6px; color: #0f5d96; font-size: 12.5px; cursor: pointer; }
+.ex-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ex-table th, .ex-table td { padding: 5px 8px; border: 1px solid #dbe4ea; text-align: start; vertical-align: top; }
+.ex-table thead th { background: #eef3f6; }
+.ex-table tbody th { font-weight: 600; color: #20475f; }
+.ex-table .ex-group th { color: #8a5f17; background: #fbf6ea; font: 600 12px var(--condensed); letter-spacing: .4px; text-transform: uppercase; }
+@media print { .ex-data { display: none; } .report-exhibit { background: #fff; } }
