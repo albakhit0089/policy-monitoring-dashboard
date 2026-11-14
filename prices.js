@@ -1,7 +1,7 @@
-import { CURRENCY, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261114g";
+import { CURRENCY, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary, comparableItems, countryPriceSummary, cpiMonthName, cpiSentences, cpiSummary, dietComponents, dietSummary, formatLocal, itemLookup, latestPricePerKg, median, perMonth, priceChanges, priceCountries } from "./food-analysis.js?v=pi-20261115";
 
-export { COUNTRY_COLORS } from "./data-service.js?v=pi-20261114g";
-import { COUNTRY_COLORS } from "./data-service.js?v=pi-20261114g";
+export { COUNTRY_COLORS } from "./data-service.js?v=pi-20261115";
+import { COUNTRY_COLORS } from "./data-service.js?v=pi-20261115";
 const COMPONENT_COLORS = ["#b7852f", "#c2563f", "#8a6b3f", "#3f7f5a", "#2a9d8f", "#776bb0"];
 const shortName = (country) => country === "United Arab Emirates" ? "UAE" : country;
 const fmtPct = (value, digits = 0) => value === null || value === undefined || !Number.isFinite(value) ? "n/a" : `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;
