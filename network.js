@@ -52,7 +52,21 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 const webgl = () => { try { const canvas = document.createElement("canvas"); return !!(canvas.getContext("webgl") || canvas.getContext("experimental-webgl")); } catch { return false; } };
 let graphLib = null, graph3d = null;
 function loadGraphLib() {
-  graphLib ||= new Promise((resolve, reject) => { if (window.ForceGraph3D) { resolve(); return; } const script = document.createElement("script"); script.src = "./assets/vendor/3d-force-graph.min.js"; script.onload = resolve; script.onerror = () => { graphLib = null; reject(new Error("The 3D graph library could not be loaded.")); }; document.head.append(script); });
+  // 3d-force-graph uses a global THREE, when one exists, instead of its own bundled Three.js (r162).
+  // The Overview map leaves Three.js r128 there; with it the graph renders with old lighting and colour
+  // handling and every node comes out several times too bright. So the bundle is fetched, then run
+  // synchronously with the global hidden, and the global is restored straight after.
+  graphLib ||= (async () => {
+    if (window.ForceGraph3D) return;
+    const response = await fetch("./assets/vendor/3d-force-graph.min.js");
+    if (!response.ok) throw new Error("The 3D graph library could not be loaded.");
+    const code = await response.text();
+    const hadThree = "THREE" in window, saved = window.THREE;
+    window.THREE = undefined;
+    try { const script = document.createElement("script"); script.textContent = code; document.head.append(script); }
+    finally { if (hadThree) window.THREE = saved; else delete window.THREE; }
+    if (!window.ForceGraph3D) throw new Error("The 3D graph library could not be loaded.");
+  })().catch((error) => { graphLib = null; throw error; });
   return graphLib;
 }
 function disposeGraph() { if (graph3d) { graph3d._destructor?.(); graph3d = null; } }
@@ -82,16 +96,17 @@ async function render3D(ui, records, focus) {
   const data = graphData(ui, records, focus);
   const still = reducedMotion();
   graph3d = window.ForceGraph3D()(host)
-    .width(host.clientWidth).height(host.clientHeight).backgroundColor("#f4f8fb").showNavInfo(false)
+    .width(host.clientWidth).height(host.clientHeight).backgroundColor("rgba(0,0,0,0)").showNavInfo(false)
     .graphData(data)
     .nodeVal((n) => 2 + Math.sqrt(n.count))
     .nodeColor((n) => n.color).nodeOpacity(1).nodeResolution(14)
     .nodeLabel((n) => `<div class="pn3d-tip"><strong>${ui.escapeHtml(n.name)}</strong><span>${ui.escapeHtml(DIMENSIONS[n.dim].singular)} · ${n.count.toLocaleString()} measures</span></div>`)
     .linkColor(() => "#4f6d82").linkWidth((l) => Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.55)
-    .warmupTicks(still ? 120 : 0).cooldownTicks(still ? 0 : 160)
+    // Most of the layout is computed before the first frame, so the opening view is already framed.
+    .warmupTicks(still ? 160 : 90).cooldownTicks(still ? 0 : 70)
     .onEngineStop(() => graph3d?.zoomToFit(still ? 0 : 500, 30))
     .onNodeClick((n) => { if (n.dim === "country") ui.setFilter("country", n.name); else { ui.state.networkView = "2d"; ui.state.networkDim = n.dim; ui.state.networkItem = n.name; renderNetworkPage(ui); } });
-  if (still) setTimeout(() => graph3d?.zoomToFit(0, 30), 50);
+  setTimeout(() => graph3d?.zoomToFit(still ? 0 : 400, 30), still ? 50 : 120);
   // Stop the render loop once the page is left.
   const watch = setInterval(() => { if (!host.isConnected) { clearInterval(watch); disposeGraph(); } }, 1000);
 }
@@ -124,7 +139,7 @@ export function renderNetworkPage(ui) {
 
   const toggle = `<div class="chart-toolbar" role="group" aria-label="Network view"><button type="button" data-pn-view="2d" aria-pressed="${!view3d}">2D view</button><button type="button" data-pn-view="3d" aria-pressed="${view3d}" ${webgl() ? "" : "disabled title='3D needs WebGL'"}>3D view</button></div>`;
   if (view3d) {
-    $("#page-content").innerHTML = `${ui.heading("Policy network", "A rotatable 3D view of how countries connect to policy domains, institutions, groups and families. Drag to rotate; select a node to open it.", "RELATIONSHIPS", toggle)}<section class="pn3d-stage"><div class="pn3d" id="pn3d" aria-label="3D policy network"></div><div class="pn3d-legend"><span><i style="background:#8ea3b1"></i>Countries</span><span><i style="background:${DIM_COLORS.domain}"></i>Policy domains</span><span><i style="background:${DIM_COLORS.institution}"></i>Institutions</span><span><i style="background:${DIM_COLORS.group}"></i>Policy groups</span>${Object.entries(FAMILY_COLORS).slice(0, 4).map(([name, color]) => `<span><i style="background:${color}"></i>${escapeHtml(name)}</span>`).join("")}</div></section>`;
+    $("#page-content").innerHTML = `${ui.heading("Policy network", "A rotatable 3D view of how countries connect to policy domains, institutions, groups and families. Drag to rotate; select a node to open it.", "RELATIONSHIPS", toggle)}<section class="pn3d-stage"><div class="pn3d" id="pn3d" aria-label="3D policy network"></div><div class="pn3d-legend"><span><i style="background:#5f7686"></i>Countries</span>${focus ? `<span><i style="background:#116aab"></i>${escapeHtml(focus)}</span>` : ""}<span><i style="background:${DIM_COLORS.domain}"></i>Policy domains</span><span><i style="background:${DIM_COLORS.institution}"></i>Institutions</span><span><i style="background:${DIM_COLORS.group}"></i>Policy groups</span>${Object.entries(FAMILY_COLORS).slice(0, 4).map(([name, color]) => `<span><i style="background:${color}"></i>${escapeHtml(name)}</span>`).join("")}</div></section>`;
     $$("[data-pn-view]").forEach((button) => button.addEventListener("click", () => { state.networkView = button.dataset.pnView; renderNetworkPage(ui); }));
     render3D(ui, records, focus);
     ui.refreshIcons();

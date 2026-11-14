@@ -1,6 +1,6 @@
-import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261114";
+import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261114g";
 // Page modules load on first visit, so the overview does not download the report engine, Word writer and others.
-const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261114"), prices: () => import("./prices.js?v=pi-20261114"), reports: () => import("./reports.js?v=pi-20261114"), thismonth: () => import("./thismonth.js?v=pi-20261114") })[name]();
+const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261114g"), prices: () => import("./prices.js?v=pi-20261114g"), reports: () => import("./reports.js?v=pi-20261114g"), thismonth: () => import("./thismonth.js?v=pi-20261114g") })[name]();
 // A page that cannot load says so, instead of leaving a loading message on screen.
 const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args)).catch((error) => {
   console.error(error);
@@ -11,8 +11,8 @@ const renderNetworkPage = lazyPage("network", "renderNetworkPage");
 const renderPricesPage = lazyPage("prices", "renderPricesPage");
 const renderReportsPage = lazyPage("reports", "renderReportsPage");
 const renderThisMonthPage = lazyPage("thismonth", "renderThisMonthPage");
-import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261114";
-import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261114";
+import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261114g";
+import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261114g";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };
@@ -371,7 +371,7 @@ async function renderScene(records) {
   if (view === "2d") { host.classList.add("scene-2d"); renderMap(records, host); return; }
   host.classList.remove("scene-2d");
   if (view === "poster") {
-    host.innerHTML = `<img class="scene-poster" src="./assets/scene-poster.png" alt="Map of the Arabian Peninsula showing the GCC States and Yemen, the shipping lanes through the Strait of Hormuz and Bab el-Mandeb, and the main ports." width="1253" height="440" />${webglAvailable() ? "" : '<p class="scene-fallback-note">The interactive 3D view needs WebGL, which this browser does not provide.</p>'}`;
+    host.innerHTML = `<img class="scene-poster" src="./assets/scene-poster.png" alt="Map of the Arabian Peninsula showing the GCC States and Yemen, the shipping lanes through the Strait of Hormuz and Bab el-Mandeb, and the main ports." width="1238" height="440" />${webglAvailable() ? "" : '<p class="scene-fallback-note">The interactive 3D view needs WebGL, which this browser does not provide.</p>'}`;
     return;
   }
   host.innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading the 3D view…</span></div>`;
@@ -383,7 +383,9 @@ async function renderScene(records) {
     currentScene = mountScene(host, { topology, activity, handlers: { onCountry: openCountry, tooltip: (country) => `<strong>${escapeHtml(country)}</strong><span>${activity[country].toLocaleString()} measures in the last 12 months · select to open</span>` } });
     $("#scene-reset")?.addEventListener("click", () => currentScene?.reset());
   } catch {
+    // Fall back to the 2D map, sized like the chosen 2D view so its country key cannot overlap the caption.
     host.innerHTML = "";
+    host.classList.add("scene-2d");
     renderMap(records, host);
   }
 }

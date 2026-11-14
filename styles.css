@@ -1085,14 +1085,11 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 .print-only { position: absolute; left: -10000px; top: 0; width: 900px; }
 
 /* ---------- Phase 4: UX refinements ---------- */
-/* Data sits on solid surfaces; glass is kept for the sidebar and the drawers. */
-.card, .kpi-card, .table-wrap, .hero-asof, .pn-stage, .pn-detail, .record-card, .theme-row { background: #fff !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* Glass surfaces are defined once, in the frosted glass layer at the end of this file. */
 .card::after, .kpi-card::after, .global-filters::after, .pn-detail::after, .hero-asof::after { display: none !important; }
-.card, .kpi-card { border: 1px solid #dde6ec !important; box-shadow: 0 1px 2px rgba(16,47,70,.05), 0 6px 18px rgba(16,47,70,.06) !important; }
-.filter-drawer, .assistant-panel { background: rgba(250,252,253,.86) !important; -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); }
 
 /* Chip bar */
-.filter-bar { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 18px; padding: 10px 14px !important; background: #fff !important; border: 1px solid #dde6ec !important; border-radius: 12px; }
+.filter-bar { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 18px; padding: 10px 14px !important; border-radius: 12px; }
 .filter-bar-label { display: inline-flex; align-items: center; gap: 6px; color: #20475f; font-size: 14px; }
 .filter-bar .active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; flex: 1 1 260px; margin: 0; padding: 0; border: 0; }
 .filter-bar .filter-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 4px 2px 11px; padding-inline: 11px 4px; color: #174d70; background: #eaf3f9; border: 1px solid #cfe2ee; border-radius: 999px; font-size: 13px; font-weight: 600; }
@@ -1221,3 +1218,177 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; overscroll-behav
 .ex-table tbody th { font-weight: 600; color: #20475f; }
 .ex-table .ex-group th { color: #8a5f17; background: #fbf6ea; font: 600 12px var(--condensed); letter-spacing: .4px; text-transform: uppercase; }
 @media print { .ex-data { display: none; } .report-exhibit { background: #fff; } }
+
+/* ---------- Frosted glass (visionOS-style), same palette ----------
+   Translucent white panels with a light rim and soft depth, floating over a soft colour field in the
+   dashboard palette (navy, blue, teal, warm gold). Data panels stay light enough for 4.5:1 text. */
+:root {
+  --fg-fill: linear-gradient(160deg, rgba(255,255,255,.76) 0%, rgba(255,255,255,.5) 100%);
+  --fg-fill-strong: linear-gradient(160deg, rgba(255,255,255,.88) 0%, rgba(255,255,255,.72) 100%);
+  --fg-item: rgba(255,255,255,.5);
+  --fg-item-hover: rgba(255,255,255,.76);
+  --fg-control: rgba(255,255,255,.6);
+  --fg-rim: rgba(255,255,255,.8);
+  --fg-line: rgba(16,47,70,.08);
+  --fg-blur: blur(26px) saturate(175%);
+  --fg-shadow: inset 0 1px 0 rgba(255,255,255,.92), inset 0 0 0 1px rgba(255,255,255,.2), 0 1px 2px rgba(16,47,70,.05), 0 14px 40px rgba(16,47,70,.11);
+  --fg-shadow-hover: inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255,255,255,.32), 0 2px 4px rgba(16,47,70,.06), 0 22px 52px rgba(16,47,70,.16);
+  --fg-item-shadow: inset 0 1px 0 rgba(255,255,255,.88), 0 2px 8px rgba(16,47,70,.05);
+  --fg-radius: 22px;
+  --fg-radius-sm: 14px;
+  --radius: 20px;
+  --muted: #5f707c;
+  --secondary: #4a5f6e;
+}
+
+/* Backdrop: a fixed colour field with a few soft light orbs, which the glass blurs and tints. */
+html { background: #e5ecf1; }
+body { background: transparent; background-attachment: scroll; }
+body::before {
+  position: fixed; inset: 0; z-index: -1; content: ""; pointer-events: none;
+  background:
+    radial-gradient(circle at 80% 26%, rgba(255,255,255,.42) 0, rgba(255,255,255,.42) 7vmax, transparent 10vmax),
+    radial-gradient(circle at 30% 70%, rgba(17,106,171,.16) 0, rgba(17,106,171,.16) 10vmax, transparent 15vmax),
+    radial-gradient(circle at 62% 92%, rgba(214,165,76,.24) 0, rgba(214,165,76,.24) 8vmax, transparent 12vmax),
+    radial-gradient(62vw 58vh at 4% 2%, rgba(17,106,171,.48), transparent 64%),
+    radial-gradient(50vw 52vh at 100% 6%, rgba(39,133,127,.4), transparent 66%),
+    radial-gradient(58vw 62vh at 92% 100%, rgba(214,165,76,.46), transparent 64%),
+    radial-gradient(46vw 56vh at 10% 100%, rgba(16,47,70,.26), transparent 68%),
+    radial-gradient(42vw 42vh at 54% 46%, rgba(255,251,242,.8), transparent 72%),
+    linear-gradient(160deg, #dbe7f0 0%, #ecf0ee 52%, #efe5d3 100%);
+}
+
+/* Sidebar: navy glass. Topbar: white glass. Both float on wider screens. */
+.sidebar {
+  background: linear-gradient(180deg, rgba(13,40,60,.86) 0%, rgba(17,56,82,.8) 52%, rgba(13,42,62,.88) 100%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.04), 0 18px 48px rgba(10,34,51,.28);
+}
+.sidebar::before, .sidebar::after { border-radius: inherit; }
+.nav-item { border-radius: 999px; }
+.nav-item.active { background: linear-gradient(180deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.1) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.34), inset 0 0 0 1px rgba(255,255,255,.12), inset 3px 0 #e2b84f, 0 8px 20px rgba(4,20,32,.3); }
+.topbar {
+  background: linear-gradient(180deg, rgba(255,255,255,.74), rgba(255,255,255,.52));
+  -webkit-backdrop-filter: var(--fg-blur); backdrop-filter: var(--fg-blur);
+  border: 1px solid var(--fg-rim);
+  box-shadow: var(--fg-shadow);
+}
+@media (min-width: 761px) {
+  .app-shell { grid-template-columns: 272px minmax(0, 1fr); }
+  .app-shell.nav-collapsed { grid-template-columns: 88px minmax(0, 1fr); }
+  .sidebar { top: 12px; height: calc(100vh - 24px); margin-block: 12px; margin-inline-start: 12px; border-radius: 24px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+  .topbar { top: 12px; margin: 12px clamp(12px, 1.6vw, 24px) 0; border-radius: 20px; }
+}
+@media (min-width: 761px) and (max-width: 1060px) {
+  .app-shell, .app-shell.nav-collapsed { grid-template-columns: 88px minmax(0, 1fr); }
+}
+/* Scroll edge: content passing through the gap above the floating topbar is frosted, not shown sharp. */
+.workspace::before { content: ""; position: sticky; top: 0; z-index: 29; display: block; height: 12px; margin-bottom: -12px; pointer-events: none; background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+@media (max-width: 760px) { .workspace::before { height: 8px; margin-bottom: -8px; } }
+
+/* Primary glass panels */
+.card, .kpi-card, .entry-point, .filter-bar, .global-filters, .hero-asof, .table-wrap, .pn-stage, .pn-detail, .scene-card, .pn3d-stage {
+  background: var(--fg-fill);
+  border: 1px solid var(--fg-rim);
+  border-radius: var(--fg-radius);
+  box-shadow: var(--fg-shadow);
+  -webkit-backdrop-filter: var(--fg-blur); backdrop-filter: var(--fg-blur);
+}
+.filter-bar { background: var(--fg-fill) !important; border: 1px solid var(--fg-rim) !important; border-radius: 18px; }
+.hero-asof { border-inline-start: 3px solid var(--gold); border-radius: 18px; }
+.card:hover, .kpi-card:hover, .entry-point:hover, .entry-point:focus-visible { border-color: #fff; box-shadow: var(--fg-shadow-hover); }
+.card-header { border-bottom-color: var(--fg-line); }
+.table-wrap.heatmap-wrap { background: transparent; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.card:has(.report-document), .table-wrap { background: var(--fg-fill-strong); }
+
+/* Headline cards: glass with a faint tint of their accent */
+.kpi-card, .kpi-card.kpi-primary { background: linear-gradient(160deg, rgba(255,255,255,.8) 0%, rgba(231,241,249,.54) 100%); }
+.kpi-card.kpi-teal { background: linear-gradient(160deg, rgba(255,255,255,.8) 0%, rgba(228,243,240,.56) 100%); }
+.kpi-card.kpi-gold { background: linear-gradient(160deg, rgba(255,255,255,.8) 0%, rgba(250,241,224,.6) 100%); }
+
+/* Items inside panels: lighter glass without a second blur */
+.record-card, .theme-row, .pn-card, .map-country-strip button, .map-fallback button, .tm-watch-item, .report-exhibit, .pn-tiles div, .pn-metric, .pn-analysis, .detail-stat, .related-record, .evidence-result, .report-evidence, .group-tiles div, .starter-questions button, .pn-recent a {
+  background: var(--fg-item);
+  border: 1px solid rgba(255,255,255,.74);
+  border-radius: var(--fg-radius-sm);
+  box-shadow: var(--fg-item-shadow);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.record-card:hover, .record-card[open], .theme-row:hover, .pn-card:hover, .map-country-strip button:hover, .map-fallback button:hover, .pn-recent a[href]:hover, .starter-questions button:hover {
+  background: var(--fg-item-hover); border-color: rgba(17,106,171,.24); box-shadow: inset 0 1px 0 #fff, 0 6px 16px rgba(16,47,70,.09);
+}
+.share-row:hover, .share-row:focus-visible { background: rgba(255,255,255,.55); }
+.share-track { background: rgba(16,47,70,.08); }
+
+/* Controls: frosted pills */
+.global-search { background: var(--fg-control); border: 1px solid var(--fg-rim); border-radius: 999px; box-shadow: inset 0 1px 2px rgba(16,47,70,.06); }
+.global-search:focus-within { background: rgba(255,255,255,.9); border-color: #8db8d3; box-shadow: 0 0 0 4px rgba(17,106,171,.12); }
+.global-search kbd { background: rgba(255,255,255,.7); border-color: rgba(16,47,70,.1); border-radius: 6px; }
+.button-outline, .pn-btn:not(.pn-btn-gold), .icon-button.update-button, .legend-button, .filter-toggle, .pagination button, .column-menu details > summary, .table-search, .topbar .icon-button {
+  background: linear-gradient(180deg, rgba(255,255,255,.86) 0%, rgba(255,255,255,.56) 100%);
+  border: 1px solid var(--fg-rim);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 8px rgba(16,47,70,.08);
+}
+.button-outline:hover, .pn-btn:not(.pn-btn-gold):hover, .legend-button:hover, .pagination button:hover, .topbar .icon-button:hover { background: rgba(255,255,255,.95); border-color: rgba(17,106,171,.22); box-shadow: inset 0 1px 0 #fff, 0 6px 14px rgba(16,47,70,.12); }
+.filter-grid select, .filter-grid input, .report-form select, .explorer-controls select, .country-switcher select, .compare-selectors select, .network-mode-label select, .tm-country select, .filter-drawer .filter-grid select, .filter-drawer .filter-grid input {
+  background: var(--fg-control); border: 1px solid rgba(16,47,70,.11); border-radius: 12px; box-shadow: inset 0 1px 2px rgba(16,47,70,.05);
+}
+.chart-toolbar, .segmented-tabs { background: rgba(255,255,255,.46); border: 1px solid rgba(255,255,255,.76); border-radius: 999px; box-shadow: inset 0 1px 2px rgba(16,47,70,.07); }
+.segmented-tabs button { border-radius: 999px; }
+.segmented-tabs button[aria-pressed="true"] { color: #12364d; background: rgba(255,255,255,.95); box-shadow: inset 0 1px 0 #fff, 0 2px 6px rgba(16,47,70,.12); }
+
+/* Tables */
+.data-table th { background: rgba(244,248,251,.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.data-table tbody tr { background: transparent; }
+.data-table tbody tr:nth-child(even) { background: rgba(255,255,255,.34); }
+.data-table tbody tr:hover { background: rgba(17,106,171,.07); }
+
+/* Policy network, 3D network and the Overview scene */
+.pn-stage { background: var(--fg-fill); }
+.pn3d-stage { overflow: hidden; }
+.pn3d-legend { background: rgba(255,255,255,.42); border-top: 1px solid rgba(255,255,255,.7); color: #3f5868; }
+.scene-card { overflow: hidden; }
+.scene-bar { background: rgba(255,255,255,.5); border-top: 1px solid rgba(255,255,255,.7); }
+.scene-host.scene-2d { background: transparent; }
+
+/* Floating layers: drawers, menus and tooltips */
+.filter-drawer, .assistant-panel, .detail-panel {
+  background: linear-gradient(160deg, rgba(255,255,255,.86), rgba(255,255,255,.7)) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%);
+  border-inline-start: 1px solid var(--fg-rim);
+}
+.filter-drawer-head, .filter-drawer-foot { border-color: var(--fg-line); }
+.column-options, .network-controls { background: rgba(255,255,255,.86); border: 1px solid var(--fg-rim); -webkit-backdrop-filter: var(--fg-blur); backdrop-filter: var(--fg-blur); }
+.chart-tooltip, .pn3d-tip, .map-scene-tooltip, .toast { background: rgba(16,47,70,.86); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%); }
+
+/* Text on glass: secondary text a step darker so it keeps 4.5:1 over the tinted panels */
+.page-heading { border-bottom-color: rgba(16,47,70,.1); }
+.card-subtitle, .eyebrow, .app-footer, .scene-note, .entry-point small { color: #53687a; }
+.filter-none { color: #53687a; }
+
+/* Phones: panels drop the blur for smooth scrolling; the topbar keeps it */
+@media (max-width: 760px) {
+  .card, .kpi-card, .entry-point, .filter-bar, .global-filters, .hero-asof, .table-wrap, .pn-stage, .pn-detail, .scene-card, .pn3d-stage {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .card, .entry-point, .global-filters, .hero-asof, .pn-stage, .pn-detail, .scene-card, .pn3d-stage { background: linear-gradient(160deg, rgba(255,255,255,.88), rgba(255,255,255,.74)); }
+  .filter-bar { background: linear-gradient(160deg, rgba(255,255,255,.88), rgba(255,255,255,.74)) !important; }
+  .topbar { top: 8px; margin: 8px 8px 0; border-radius: 18px; background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.64)); -webkit-backdrop-filter: var(--fg-blur); backdrop-filter: var(--fg-blur); }
+}
+/* Less transparency or more contrast requested: solid panels */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .card, .kpi-card, .entry-point, .global-filters, .hero-asof, .table-wrap, .pn-stage, .pn-detail, .scene-card, .pn3d-stage, .topbar, .record-card, .theme-row, .pn-card, .tm-watch-item, .report-exhibit {
+    background: #fff !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-color: #cfdbe3 !important;
+  }
+  .filter-bar { background: #fff !important; border-color: #cfdbe3 !important; }
+  .sidebar { background: var(--navy); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+/* Print: plain white pages */
+@media print {
+  body::before { display: none; }
+  html, body { background: #fff !important; }
+  .card, .kpi-card, .entry-point, .filter-bar, .global-filters, .hero-asof, .table-wrap, .report-exhibit, .pn-stage, .pn-detail, .scene-card, .pn3d-stage {
+    background: #fff !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; border-color: #dfe6ec !important;
+  }
+}
