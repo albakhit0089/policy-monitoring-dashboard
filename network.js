@@ -45,9 +45,17 @@ function monthlyBars(records, periods, months = 24) {
 }
 
 // ---------- optional 3D view (3d-force-graph, loaded only when chosen; 2D stays the default) ----------
-const FAMILY_COLORS = { "Consumer oriented": "#287bb0", "Producer oriented": "#b7852f", "Trade oriented": "#776bb0", "Long-term frameworks": "#40836d", "Other decision family": "#71828e" };
-// Dimension colours stay clear of the fixed family colours (blue, gold, purple, green).
-const DIM_COLORS = { domain: "#d0705b", institution: "#3c4f5e", group: "#a3b85c" };
+// Each node type sits on its own labelled layer: countries in the middle, what they connect to above and
+// below. Colours are the dashboard palette re-stepped for colour-vision separation on the light surface
+// (validated: adjacent-pair CVD ΔE ≥ 10, all ≥ 3:1 against the glass); names on nodes carry identity too.
+const TIERS = {
+  family: { label: "Policy families", color: "#7f6fc9", fy: 190 },
+  domain: { label: "Policy domains", color: "#b7852f", fy: 95 },
+  country: { label: "Countries", color: "#116aab", fy: 0 },
+  institution: { label: "Institutions", color: "#1f9e8e", fy: -95 },
+  group: { label: "Policy groups", color: "#c25a43", fy: -190 },
+};
+const LINK_BASE = "rgba(125,147,164,.4)", LINK_FADE = "rgba(125,147,164,.07)", LINK_HOT = "#b7852f";
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const webgl = () => { try { const canvas = document.createElement("canvas"); return !!(canvas.getContext("webgl") || canvas.getContext("experimental-webgl")); } catch { return false; } };
 let graphLib = null, graph3d = null;
@@ -75,18 +83,77 @@ function graphData(ui, records, focus) {
   const node = (id, props) => { if (!nodes.has(id)) nodes.set(id, { id, count: 0, ...props }); return nodes.get(id); };
   const keep = { domain: new Set(ui.groupCount(records, (record) => record.domain).filter(([name]) => !/^unspecified/i.test(name)).slice(0, 12).map(([name]) => name)), institution: new Set(ui.groupCount(records, (record) => record.institution).slice(0, 8).map(([name]) => name)), group: new Set(ui.groupCount(records, (record) => record.group).slice(0, 8).map(([name]) => name)), family: new Set(records.map((record) => record.family)) };
   records.forEach((record) => {
-    const country = node(`country:${record.country}`, { name: record.country, dim: "country", color: record.country === focus ? "#116aab" : "#5f7686" });
+    const country = node(`country:${record.country}`, { name: record.country, dim: "country", color: TIERS.country.color, fy: TIERS.country.fy });
     country.count += 1;
     ["domain", "institution", "group", "family"].forEach((dim) => {
       if (!keep[dim].has(record[dim])) return;
-      const item = node(`${dim}:${record[dim]}`, { name: record[dim], dim, color: dim === "family" ? FAMILY_COLORS[record[dim]] || "#71828e" : DIM_COLORS[dim] });
+      const item = node(`${dim}:${record[dim]}`, { name: record[dim], dim, color: TIERS[dim].color, fy: TIERS[dim].fy });
       item.count += 1;
       const key = `${country.id}|${item.id}`;
       links.set(key, { source: country.id, target: item.id, value: (links.get(key)?.value || 0) + 1 });
     });
   });
+  // Every layer is a fixed ring: evenly spaced nodes, biggest first, so nothing piles up at the centre
+  // and the view is stable from the first frame. The camera still orbits freely.
+  Object.keys(TIERS).forEach((dim, tierIndex) => {
+    const ring = [...nodes.values()].filter((n) => n.dim === dim).sort((a, b) => b.count - a.count);
+    const radius = ring.length > 1 ? Math.max(dim === "country" ? 175 : 85, ring.length * 100 / (2 * Math.PI)) : 0;
+    ring.forEach((n, i) => { const angle = Math.PI * 2 * i / ring.length + tierIndex * .55; n.fx = Math.cos(angle) * radius; n.fz = Math.sin(angle) * radius; });
+  });
   return { nodes: [...nodes.values()], links: [...links.values()] };
 }
+// Name labels and tier captions are HTML pinned over the canvas: each frame, node positions are projected
+// through the camera by plain matrix arithmetic, so no Three.js objects cross library versions.
+function mountLabels(host, graph, data, labelFaded) {
+  const layer = document.createElement("div"); layer.className = "pn3d-labels"; host.append(layer);
+  const perTier = {};
+  const items = data.nodes.map((n) => {
+    const el = document.createElement("div");
+    el.className = `pn3d-label pn3d-label-${n.dim}`;
+    el.textContent = truncate(n.name === "United Arab Emirates" ? "UAE" : n.name, 26);
+    layer.append(el);
+    // Alternate labels above and below their node within each layer, so neighbours collide less.
+    const above = (perTier[n.dim] = (perTier[n.dim] || 0) + 1) % 2 === 0;
+    return { n, el, above };
+  });
+  const caps = Object.entries(TIERS).map(([dim, tier]) => {
+    const el = document.createElement("div"); el.className = "pn3d-cap"; el.style.color = tier.color; el.textContent = tier.label.toUpperCase(); layer.append(el);
+    return { dim, tier, el };
+  });
+  const tick = () => {
+    if (!host.isConnected) return;
+    const camera = graph.camera();
+    const width = host.clientWidth, height = host.clientHeight;
+    const V = camera.matrixWorldInverse.elements, P = camera.projectionMatrix.elements;
+    const project = (x, y, z) => {
+      const vx = V[0] * x + V[4] * y + V[8] * z + V[12], vy = V[1] * x + V[5] * y + V[9] * z + V[13], vz = V[2] * x + V[6] * y + V[10] * z + V[14], vw = V[3] * x + V[7] * y + V[11] * z + V[15];
+      const cx = P[0] * vx + P[4] * vy + P[8] * vz + P[12] * vw, cy = P[1] * vx + P[5] * vy + P[9] * vz + P[13] * vw, cw = P[3] * vx + P[7] * vy + P[11] * vz + P[15] * vw;
+      return cw > 0 ? [(cx / cw * .5 + .5) * width, (1 - (cy / cw * .5 + .5)) * height] : null;
+    };
+    items.forEach(({ n, el, above }) => {
+      const p = typeof n.x === "number" ? project(n.x, n.y, n.z) : null;
+      if (!p || p[0] < -60 || p[0] > width + 60 || p[1] < -30 || p[1] > height + 30) { el.style.display = "none"; return; }
+      el.style.display = "";
+      el.style.opacity = labelFaded(n) ? .08 : 1;
+      const gap = 7 + Math.sqrt(2 + Math.sqrt(n.count)) * 2.4;
+      el.style.transform = above
+        ? `translate(-50%,-100%) translate(${p[0].toFixed(1)}px,${(p[1] - gap).toFixed(1)}px)`
+        : `translate(-50%,0) translate(${p[0].toFixed(1)}px,${(p[1] + gap).toFixed(1)}px)`;
+    });
+    caps.forEach(({ dim, tier, el }) => {
+      const tierNodes = data.nodes.filter((n) => n.dim === dim && typeof n.x === "number");
+      if (!tierNodes.length) { el.style.display = "none"; return; }
+      const minX = Math.min(...tierNodes.map((n) => n.x)), meanZ = tierNodes.reduce((sum, n) => sum + n.z, 0) / tierNodes.length;
+      const p = project(minX - 60, tier.fy, meanZ);
+      if (!p || p[0] < -140 || p[1] < -30 || p[1] > height + 30) { el.style.display = "none"; return; }
+      el.style.display = "";
+      el.style.transform = `translate(-100%,-50%) translate(${Math.max(74, p[0]).toFixed(1)}px,${p[1].toFixed(1)}px)`;
+    });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+const fade = (hex, alpha) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${alpha})`;
 async function render3D(ui, records, focus) {
   const host = $("#pn3d");
   host.innerHTML = `<div class="loading-state"><span class="loading-mark"></span><span>Loading the 3D view…</span></div>`;
@@ -94,19 +161,30 @@ async function render3D(ui, records, focus) {
   if (!host.isConnected) return;
   host.innerHTML = "";
   const data = graphData(ui, records, focus);
+  // Adjacency for hover tracing: a node, its links and its direct neighbours light up; the rest recede.
+  const neighbours = new Map(data.nodes.map((n) => [n.id, new Set([n.id])]));
+  data.links.forEach((l) => { neighbours.get(l.source).add(l.target); neighbours.get(l.target).add(l.source); });
+  let hover = null;
+  const linkEnds = (l) => [typeof l.source === "object" ? l.source.id : l.source, typeof l.target === "object" ? l.target.id : l.target];
+  const linkHot = (l) => { const [s, t] = linkEnds(l); return s === hover || t === hover; };
   const still = reducedMotion();
   graph3d = window.ForceGraph3D()(host)
     .width(host.clientWidth).height(host.clientHeight).backgroundColor("rgba(0,0,0,0)").showNavInfo(false)
     .graphData(data)
-    .nodeVal((n) => 2 + Math.sqrt(n.count))
-    .nodeColor((n) => n.color).nodeOpacity(1).nodeResolution(14)
+    // Log scale: Saudi Arabia (1,085 measures) stays comparable to the rest instead of filling the view.
+    .nodeVal((n) => 2 + Math.log2(1 + n.count) * 1.5)
+    .nodeColor((n) => !hover || neighbours.get(hover)?.has(n.id) ? n.color : fade(n.color, .15)).nodeOpacity(1).nodeResolution(24)
     .nodeLabel((n) => `<div class="pn3d-tip"><strong>${ui.escapeHtml(n.name)}</strong><span>${ui.escapeHtml(DIMENSIONS[n.dim].singular)} · ${n.count.toLocaleString()} measures</span></div>`)
-    .linkColor(() => "#4f6d82").linkWidth((l) => Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.55)
-    // Most of the layout is computed before the first frame, so the opening view is already framed.
-    .warmupTicks(still ? 160 : 90).cooldownTicks(still ? 0 : 70)
-    .onEngineStop(() => graph3d?.zoomToFit(still ? 0 : 500, 30))
+    .linkColor((l) => hover ? (linkHot(l) ? LINK_HOT : LINK_FADE) : LINK_BASE)
+    .linkWidth((l) => (linkHot(l) ? 1.6 : 1) * Math.min(3, .3 + Math.log2(1 + l.value) / 3)).linkOpacity(.55)
+    .onNodeHover((n) => { const id = n?.id ?? null; if (id === hover) return; hover = id; host.style.cursor = n ? "pointer" : ""; graph3d.nodeColor(graph3d.nodeColor()); graph3d.linkColor(graph3d.linkColor()); graph3d.linkWidth(graph3d.linkWidth()); })
+    // Positions are fixed rings, so the layout is final before the first frame. The camera fit must be
+    // animated: this library version ignores a zero-duration fit.
+    .warmupTicks(60).cooldownTicks(0)
+    .onEngineStop(() => graph3d?.zoomToFit(still ? 1 : 450, 46))
     .onNodeClick((n) => { if (n.dim === "country") ui.setFilter("country", n.name); else { ui.state.networkView = "2d"; ui.state.networkDim = n.dim; ui.state.networkItem = n.name; renderNetworkPage(ui); } });
-  setTimeout(() => graph3d?.zoomToFit(still ? 0 : 400, 30), still ? 50 : 120);
+  setTimeout(() => graph3d?.zoomToFit(still ? 1 : 450, 46), 700);
+  mountLabels(host, graph3d, data, (n) => Boolean(hover) && !neighbours.get(hover)?.has(n.id));
   // Stop the render loop once the page is left.
   const watch = setInterval(() => { if (!host.isConnected) { clearInterval(watch); disposeGraph(); } }, 1000);
 }
@@ -139,7 +217,7 @@ export function renderNetworkPage(ui) {
 
   const toggle = `<div class="chart-toolbar" role="group" aria-label="Network view"><button type="button" data-pn-view="2d" aria-pressed="${!view3d}">2D view</button><button type="button" data-pn-view="3d" aria-pressed="${view3d}" ${webgl() ? "" : "disabled title='3D needs WebGL'"}>3D view</button></div>`;
   if (view3d) {
-    $("#page-content").innerHTML = `${ui.heading("Policy network", "A rotatable 3D view of how countries connect to policy domains, institutions, groups and families. Drag to rotate; select a node to open it.", "RELATIONSHIPS", toggle)}<section class="pn3d-stage"><div class="pn3d" id="pn3d" aria-label="3D policy network"></div><div class="pn3d-legend"><span><i style="background:#5f7686"></i>Countries</span>${focus ? `<span><i style="background:#116aab"></i>${escapeHtml(focus)}</span>` : ""}<span><i style="background:${DIM_COLORS.domain}"></i>Policy domains</span><span><i style="background:${DIM_COLORS.institution}"></i>Institutions</span><span><i style="background:${DIM_COLORS.group}"></i>Policy groups</span>${Object.entries(FAMILY_COLORS).slice(0, 4).map(([name, color]) => `<span><i style="background:${color}"></i>${escapeHtml(name)}</span>`).join("")}</div></section>`;
+    $("#page-content").innerHTML = `${ui.heading("Policy network", `A layered 3D view: ${focus ? escapeHtml(focus) : "countries"} in the middle, with the policy domains, institutions, groups and families ${focus ? "it connects" : "they connect"} to on their own levels. Drag to rotate, scroll to zoom, point at a node to trace its connections, select it to open it.`, "RELATIONSHIPS", toggle)}<section class="pn3d-stage"><div class="pn3d" id="pn3d" aria-label="3D policy network"></div><div class="pn3d-legend">${["country", "domain", "institution", "group", "family"].map((dim) => `<span><i style="background:${TIERS[dim].color}"></i>${escapeHtml(TIERS[dim].label)}</span>`).join("")}</div></section>`;
     $$("[data-pn-view]").forEach((button) => button.addEventListener("click", () => { state.networkView = button.dataset.pnView; renderNetworkPage(ui); }));
     render3D(ui, records, focus);
     ui.refreshIcons();

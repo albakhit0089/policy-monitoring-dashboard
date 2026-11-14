@@ -1392,3 +1392,42 @@ body::before {
     background: #fff !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; border-color: #dfe6ec !important;
   }
 }
+
+/* ---------- Extra gloss: specular sheen baked into the glass fills ---------- */
+:root {
+  --fg-sheen:
+    linear-gradient(180deg, rgba(255,255,255,.66) 0%, rgba(255,255,255,.14) 30%, rgba(255,255,255,0) 58%),
+    linear-gradient(115deg, rgba(255,255,255,0) 34%, rgba(255,255,255,.3) 44%, rgba(255,255,255,0) 56%);
+  --fg-fill: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.46) 100%);
+  --fg-fill-strong: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.86) 0%, rgba(255,255,255,.7) 100%);
+}
+.kpi-card, .kpi-card.kpi-primary { background: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.78) 0%, rgba(231,241,249,.52) 100%); }
+.kpi-card.kpi-teal { background: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.78) 0%, rgba(228,243,240,.54) 100%); }
+.kpi-card.kpi-gold { background: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.78) 0%, rgba(250,241,224,.58) 100%); }
+.entry-point, .filter-bar, .global-filters, .hero-asof { background: var(--fg-fill); }
+.filter-bar { background: var(--fg-fill) !important; }
+.button-primary, .pn-btn-gold, .chart-toolbar button[aria-pressed="true"], .filter-count {
+  background: linear-gradient(180deg, rgba(255,255,255,.4) 0%, rgba(255,255,255,0) 52%), var(--gloss-blue);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 4px rgba(0,0,0,.16), 0 8px 18px rgba(17,106,171,.32);
+}
+@media (max-width: 760px) {
+  .card, .entry-point, .global-filters, .hero-asof, .pn-stage, .pn-detail, .scene-card, .pn3d-stage { background: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.88), rgba(255,255,255,.74)); }
+  .filter-bar { background: var(--fg-sheen), linear-gradient(160deg, rgba(255,255,255,.88), rgba(255,255,255,.74)) !important; }
+}
+
+/* ---------- 3D policy network: layered tiers with named labels ---------- */
+.pn3d { position: relative; }
+.pn3d-stage { background: radial-gradient(70% 60% at 50% 38%, rgba(255,255,255,.55), rgba(255,255,255,0) 72%), var(--fg-fill); }
+.pn3d-labels { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.pn3d-label {
+  position: absolute; left: 0; top: 0; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 1px 8px; color: #1b3f56; background: rgba(255,255,255,.85); border: 1px solid rgba(255,255,255,.95);
+  border-radius: 999px; box-shadow: 0 1px 4px rgba(16,47,70,.14); font: 600 10.5px/1.55 'IBM Plex Sans', sans-serif;
+}
+.pn3d-label-country { color: #0d3a58; font-size: 12px; }
+.pn3d-cap {
+  position: absolute; left: 0; top: 0; padding: 2px 9px; background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.9);
+  border-radius: 999px; box-shadow: 0 1px 3px rgba(16,47,70,.1); font: 700 10px/1.7 var(--condensed); letter-spacing: 1.1px; white-space: nowrap;
+}
+.pn3d-legend i { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(16,47,70,.25); }
+@media (max-width: 760px) { .pn3d-label { font-size: 9.5px; max-width: 120px; } .pn3d-label-country { font-size: 10.5px; } }

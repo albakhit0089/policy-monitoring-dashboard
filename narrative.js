@@ -5,8 +5,8 @@
 // - every number in the prose passes through the Writer, which records it, so tests can trace it to the data;
 // - every measure named in the text is a cited record with a source link, listed again in the annex;
 // - counts support a statement but never open one; interpretation stays measured ("suggests", "is consistent with").
-import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261114g";
-import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261114g";
+import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261115";
+import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261115";
 
 export const COUNTRIES = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"];
 const DAY = 864e5;
