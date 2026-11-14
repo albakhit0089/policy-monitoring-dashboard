@@ -1,8 +1,8 @@
 // Reports page: narrative technical briefs from the deterministic engine (narrative.js), with Word, PDF,
 // Markdown and text exports, a shareable link, and an optional AI-assisted draft when an endpoint is configured.
-import { buildBrief, COUNTRIES, toHtml, toMarkdown, toText } from "./narrative.js?v=pi-20261114";
-import { buildDocx } from "./docx.js?v=pi-20261114";
-import { loadEvents } from "./data-service.js?v=pi-20261114";
+import { buildBrief, COUNTRIES, toHtml, toMarkdown, toText } from "./narrative.js?v=pi-20261114g";
+import { buildDocx } from "./docx.js?v=pi-20261114g";
+import { loadEvents } from "./data-service.js?v=pi-20261114g";
 
 export const REPORT_TYPES = {
   monthly: "Monthly policy briefing",

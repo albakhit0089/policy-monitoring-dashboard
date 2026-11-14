@@ -30,6 +30,8 @@ export function webglAvailable() {
   try { const canvas = document.createElement("canvas"); return !!(window.WebGLRenderingContext && (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))); } catch { return false; }
 }
 let threePromise = null;
+// Three.js r128 stays on window.THREE because OrbitControls reads the global at run time. The Policy
+// Network's 3D library hides it while loading (see loadGraphLib in network.js) so it keeps its own copy.
 function loadScript(src) { return new Promise((resolve, reject) => { const script = document.createElement("script"); script.src = src; script.onload = resolve; script.onerror = () => reject(new Error(`Could not load ${src}`)); document.head.append(script); }); }
 export function loadThree() {
   threePromise ||= (window.THREE ? Promise.resolve() : loadScript("./assets/vendor/three.min.js")).then(() => window.THREE.OrbitControls ? null : loadScript("./assets/vendor/OrbitControls.js")).catch((error) => { threePromise = null; throw error; });
@@ -71,8 +73,10 @@ export function mountScene(host, { topology, activity, handlers }) {
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 0, 25);
   Object.assign(controls, { enableDamping: true, dampingFactor: .08, enablePan: false, minDistance: 260, maxDistance: 900, minPolarAngle: .35, maxPolarAngle: 1.05, rotateSpeed: .45, minAzimuthAngle: -.6, maxAzimuthAngle: .6 });
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e2, .95));
-  const sun = new THREE.DirectionalLight(0xffffff, .55); sun.position.set(-200, 500, 300); scene.add(sun);
+  // Light sums to about 1 on upward faces so countries show their 2D-map shades; brighter light washed the
+  // pale blues out to cyan and the grey neighbours to white.
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d8e2, .6));
+  const sun = new THREE.DirectionalLight(0xffffff, .42); sun.position.set(-200, 500, 300); scene.add(sun);
 
   // Projection: the region from 31°E to 63°E and 9°N to 33°N, fitted to the scene.
   // Corner points, not a polygon: a spherical polygon's winding would decide which side is "inside".
