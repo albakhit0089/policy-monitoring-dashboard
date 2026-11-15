@@ -20,10 +20,14 @@ jobs:
           node-version: '20'
       - name: Fetch latest FAOSTAT CP extract
         run: node scripts/fetch-faostat-cp.cjs
-      - name: Rebuild and validate forecasts
+      - name: Fetch context sources (IMF, World Bank, WFP Yemen)
+        run: node scripts/fetch-context.cjs
+      - name: Rebuild and validate forecasts and context
         run: |
           node scripts/build-forecasts.cjs
           node scripts/validate-forecasts.cjs
+          node scripts/build-context.cjs
+          node scripts/validate-context.cjs
       - name: Open a pull request if anything changed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -33,7 +37,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add data/sources/faostat-cp-region.csv data/forecasts/food-cpi.json
+          git add data/sources/ data/forecasts/food-cpi.json data/forecasts/context.json
           git commit -m "Refresh FAOSTAT CP data and food price forecasts"
           git push -u origin "$branch"
           gh pr create --base main --head "$branch" \

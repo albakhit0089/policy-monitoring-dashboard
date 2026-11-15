@@ -1,6 +1,6 @@
-import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261115b";
+import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261115c";
 // Page modules load on first visit, so the overview does not download the report engine, Word writer and others.
-const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261115b"), prices: () => import("./prices.js?v=pi-20261115b"), reports: () => import("./reports.js?v=pi-20261115b"), thismonth: () => import("./thismonth.js?v=pi-20261115b"), futures: () => import("./futures.js?v=pi-20261115b") })[name]();
+const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261115c"), prices: () => import("./prices.js?v=pi-20261115c"), reports: () => import("./reports.js?v=pi-20261115c"), thismonth: () => import("./thismonth.js?v=pi-20261115c"), futures: () => import("./futures.js?v=pi-20261115c") })[name]();
 // A page that cannot load says so, instead of leaving a loading message on screen.
 const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args)).catch((error) => {
   console.error(error);
@@ -12,8 +12,8 @@ const renderPricesPage = lazyPage("prices", "renderPricesPage");
 const renderReportsPage = lazyPage("reports", "renderReportsPage");
 const renderThisMonthPage = lazyPage("thismonth", "renderThisMonthPage");
 const renderFuturesPage = lazyPage("futures", "renderFuturesPage");
-import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261115b";
-import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261115b";
+import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261115c";
+import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261115c";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };

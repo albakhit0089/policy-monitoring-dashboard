@@ -1470,6 +1470,15 @@ body::before {
 .fx-method summary { color: #0f5d96; font-size: 13px; font-weight: 600; cursor: pointer; }
 .fx-method p { color: #3f5868; font-size: 13px; line-height: 1.55; }
 @media (max-width: 1100px) { .fx-grid { grid-template-columns: 1fr; } }
+/* Phase 2: drivers and context */
+.fx-section-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 18px; margin: 26px 0 14px; padding-top: 18px; border-top: 1px solid rgba(16,47,70,.1); }
+.fx-section-title { margin: 0; color: #183d55; font: 600 24px/1.2 var(--condensed); }
+.fx-section-sub { margin: 6px 0 0; max-width: 86ch; color: #53687a; font-size: 13.5px; line-height: 1.5; }
+.fx-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fx-chart-small { min-height: 200px; }
+.fx-card-wide { margin-top: 14px; }
+.fx-card .chart-toolbar { margin-bottom: 10px; }
+@media (max-width: 1100px) { .fx-grid-2 { grid-template-columns: 1fr; } }
 @media print {
   .sidebar, .topbar, .fx-controls, .fx-slider, .app-footer, .heading-actions, .global-filters { display: none !important; }
   .fx-grid { grid-template-columns: 1fr 1fr; }

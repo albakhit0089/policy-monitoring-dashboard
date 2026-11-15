@@ -15,6 +15,21 @@ forecasting MVP only; nothing is published that cannot be validated.
 | Gate | `scripts/validate-forecasts.cjs` | Fails the build on schema breaches, disordered intervals, inflation/index inconsistency, forecasts without enough history, or a Yemen forecast. Runs in `npm run build` (CI). |
 | Refresh | `.github/workflows/update-forecasts.yml` | Monthly; opens a pull request, never commits to `main` directly. |
 
+## Phase 2 — drivers and context (delivered)
+
+| Step | Script | What it does |
+| --- | --- | --- |
+| Fetch | `scripts/fetch-context.cjs` | IMF WEO headline inflation (datamapper API, seven countries); the current World Bank "pink sheet" monthly workbook (link resolved from the commodity markets page, parsed with the repository's SheetJS build); WFP retail food prices for Yemen (public HDX dataset, no key needed). Raw extracts land in `data/sources/` (`imf-weo-pcpipch.json`, `cmo-monthly.csv`, `wfp-yemen-prices.csv`) with the same refuse-to-overwrite safeguard. |
+| Build | `scripts/build-context.cjs` | Writes `data/forecasts/context.json`: IMF annual series 2015→2031 with `forecastFrom` (maxYear − 5, the WEO convention — values from there on are IMF projections, labelled "headline, not food inflation"); nine commodity benchmarks monthly from 2010 (discontinued series dropped automatically); Yemen staples as national monthly medians of market retail prices. |
+| Gate | `scripts/validate-context.cjs` | Coverage, freshness (benchmarks ≤ 6 months old, Yemen ≤ 4 months), plausibility bounds, market minimums. In `npm run build`. |
+
+**Yemen currency correction (important):** WFP's published `usdprice` column converts with an outdated
+official rate (~236 YER/USD in late 2026, against market rates near 1,550), overstating USD prices
+about 6.5×. The build therefore converts each market's rial price with the **unofficial exchange rate
+reported in the same dataset for that market and month**, and drops market-months without their own
+rate. Months with fewer than 5 convertible markets are suppressed. Result: wheat flour ≈ $0.60/kg in
+October 2026, consistent with field reporting. This is documented on the page itself.
+
 ## Method
 
 - **Target series**: FAOSTAT food CPI index (2015 = 100), monthly, 2000-01 → 2026-06 (318 observations
@@ -43,13 +58,14 @@ forecasting MVP only; nothing is published that cannot be validated.
 
 | Source | Status | Finding |
 | --- | --- | --- |
-| FAOSTAT CP bulk (monthly CPI) | **Confirmed, in use** | Six GCC countries complete 2000-01→2026-06; Yemen ends 2017-06. |
-| IMF WEO datamapper API | Confirmed reachable | Country CPI/GDP forecasts; candidate for phase 2 context panels (headline, not food, inflation). |
-| World Bank Commodity Markets (pink sheet xlsx) | Confirmed reachable | Global benchmarks (wheat, rice, fertilizer, energy); phase 2 driver panel. Global prices, not local retail. |
-| FAO GIEWS FPMA API | Confirmed reachable | Market-level prices incl. Yemen; phase 2 Yemen coverage candidate. |
+| FAOSTAT CP bulk (monthly CPI) | **Confirmed, in use (phase 1)** | Six GCC countries complete 2000-01→2026-06; Yemen ends 2017-06. |
+| IMF WEO datamapper API | **Confirmed, in use (phase 2)** | Headline inflation, seven countries, projections to 2031. Clearly labelled: headline, not food inflation. |
+| World Bank Commodity Markets (pink sheet) | **Confirmed, in use (phase 2)** | Nine benchmarks monthly to Oct 2026 (wheat, rice, maize, soybeans, palm oil, sugar, Brent, urea, DAP). Barley discontinued upstream and dropped. Global benchmarks, not local retail. |
+| WFP food prices for Yemen (HDX public dataset) | **Confirmed, in use (phase 2)** | Eight staples, 11+ markets, monthly to Oct 2026. Requires the exchange-rate correction described above. |
 | FEWS NET Yemen | Confirmed reachable | Qualitative outlooks; linked from the page, never reinterpreted as price forecasts. |
+| FAO GIEWS FPMA API | Partially verified | Endpoints answer with redirects (307) and no stable JSON was confirmed; for Yemen it is superseded by the WFP/HDX dataset above. |
 | GCC-STAT MARSA dataset pages | Reachable, **no API found** | HTML dataset pages; downloadable resources need manual verification before use. Pending. |
-| HDX HAPI (WFP prices) | **Blocked (403)** | Needs a registered app identifier; pending. |
+| HDX HAPI (keyed API) | Not needed | The public CKAN dataset covers the Yemen need without registration. |
 | UN WPP, OECD–FAO Outlook | Reachable, not yet needed | Long-term (2030/2035) phases only. |
 
 ## Output schema (`food-cpi.json`)
@@ -63,9 +79,7 @@ per value with `observation_status` set to `observed`, `model_forecast` or `hypo
 
 ## Phased plan (remaining)
 
-1. **Phase 2 — drivers and context**: IMF WEO headline inflation and World Bank commodity benchmarks
-   as context panels; FPMA for Yemen market prices; HDX HAPI once an app identifier is registered.
-2. **Phase 3 — medium term (2030)**: import-exposure and commodity-pass-through scenarios using
-   official external forecasts as inputs.
-3. **Phase 4 — long term (2035)**: OECD–FAO Outlook and UN WPP population-linked demand under a
+1. **Phase 3 — medium term (2030)**: import-exposure and commodity-pass-through scenarios using
+   official external forecasts (IMF WEO and the pink sheet, both now in the pipeline) as inputs.
+2. **Phase 4 — long term (2035)**: OECD–FAO Outlook and UN WPP population-linked demand under a
    structural scenario framework (not extended time-series extrapolation), per the brief.
