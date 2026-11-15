@@ -5,7 +5,7 @@ const STRINGS = {
   en: {
     "brand.title": "Policy Intelligence", "brand.sub": "Food & Agriculture", "region": "GCC STATES & YEMEN",
     "nav.analyse": "ANALYSE", "nav.evidence": "EVIDENCE",
-    "nav.thismonth": "This month", "nav.overview": "Overview", "nav.country": "Country Intelligence", "nav.trends": "Policy Trends", "nav.areas": "Policy Areas", "nav.prices": "Food Prices & Diets", "nav.compare": "Country Comparison", "nav.network": "Policy Network", "nav.records": "Policy Records", "nav.reports": "Reports", "nav.methodology": "Methodology & Sources",
+    "nav.thismonth": "This month", "nav.overview": "Overview", "nav.country": "Country Intelligence", "nav.trends": "Policy Trends", "nav.areas": "Policy Areas", "nav.prices": "Food Prices & Diets", "nav.futures": "Food Price Outlook", "nav.compare": "Country Comparison", "nav.network": "Policy Network", "nav.records": "Policy Records", "nav.reports": "Reports", "nav.methodology": "Methodology & Sources",
     "top.search": "Search policy measures", "top.export": "Export", "top.updates": "Latest dataset update", "top.language": "العربية", "top.languageLabel": "Switch to Arabic",
     "filters.label": "Filters", "filters.edit": "Edit filters", "filters.reset": "Reset", "filters.copy": "Copy link", "filters.none": "All countries · all years · all policy types", "filters.title": "Edit filters", "filters.done": "Show results", "filters.remove": "Remove filter",
     "f.country": "Country", "f.year": "Year", "f.month": "Month", "f.type": "Policy type", "f.family": "Policy family", "f.domain": "Policy domain", "f.group": "Policy group", "f.institution": "Institution", "f.from": "From", "f.to": "To", "f.search": "Search",
@@ -24,7 +24,7 @@ const STRINGS = {
   ar: {
     "brand.title": "معلومات السياسات", "brand.sub": "الأغذية والزراعة", "region": "دول مجلس التعاون الخليجي واليمن",
     "nav.analyse": "التحليل", "nav.evidence": "الأدلة",
-    "nav.thismonth": "هذا الشهر", "nav.overview": "نظرة عامة", "nav.country": "معلومات الدول", "nav.trends": "اتجاهات السياسات", "nav.areas": "مجالات السياسات", "nav.prices": "أسعار الغذاء والأنظمة الغذائية", "nav.compare": "مقارنة الدول", "nav.network": "شبكة السياسات", "nav.records": "سجلات السياسات", "nav.reports": "التقارير", "nav.methodology": "المنهجية والمصادر",
+    "nav.thismonth": "هذا الشهر", "nav.overview": "نظرة عامة", "nav.country": "معلومات الدول", "nav.trends": "اتجاهات السياسات", "nav.areas": "مجالات السياسات", "nav.prices": "أسعار الغذاء والأنظمة الغذائية", "nav.futures": "توقعات أسعار الغذاء", "nav.compare": "مقارنة الدول", "nav.network": "شبكة السياسات", "nav.records": "سجلات السياسات", "nav.reports": "التقارير", "nav.methodology": "المنهجية والمصادر",
     "top.search": "ابحث في التدابير السياسية", "top.export": "تصدير", "top.updates": "آخر تحديث للبيانات", "top.language": "English", "top.languageLabel": "التبديل إلى الإنجليزية",
     "filters.label": "عوامل التصفية", "filters.edit": "تعديل عوامل التصفية", "filters.reset": "إعادة الضبط", "filters.copy": "نسخ الرابط", "filters.none": "جميع الدول · جميع السنوات · جميع أنواع السياسات", "filters.title": "تعديل عوامل التصفية", "filters.done": "عرض النتائج", "filters.remove": "إزالة عامل التصفية",
     "f.country": "الدولة", "f.year": "السنة", "f.month": "الشهر", "f.type": "نوع السياسة", "f.family": "فئة السياسة", "f.domain": "مجال السياسة", "f.group": "مجموعة السياسات", "f.institution": "المؤسسة", "f.from": "من", "f.to": "إلى", "f.search": "بحث",

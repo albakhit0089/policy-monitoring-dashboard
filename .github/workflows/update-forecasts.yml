@@ -1,0 +1,41 @@
+name: Update food price forecasts
+# Monthly refresh of the FAOSTAT CP extract and the 12-month forecasts. Changes go through a pull
+# request, never straight to main, and the validation gate blocks a bad refresh from shipping.
+on:
+  schedule:
+    - cron: '0 6 15 * *' # the 15th of each month, after FAOSTAT's usual CPI update window
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch latest FAOSTAT CP extract
+        run: node scripts/fetch-faostat-cp.cjs
+      - name: Rebuild and validate forecasts
+        run: |
+          node scripts/build-forecasts.cjs
+          node scripts/validate-forecasts.cjs
+      - name: Open a pull request if anything changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then echo "No data changes."; exit 0; fi
+          branch="data/forecast-refresh-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/sources/faostat-cp-region.csv data/forecasts/food-cpi.json
+          git commit -m "Refresh FAOSTAT CP data and food price forecasts"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Monthly forecast refresh: $(date -u +'%B %Y')" \
+            --body "Automated refresh of the FAOSTAT Consumer Price Indices extract and the 12-month food CPI forecasts. Validation passed in this workflow; review the diff before merging."
