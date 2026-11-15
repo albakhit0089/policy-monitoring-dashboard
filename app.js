@@ -1,6 +1,6 @@
-import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261115";
+import { COUNTRIES, COUNTRY_COLORS, filterRecords, getOptions, groupCount, loadFoodIndicators, loadFullRecords, loadSummaryRecords, monthKey } from "./data-service.js?v=pi-20261115b";
 // Page modules load on first visit, so the overview does not download the report engine, Word writer and others.
-const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261115"), prices: () => import("./prices.js?v=pi-20261115"), reports: () => import("./reports.js?v=pi-20261115"), thismonth: () => import("./thismonth.js?v=pi-20261115") })[name]();
+const pageModule = (name) => ({ network: () => import("./network.js?v=pi-20261115b"), prices: () => import("./prices.js?v=pi-20261115b"), reports: () => import("./reports.js?v=pi-20261115b"), thismonth: () => import("./thismonth.js?v=pi-20261115b"), futures: () => import("./futures.js?v=pi-20261115b") })[name]();
 // A page that cannot load says so, instead of leaving a loading message on screen.
 const lazyPage = (name, exportName) => (...args) => pageModule(name).then((module) => module[exportName](...args)).catch((error) => {
   console.error(error);
@@ -11,8 +11,9 @@ const renderNetworkPage = lazyPage("network", "renderNetworkPage");
 const renderPricesPage = lazyPage("prices", "renderPricesPage");
 const renderReportsPage = lazyPage("reports", "renderReportsPage");
 const renderThisMonthPage = lazyPage("thismonth", "renderThisMonthPage");
-import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261115";
-import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261115";
+const renderFuturesPage = lazyPage("futures", "renderFuturesPage");
+import { applyDocument, lang, setLang, t, term } from "./i18n.js?v=pi-20261115b";
+import { loadThree, mountScene, webglAvailable } from "./scene3d.js?v=pi-20261115b";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const TYPE_COLORS = { all: "#116aab", decision: "#4f6d82", framework: "#40836d" };
@@ -109,7 +110,7 @@ function closeFilterDrawer() {
 }
 // ---------- URL state: page and every filter live in the hash (#records?country=Oman&year=2026) ----------
 const FILTER_KEYS = ["country", "year", "month", "from", "to", "type", "family", "domain", "group", "institution", "keyword"];
-const OWN_SCOPE_PAGES = ["thismonth", "reports"];
+const OWN_SCOPE_PAGES = ["thismonth", "reports", "futures"];
 function writeHash() {
   if (OWN_SCOPE_PAGES.includes(state.page)) return; // these pages encode their own scope
   const params = new URLSearchParams();
@@ -635,7 +636,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   $("#current-page-label").textContent = t(`nav.${state.page}`);
   $$("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === state.page));
   // Reports have their own scope builder and methodology is static, so the global filters do not apply there.
-  $(".global-filters").hidden = ["thismonth", "reports", "methodology"].includes(state.page);
+  $(".global-filters").hidden = ["thismonth", "reports", "methodology", "futures"].includes(state.page);
   if (state.page !== "overview") { currentScene?.dispose(); currentScene = null; }
   // Every page except the overview draws charts straight away, so it waits for D3.
   if (state.page !== "overview" && !window.d3) {
@@ -657,6 +658,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   else if (state.page === "compare") renderComparePage();
   else if (state.page === "network") renderNetworkPage(ui);
   else if (state.page === "prices") withFoodData(renderPricesPage);
+  else if (state.page === "futures") renderFuturesPage(ui);
   else if (state.page === "records") renderRecordsPage();
   else if (state.page === "reports") withFoodData(renderReportsPage);
   else if (state.page === "methodology") renderMethodologyPage();
@@ -666,7 +668,7 @@ function renderDashboardPage({ keepScroll = false } = {}) {
   refreshIcons();
   window.scrollTo({ top: keepScroll ? scrollY : 0, behavior: "instant" });
 }
-const pageLabels = { thismonth: "This month", overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
+const pageLabels = { thismonth: "This month", overview: "Overview", country: "Country Intelligence", trends: "Policy Trends", areas: "Policy Areas", compare: "Country Comparison", network: "Policy Network", prices: "Food Prices & Diets", futures: "Food Price Outlook", records: "Policy Records", reports: "Reports", methodology: "Methodology & Sources" };
 // The page name is the part of the hash before any "?" query.
 const hashPage = () => location.hash.slice(1).split("?")[0];
 function setPage(page) { if (!pageLabels[page]) return; state.page = page; closeMobileSidebar(); closeFilterDrawer(); renderDashboardPage(); }

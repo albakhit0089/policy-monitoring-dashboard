@@ -1431,3 +1431,47 @@ body::before {
 }
 .pn3d-legend i { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(16,47,70,.25); }
 @media (max-width: 760px) { .pn3d-label { font-size: 9.5px; max-width: 120px; } .pn3d-label-country { font-size: 10.5px; } }
+
+/* ---------- Food Price Outlook (Futures, phase 1) ---------- */
+.fx-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 14px; }
+.fx-card { margin: 0 0 14px; }
+.fx-chart-host { position: relative; min-height: 300px; }
+.fx-chart { display: block; width: 100%; height: auto; font-family: 'IBM Plex Sans', sans-serif; }
+.fx-rule-label { fill: #53687a; font-size: 11px; font-weight: 600; }
+.fx-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; color: #3f5868; font-size: 12.5px; }
+.fx-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fx-swatch { width: 16px; height: 4px; border-radius: 2px; }
+.fx-swatch.fx-dash { background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px); }
+.fx-swatch.fx-dot { background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 7px); }
+.fx-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.fx-grid .fx-card { margin: 0; }
+.fx-facts { display: grid; gap: 9px; margin: 0; }
+.fx-facts div { display: grid; gap: 1px; }
+.fx-facts dt { color: #53687a; font: 600 11.5px var(--condensed); letter-spacing: .5px; text-transform: uppercase; }
+.fx-facts dd { margin: 0; color: #2f4858; font-size: 13.5px; line-height: 1.5; }
+.fx-alerts { display: grid; gap: 9px; }
+.fx-alert { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid; font-size: 13px; }
+.fx-alert strong { font-size: 13.5px; }
+.fx-alert span { color: #3f5868; line-height: 1.45; }
+.fx-alert-ok { background: rgba(73,128,106,.08); border-color: rgba(73,128,106,.3); }
+.fx-alert-ok strong { color: #2e624e; }
+.fx-alert-watch { background: rgba(183,133,47,.1); border-color: rgba(183,133,47,.35); }
+.fx-alert-watch strong { color: #7a5312; }
+.fx-alert-high { background: rgba(166,72,60,.09); border-color: rgba(166,72,60,.35); }
+.fx-alert-high strong { color: #8c3a30; }
+.fx-alert-gap { background: rgba(95,118,134,.09); border-color: rgba(95,118,134,.3); }
+.fx-alert-gap strong { color: #3f5868; }
+.fx-slider { display: grid; gap: 5px; max-width: 560px; margin: 0 0 12px; padding: 12px 14px; background: var(--fg-item); border: 1px solid rgba(255,255,255,.74); border-radius: var(--fg-radius-sm); }
+.fx-slider label { color: #2f4858; font-size: 13.5px; font-weight: 600; }
+.fx-slider-note { color: #53687a; font-size: 12.5px; line-height: 1.45; }
+.fx-scenario-note { display: flex; align-items: baseline; gap: 7px; max-width: 86ch; margin: 0 0 12px; padding: 10px 13px; color: #5b3d06; background: rgba(248,231,189,.6); border: 1px solid rgba(183,133,47,.3); border-radius: 10px; font-size: 13.5px; line-height: 1.5; }
+.fx-scenario-note svg { flex: none; transform: translateY(2px); }
+.fx-method { margin-top: 12px; }
+.fx-method summary { color: #0f5d96; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fx-method p { color: #3f5868; font-size: 13px; line-height: 1.55; }
+@media (max-width: 1100px) { .fx-grid { grid-template-columns: 1fr; } }
+@media print {
+  .sidebar, .topbar, .fx-controls, .fx-slider, .app-footer, .heading-actions, .global-filters { display: none !important; }
+  .fx-grid { grid-template-columns: 1fr 1fr; }
+  .fx-card { break-inside: avoid; }
+}
