@@ -22,7 +22,9 @@ const months = [...new Set(records.map((record) => record.date.slice(0, 7)))].so
 const scopes = [
   ...months.flatMap((month) => ["all", ...COUNTRIES].map((country) => ({ kind: "monthly", country, month }))),
   ...COUNTRIES.map((country) => ({ kind: "country", country, period: "last12" })),
-  ...["last12", "2025", "2024", "all"].map((period) => ({ kind: "regional", country: "all", period })),
+  ...["last3", "last6", "last12", "last24", "2025", "2024", "all", "2026-Q2", "2025-Q4"].map((period) => ({ kind: "regional", country: "all", period })),
+  { kind: "country", country: "Saudi Arabia", period: "custom", fromMonth: "2025-03", toMonth: "2025-09" },
+  { kind: "regional", country: "all", period: "custom", fromMonth: "2024-10", toMonth: "2026-01" },
   ...events.map((event) => ({ kind: "event", event: event.id })),
 ];
 const DISCLAIMER = /summaries compiled for monitoring and analysis, not legal texts/;

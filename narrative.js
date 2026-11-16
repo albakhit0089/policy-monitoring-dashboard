@@ -5,8 +5,8 @@
 // - every number in the prose passes through the Writer, which records it, so tests can trace it to the data;
 // - every measure named in the text is a cited record with a source link, listed again in the annex;
 // - counts support a statement but never open one; interpretation stays measured ("suggests", "is consistent with").
-import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261115c";
-import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261115c";
+import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261116";
+import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261116";
 
 export const COUNTRIES = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"];
 const DAY = 864e5;
@@ -116,9 +116,21 @@ export function resolveScope(records, scope, events = []) {
       previous = { from: isoDay(Date.UTC(year, mon - 2, 1)), to: isoDay(Date.UTC(year, mon - 1, 0)) };
     } else {
       const period = scope.period || "last12";
+      const quarter = period.match(/^(\d{4})-Q([1-4])$/);
+      const lastN = { last3: 3, last6: 6, last12: 12, last24: 24 }[period];
       if (/^\d{4}$/.test(period)) { from = `${period}-01-01`; to = `${period}-12-31`; previous = { from: `${Number(period) - 1}-01-01`, to: `${Number(period) - 1}-12-31` }; }
-      else if (period === "all") { from = dated.map((record) => record.date).sort()[0]; to = through; }
-      else { to = through; from = isoDay(time(through) - 365 * DAY + DAY); previous = { from: isoDay(time(from) - 365 * DAY), to: isoDay(time(from) - DAY) }; }
+      else if (quarter) {
+        const year = Number(quarter[1]), startMonth = (Number(quarter[2]) - 1) * 3;
+        from = isoDay(Date.UTC(year, startMonth, 1)); to = isoDay(Date.UTC(year, startMonth + 3, 0));
+        previous = { from: isoDay(Date.UTC(year, startMonth - 3, 1)), to: isoDay(Date.UTC(year, startMonth, 0)) };
+      } else if (period === "custom" && /^\d{4}-\d{2}$/.test(scope.fromMonth || "") && /^\d{4}-\d{2}$/.test(scope.toMonth || "")) {
+        const [a, b] = [scope.fromMonth, scope.toMonth].sort();
+        const [toYear, toMonth] = b.split("-").map(Number);
+        from = `${a}-01`; to = isoDay(Date.UTC(toYear, toMonth, 0));
+        const span = time(to) - time(from) + DAY;
+        previous = { from: isoDay(time(from) - span), to: isoDay(time(from) - DAY) };
+      } else if (period === "all") { from = dated.map((record) => record.date).sort()[0]; to = through; }
+      else { const months = lastN || 12; to = through; from = isoDay(Date.UTC(Number(through.slice(0, 4)), Number(through.slice(5, 7)) - 1 - months, Number(through.slice(8, 10)) + 1)); previous = { from: isoDay(time(from) - (time(to) - time(from) + DAY)), to: isoDay(time(from) - DAY) }; }
     }
     rows = dated.filter((record) => inCountry(record) && record.date >= from && record.date <= to);
   }
@@ -261,7 +273,12 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   const where = s.kind === "event" ? `the GCC States and Yemen` : one ? name(one) : "the GCC States and Yemen";
   const when = s.kind === "monthly" ? `In ${w.month(s.from.slice(0, 7))}` : s.kind === "event" ? `Across the measures linked to ${s.label}` : `Between ${w.date(s.from)} and ${w.date(s.effectiveTo)}`;
   const periodLabel = s.kind === "monthly" ? w.month(s.from.slice(0, 7)) : s.kind === "event" ? `${w.date(s.from)} to ${w.date(s.to)}` : `${w.date(s.from)} to ${w.date(s.effectiveTo)}`;
-  const prevLabel = s.kind === "monthly" ? w.month(s.previous.from.slice(0, 7)) : s.previous ? `the previous ${w.num(12)} months` : null;
+  const prevLabel = s.kind === "monthly" ? w.month(s.previous.from.slice(0, 7))
+    : !s.previous ? null
+    : /^\d{4}$/.test(s.period || "") ? w.note(String(Number(s.period) - 1))
+    : /^\d{4}-Q[1-4]$/.test(s.period || "") ? "the previous quarter"
+    : s.period === "custom" ? "the preceding period of equal length"
+    : `the previous ${w.num({ last3: 3, last6: 6, last24: 24 }[s.period] || 12)} months`;
   const title = { monthly: "Monthly policy briefing", country: "Country policy brief", regional: "Regional policy analysis", event: "Event brief" }[s.kind];
   const subtitle = `${s.kind === "event" ? s.label : one || "GCC States and Yemen"} · ${periodLabel}`;
   const countriesLine = s.kind === "event" ? list(countBy(s.rows, (record) => record.country).map(([country]) => country)) : one || COUNTRIES.join(", ");
@@ -273,6 +290,7 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   }
 
   const stats = themeStats(s.rows);
+  const frameworks = s.rows.filter((record) => record.type === "framework");
   // Themes with at least two measures; a very small scope (an event with a handful of records) falls back to one.
   const active = stats.filter((theme) => theme.count >= 2).length ? stats.filter((theme) => theme.count >= 2) : stats.filter((theme) => theme.count >= 1);
   const prevStats = s.prevRows ? Object.fromEntries(themeStats(s.prevRows).map((theme) => [theme.key, theme.count])) : null;
@@ -343,6 +361,17 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
     const direction = now > before * 1.15 ? `higher than in ${prevLabel}` : now < before * .85 ? `lower than in ${prevLabel}` : `similar to ${prevLabel}`;
     context.push(p(`Policy activity was ${direction} (${w.num(now)} measures against ${w.num(before)})${s.partial ? `, although this month is covered only to ${w.date(s.effectiveTo)}` : ""}.`));
   }
+  // Composition of the record: binding frameworks against day-to-day decisions, and the instruments used.
+  if (s.rows.length >= 8) {
+    const profile = [`Of the ${w.num(s.rows.length)} measures in scope, ${w.num(frameworks.length)} set long-term frameworks; the rest are short-term decisions.`];
+    const mix = countBy(s.rows, instrumentOf).filter(([key]) => !["other", "event"].includes(key)).slice(0, 3);
+    if (mix.length) profile.push(`The most used instruments were ${list(mix.map(([key, count]) => `${INSTRUMENT[key].label} (${w.num(count)})`))}.`);
+    if (!["monthly", "event"].includes(s.kind)) {
+      const byMonth = countBy(s.rows, (record) => record.date.slice(0, 7));
+      if (byMonth.length > 2 && byMonth[0][1] >= 3) profile.push(`Within the period, activity peaked in ${w.month(byMonth[0][0])}, with ${w.num(byMonth[0][1])} measures.`);
+    }
+    context.push(p(profile.join(" ")));
+  }
 
   // ---------- 3. Policy developments and analysis ----------
   const themeBlocks = active.slice(0, s.kind === "monthly" ? 4 : 5).flatMap((theme) => {
@@ -375,12 +404,49 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
     const spike = hot.find((item) => item.value >= 5 && theme.rows.some((record) => record.country === item.country && (theme.key === "trade" || theme.key === "social")));
     if (spike) comparisons.push(`In ${name(spike.country)}, these measures coincided with food price inflation of ${w.pct(spike.value)} (${w.month(spike.month)}).`);
     if (comparisons.length) blocks.push(p(comparisons.join(" ")));
+    // A measured technical reading of the theme, conditioned on what the record shows.
+    const assessment = [];
+    const fw = theme.rows.filter((record) => record.type === "framework").length;
+    if (fw >= 2) assessment.push(`${w.num(fw)} of these measures are long-term frameworks, so their effects will build over years rather than months.`);
+    const funded = theme.rows.filter((record) => MONEY.test(lead(record))).length;
+    if (funded >= 2) assessment.push(`${w.num(funded)} carry stated financial commitments, which makes follow-up on disbursement possible.`);
+    const topInstrument = theme.instruments[0]?.[0];
+    if (theme.count >= 4 && topInstrument) assessment.push({
+      regulation: `The reliance on regulation puts the burden of impact on inspection and enforcement capacity.`,
+      subsidy: `The reliance on financial support makes this theme sensitive to budget decisions in the next fiscal cycle.`,
+      investment: `The weight of investment suggests capacity is being built ahead of demand; utilisation is worth tracking.`,
+      agreement: `Progress here rests on agreements, so delivery depends on follow-through by the partners involved.`,
+      trade: `Trade instruments act quickly on availability but can transmit costs to consumers; price pass-through merits attention.`,
+      institutional: `The emphasis on strategies and institutional reform sets direction; implementing rules are the next test.`,
+      capacity: `Most of this activity is training and awareness, which builds capability but delivers few immediate outcomes.`,
+      event: `Much of the recorded activity is forums and exhibitions rather than binding decisions.`,
+    }[topInstrument] || "");
+    if (assessment.filter(Boolean).length) blocks.push(p(assessment.filter(Boolean).join(" ")));
     const picks = illustrate(theme, theme.rows, Math.min(4, Math.max(2, Math.ceil(theme.count / 8))), used);
     if (picks.length) blocks.push({ type: "p", parts: ["Illustrative measures:"] }, bullets(picks.map((record) => [w.cite(record), ` (${INSTRUMENT[instrumentOf(record)]?.one || "policy decision"})`])));
     return blocks;
   });
 
-  // ---------- 4. Policy coherence and gaps ----------
+  // ---------- 4. Instruments and institutions ----------
+  const actorBlocks = [];
+  if (s.rows.length >= 8) {
+    const binding = s.rows.filter((record) => ["regulation", "institutional"].includes(instrumentOf(record))).length;
+    const enabling = s.rows.filter((record) => ["subsidy", "investment"].includes(instrumentOf(record))).length;
+    const soft = s.rows.filter((record) => ["capacity", "event"].includes(instrumentOf(record))).length;
+    const share = (count) => w.pct(count / s.rows.length * 100, 0);
+    actorBlocks.push(p(`Binding instruments – regulation and institutional reform – account for ${share(binding)} of the measures. Financial support and investment account for ${share(enabling)}, and preparatory activity – training, forums, awareness – for ${share(soft)}.`));
+    actorBlocks.push(p(binding >= enabling && binding >= soft
+      ? `This weighting towards binding rules means enforcement capacity will largely determine impact on the ground.`
+      : enabling >= soft
+        ? `This weighting towards finance points to a budget-led approach; continuity depends on fiscal space.`
+        : `The weight of preparatory activity means measurable outcomes will lag the announcements in this record.`));
+  }
+  const institutionsTop = countBy(s.rows.filter((record) => institutionName(record.institution)), (record) => record.institution).slice(0, 2).filter(([, count]) => count >= 2);
+  if (institutionsTop.length) actorBlocks.push(p(`${w.pick(["The most active institutions were", "Institutional activity concentrated in"], "actors-inst")} ${list(institutionsTop.map(([value, count]) => `${institutionName(value)} (${w.num(count)} measures)`))}.`));
+  const institutionBreadth = new Set(s.rows.map((record) => record.institution).filter(Boolean)).size;
+  if (institutionBreadth >= 5) actorBlocks.push(p(`In all, ${w.num(institutionBreadth)} distinct institutions appear in the record, a sign that food policy cuts across portfolios.`));
+
+  // ---------- 5. Policy coherence and gaps ----------
   const coherence = [];
   restrictions.slice(0, 2).forEach((record) => coherence.push([w.cite(record), ` restricts trade flows. It may tighten supply in neighbouring markets that rely on these flows.`]));
   // Production expansion alongside water measures, in the same country: one sentence for all such countries.
@@ -411,6 +477,20 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   if (hot.length) implications.push([`Prices: ${hot[0].value >= 5 ? `food price inflation of ${w.pct(hot[0].value)} in ${name(hot[0].country)} suggests pressure on household budgets that supply measures alone are unlikely to relieve` : `food price inflation was moderate in the countries covered, which gives room for longer-term measures`}.`]);
   const producerRows = s.rows.filter((record) => themesOf(record).includes("producers"));
   if (producerRows.length) implications.push([`Producers: ${producerRows.filter((record) => ["subsidy", "investment"].includes(instrumentOf(record))).length >= 2 ? "investment and financial support continue to favour expansion of capacity; reach to smaller producers is not visible in the record" : "support to producers relies mostly on programmes and training rather than finance"}.`]);
+  if (restrictions.length) implications.push([`Trade: restrictions on trade flows can raise costs in markets that depend on them; pass-through to retail prices merits monitoring.`]);
+  const waterRows = s.rows.filter((record) => themesOf(record).includes("water"));
+  if (waterRows.length >= 2) implications.push([`Natural resources: measures on water and climate give production a base of resilience, but implementation metrics are not visible in the record.`]);
+  if (frameworks.length >= 2) implications.push([`Governance: the long-term frameworks set in this period will take effect through implementing rules and budgets, not through the announcements themselves.`]);
+
+  // ---------- Outlook ----------
+  const outlook = [];
+  if (rising.length) outlook.push([`Attention to ${rising[0].short} is rising; whether it carries into the next period is the clearest signal to watch.`]);
+  if (restrictions.length) outlook.push([`The duration of `, w.cite(restrictions[0]), ` will shape supply in markets that depend on these flows.`]);
+  const watchFramework = frameworks.filter(hasSource).sort((a, b) => significance(b) - significance(a))[0];
+  if (watchFramework) outlook.push([`Implementing regulations for `, w.cite(watchFramework), ` are the next step to watch; they typically follow within months.`]);
+  if (hot.length && hot[0].value >= 3) outlook.push([`If food price inflation in ${name(hot[0].country)} stays at ${w.pct(hot[0].value)} or above, pressure for consumer-side measures will grow.`]);
+  if (s.partial) outlook.push([`The latest month is covered only to ${w.date(s.effectiveTo)}; the picture may still change as measures are reported.`]);
+  if (!outlook.length) outlook.push([`No specific forward signal stands out; monitoring continues on the established themes.`]);
 
   // ---------- 6. Recommendations ----------
   const recs = [];
@@ -422,14 +502,16 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   if (quiet.length) recs.push([`Strengthen monitoring coverage for ${list(quiet.map(name))}, for example through focal points in the relevant ministries.`]);
   if (socialShare < .05 && s.kind !== "event") recs.push([`Review options to link food security strategies with social protection, drawing on regional experience.`]);
 
-  const keyMessages = km.slice(0, 5);
+  const keyMessages = km.slice(0, 6);
   const ex = buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w });
   const sections = [
     { title: "Key messages", blocks: [bullets(keyMessages.map((block) => block.parts))] },
     { title: "Context", blocks: [ex.keyTable, ...context, ex.monthly, ex.inflation, ex.basketText, ex.basketTable].filter(Boolean) },
-    { title: "Policy developments and analysis", blocks: [ex.themes, ex.actors, ...(themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")])].filter(Boolean) },
+    { title: "Policy developments and analysis", blocks: [ex.themes, ...(themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")])].filter(Boolean) },
+    { title: "Instruments and institutions", blocks: [ex.actors, ...actorBlocks].filter(Boolean) },
     { title: "Policy coherence and gaps", blocks: [bullets(coherence)] },
     { title: "Implications", blocks: [bullets(implications)] },
+    { title: "Outlook", blocks: [bullets(outlook)] },
     { title: "Recommendations and areas for FAO support", blocks: [bullets(recs.length ? recs : [["Continue regular monitoring; the period shows no specific gap that calls for new support."]])] },
   ];
   // Computed indicators and the evidence pool, for the optional AI-assisted draft (which may use nothing else).
