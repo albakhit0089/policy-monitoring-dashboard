@@ -1,8 +1,8 @@
 // "This month": the latest briefing at a glance — key messages and themes from the narrative engine,
 // food price inflation with policy measures marked on it, what is new since the last visit, and a watchlist.
-import { buildBrief, COUNTRIES, THEMES, themesOf, toHtml } from "./narrative.js?v=pi-20261115c";
-import { buildDocx } from "./docx.js?v=pi-20261115c";
-import { loadEvents } from "./data-service.js?v=pi-20261115c";
+import { buildBrief, COUNTRIES, THEMES, themesOf, toHtml } from "./narrative.js?v=pi-20261116";
+import { buildDocx } from "./docx.js?v=pi-20261116";
+import { loadEvents } from "./data-service.js?v=pi-20261116";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -39,7 +39,7 @@ export async function renderThisMonthPage(ui, food) {
   const fragment = (blocks) => { const temp = document.createElement("div"); temp.innerHTML = toHtml({ ...report, sections: [{ title: "", blocks }] }); return temp.querySelector("section").innerHTML.replace(/^<h3>[^<]*<\/h3>/, ""); };
 
   $("#page-content").innerHTML = `${ui.heading(`This month: ${monthName(t.month)}`, `${t.country === "all" ? "GCC States and Yemen" : t.country} · data through ${ui.formatDate(through)}${isPartial ? " · partial month" : ""}`, "POLICY BRIEFING", `<div class="tm-actions"><button class="button button-primary" id="tm-word" type="button">${ui.icon("file-text")}Export brief (Word)</button><button class="button button-outline" id="tm-pdf" type="button">${ui.icon("printer")}PDF</button><button class="button button-outline" id="tm-link" type="button">${ui.icon("link")}Copy link</button></div>`)}
-  <div class="tm-scope"><div class="chart-toolbar" role="group" aria-label="Month">${[...new Set([...months.slice(-3), t.month])].sort().map((key) => `<button type="button" data-tm-month="${key}" aria-pressed="${key === t.month}">${escapeHtml(monthName(key))}${key === partial ? " (partial)" : ""}</button>`).join("")}</div><label class="tm-country">Scope<select id="tm-country"><option value="all">All countries</option>${COUNTRIES.map((country) => `<option ${country === t.country ? "selected" : ""}>${escapeHtml(country)}</option>`).join("")}</select></label>${isPartial ? `<span class="tm-partial">${ui.icon("info", 14)}${escapeHtml(monthName(t.month))} is covered only to ${escapeHtml(ui.formatDate(through))}.</span>` : ""}</div>
+  <div class="tm-scope"><div class="chart-toolbar" role="group" aria-label="Month">${[...new Set([...months.slice(-3), t.month])].sort().map((key) => `<button type="button" data-tm-month="${key}" aria-pressed="${key === t.month}">${escapeHtml(monthName(key))}${key === partial ? " (partial)" : ""}</button>`).join("")}</div><label class="tm-country">Any month<select id="tm-month">${[...months].reverse().map((key) => `<option value="${key}" ${key === t.month ? "selected" : ""}>${escapeHtml(monthName(key))}${key === partial ? " (partial)" : ""}</option>`).join("")}</select></label><label class="tm-country">Scope<select id="tm-country"><option value="all">All countries</option>${COUNTRIES.map((country) => `<option ${country === t.country ? "selected" : ""}>${escapeHtml(country)}</option>`).join("")}</select></label>${isPartial ? `<span class="tm-partial">${ui.icon("info", 14)}${escapeHtml(monthName(t.month))} is covered only to ${escapeHtml(ui.formatDate(through))}.</span>` : ""}</div>
   <div class="content-grid">
     ${ui.card("Key messages", "The main developments and why they matter for food security.", `<div class="tm-key generated-text">${fragment([keyMessages])}</div><button class="text-button" type="button" data-nav-to="reports">${ui.icon("file-text")}Read the full brief</button>`, "span-7")}
     ${ui.card("What's new since your last visit", "Measures added to the record since you last opened this page.", `<div id="tm-new"></div>`, "span-5")}
@@ -50,6 +50,7 @@ export async function renderThisMonthPage(ui, food) {
   <div class="generated-report print-only" id="generated-report">${html}</div>`;
 
   $$("[data-tm-month]").forEach((button) => button.addEventListener("click", () => { t.month = button.dataset.tmMonth; rerender(ui); }));
+  $("#tm-month").addEventListener("change", (event) => { t.month = event.target.value; rerender(ui); });
   $("#tm-country").addEventListener("change", (event) => { t.country = event.target.value; rerender(ui); });
   $$("[data-nav-to]").forEach((button) => button.addEventListener("click", () => { state.report = { type: "monthly", month: t.month, country: t.country }; ui.setPage(button.dataset.navTo); }));
   $("#tm-word").addEventListener("click", () => ui.downloadBlob(new Blob([buildDocx(report)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), `monthly-briefing-${t.month}-${t.country.toLowerCase().replace(/\s+/g, "-")}.docx`));

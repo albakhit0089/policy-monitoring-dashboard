@@ -6,9 +6,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 let dataPromise = null;
-const loadForecasts = () => dataPromise ||= fetch("./data/forecasts/food-cpi.json?v=pi-20261115c").then((r) => { if (!r.ok) throw new Error(`Forecast data unavailable (${r.status})`); return r.json(); });
+const loadForecasts = () => dataPromise ||= fetch("./data/forecasts/food-cpi.json?v=pi-20261116").then((r) => { if (!r.ok) throw new Error(`Forecast data unavailable (${r.status})`); return r.json(); });
 let contextPromise = null;
-const loadContext = () => contextPromise ||= fetch("./data/forecasts/context.json?v=pi-20261115c").then((r) => { if (!r.ok) throw new Error(`Context data unavailable (${r.status})`); return r.json(); });
+const loadContext = () => contextPromise ||= fetch("./data/forecasts/context.json?v=pi-20261116").then((r) => { if (!r.ok) throw new Error(`Context data unavailable (${r.status})`); return r.json(); });
 
 const ymDate = (ym) => new Date(`${ym}-01T00:00:00Z`);
 const ymLabel = (ym) => ymDate(ym).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });

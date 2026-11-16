@@ -1,8 +1,8 @@
 // Reports page: narrative technical briefs from the deterministic engine (narrative.js), with Word, PDF,
 // Markdown and text exports, a shareable link, and an optional AI-assisted draft when an endpoint is configured.
-import { buildBrief, COUNTRIES, toHtml, toMarkdown, toText } from "./narrative.js?v=pi-20261115c";
-import { buildDocx } from "./docx.js?v=pi-20261115c";
-import { loadEvents } from "./data-service.js?v=pi-20261115c";
+import { buildBrief, COUNTRIES, toHtml, toMarkdown, toText } from "./narrative.js?v=pi-20261116";
+import { buildDocx } from "./docx.js?v=pi-20261116";
+import { loadEvents } from "./data-service.js?v=pi-20261116";
 
 export const REPORT_TYPES = {
   monthly: "Monthly policy briefing",
@@ -29,8 +29,9 @@ export async function renderReportsPage(ui, food) {
   const months = [...new Set(state.records.map((record) => record.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
   const partial = ui.partialMonth();
   const years = [...new Set(state.records.map((record) => record.year).filter(Boolean))].sort((a, b) => b - a);
+  const quarters = [...new Set(months.map((key) => `${key.slice(0, 4)}-Q${Math.ceil(Number(key.slice(5, 7)) / 3)}`))].sort().reverse().slice(0, 6);
   // Defaults: the latest complete month; a link (#reports?type=...) or an earlier choice overrides them.
-  state.report = { type: "monthly", country: "all", month: months.find((key) => key !== partial) || months[0], period: "last12", event: events[0]?.id, ...state.report, ...(reportScopeFromHash() || {}) };
+  state.report = { type: "monthly", country: "all", month: months.find((key) => key !== partial) || months[0], period: "last12", fromMonth: months[Math.min(11, months.length - 1)], toMonth: months[0], event: events[0]?.id, ...state.report, ...(reportScopeFromHash() || {}) };
   const r = state.report;
   if (!REPORT_TYPES[r.type]) r.type = "monthly";
   const option = (value, label, selected) => `<option value="${escapeHtml(value)}" ${selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -41,7 +42,9 @@ export async function renderReportsPage(ui, food) {
         <label>Brief type<select id="report-type">${Object.entries(REPORT_TYPES).map(([key, label]) => option(key, label, r.type === key)).join("")}</select></label>
         <label data-field="month">Month<select id="report-month">${months.map((key) => option(key, `${monthName(key)}${key === partial ? " (partial)" : ""}`, r.month === key)).join("")}</select></label>
         <label data-field="country">Country<select id="report-country"><option value="all">All countries</option>${COUNTRIES.map((country) => option(country, country, r.country === country)).join("")}</select></label>
-        <label data-field="period">Period<select id="report-period">${[["last12", "Last 12 months"], ...years.map((year) => [String(year), String(year)]), ["all", "Whole record"]].map(([value, label]) => option(value, label, r.period === value)).join("")}</select></label>
+        <label data-field="period">Period<select id="report-period">${[["last3", "Last 3 months"], ["last6", "Last 6 months"], ["last12", "Last 12 months"], ["last24", "Last 24 months"], ...quarters.map((q) => [q, q.replace("-", " ")]), ...years.map((year) => [String(year), String(year)]), ["all", "Whole record"], ["custom", "Custom range…"]].map(([value, label]) => option(value, label, r.period === value)).join("")}</select></label>
+        <label data-field="range">From<select id="report-from">${[...months].reverse().map((key) => option(key, monthName(key), r.fromMonth === key)).join("")}</select></label>
+        <label data-field="range">To<select id="report-to">${months.map((key) => option(key, monthName(key), r.toMonth === key)).join("")}</select></label>
         <label data-field="event">Event<select id="report-event">${events.length ? events.map((event) => option(event.id, event.name, r.event === event.id)).join("") : '<option value="">No events defined</option>'}</select></label>
       </div>
       <div class="report-actions">
@@ -55,7 +58,7 @@ export async function renderReportsPage(ui, food) {
     </div></section>
     <section class="card span-12"><div class="card-body"><div id="ai-draft-panel" hidden></div><article class="generated-report" id="generated-report" aria-live="polite"></article></div></section>
   </div>`;
-  const read = () => { r.type = $("#report-type").value; r.month = $("#report-month").value; r.country = $("#report-country").value; r.period = $("#report-period").value; r.event = $("#report-event").value; };
+  const read = () => { r.type = $("#report-type").value; r.month = $("#report-month").value; r.country = $("#report-country").value; r.period = $("#report-period").value; r.fromMonth = $("#report-from").value; r.toMonth = $("#report-to").value; r.event = $("#report-event").value; };
   document.querySelectorAll(".report-form select").forEach((control) => control.addEventListener("change", () => { read(); generate(ui, food, events); }));
   $("#print-report").addEventListener("click", () => { document.body.classList.add("printing-report"); window.print(); setTimeout(() => document.body.classList.remove("printing-report"), 500); });
   $("#word-brief").addEventListener("click", () => ui.downloadBlob(new Blob([buildDocx(state.currentReport)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), `${slug(state.currentReport)}.docx`));
@@ -69,12 +72,12 @@ export async function renderReportsPage(ui, food) {
 
 function generate(ui, food, events) {
   const r = ui.state.report;
-  document.querySelectorAll(".report-form [data-field]").forEach((label) => { label.hidden = !FIELDS[r.type].includes(label.dataset.field); });
+  document.querySelectorAll(".report-form [data-field]").forEach((label) => { label.hidden = label.dataset.field === "range" ? !(FIELDS[r.type].includes("period") && r.period === "custom") : !FIELDS[r.type].includes(label.dataset.field); });
   // A country brief needs one country.
   const all = $("#report-country option[value='all']");
   all.hidden = all.disabled = r.type === "country";
   if (r.type === "country" && r.country === "all") { r.country = "Saudi Arabia"; $("#report-country").value = r.country; }
-  const scope = { kind: r.type, country: r.type === "regional" || r.type === "event" ? "all" : r.country, month: r.month, period: r.period, event: r.event };
+  const scope = { kind: r.type, country: r.type === "regional" || r.type === "event" ? "all" : r.country, month: r.month, period: r.period, fromMonth: r.fromMonth, toMonth: r.toMonth, event: r.event };
   const target = $("#generated-report");
   $("#ai-draft-panel").hidden = true;
   try {
@@ -92,6 +95,7 @@ function generate(ui, food, events) {
 function scopeParams(r) {
   const params = new URLSearchParams({ type: r.type });
   FIELDS[r.type].forEach((field) => { if (r[field]) params.set(field, r[field]); });
+  if (FIELDS[r.type].includes("period") && r.period === "custom") { if (r.fromMonth) params.set("fromMonth", r.fromMonth); if (r.toMonth) params.set("toMonth", r.toMonth); }
   return params;
 }
 const shareLink = (r) => `${location.origin}${location.pathname}#reports?${scopeParams(r)}`;
