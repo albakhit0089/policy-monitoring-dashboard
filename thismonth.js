@@ -1,8 +1,8 @@
 // "This month": the latest briefing at a glance — key messages and themes from the narrative engine,
 // food price inflation with policy measures marked on it, what is new since the last visit, and a watchlist.
-import { buildBrief, COUNTRIES, THEMES, themesOf, toHtml } from "./narrative.js?v=pi-20261116";
-import { buildDocx } from "./docx.js?v=pi-20261116";
-import { loadEvents } from "./data-service.js?v=pi-20261116";
+import { buildBrief, COUNTRIES, THEMES, themesOf, toHtml } from "./narrative.js?v=pi-20261116b";
+import { buildDocx } from "./docx.js?v=pi-20261116b";
+import { loadEvents } from "./data-service.js?v=pi-20261116b";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];

@@ -5,8 +5,8 @@
 // - every number in the prose passes through the Writer, which records it, so tests can trace it to the data;
 // - every measure named in the text is a cited record with a source link, listed again in the annex;
 // - counts support a statement but never open one; interpretation stays measured ("suggests", "is consistent with").
-import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261116";
-import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261116";
+import { approachesOf, examples } from "./policy-analysis.js?v=pi-20261116b";
+import { cpiSummary, dietSummary, formatLocal, GCC_PRICE_COUNTRIES, gccBasket, gccBasketSummary } from "./food-analysis.js?v=pi-20261116b";
 
 export const COUNTRIES = ["Bahrain", "Kuwait", "Oman", "Qatar", "Saudi Arabia", "United Arab Emirates", "Yemen"];
 const DAY = 864e5;
@@ -213,6 +213,10 @@ const POLICY_SOURCE = "FAO policy monitoring record (summaries of public reporti
 function buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w }) {
   const out = {};
   const inScope = (record) => !one || record.country === one;
+  // Exhibits are numbered here, in order of appearance, so the prose can discuss each figure by name.
+  // finish() renumbers in the same order, so the two always agree.
+  const counters = { figure: 0, table: 0 };
+  const tag = (block) => { counters[block.kind] += 1; block.label = `${block.kind === "figure" ? "Figure" : "Table"} ${counters[block.kind]}`; return block; };
   // Key indicators.
   const prevThemes = prevStats ? Object.entries(prevStats).sort((a, b) => b[1] - a[1]) : [];
   const keyRows = [
@@ -221,7 +225,7 @@ function buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w }
     ...(!one ? [["Countries with at least one measure", fmt(new Set(s.rows.map((record) => record.country)).size), s.prevRows ? fmt(new Set(s.prevRows.map((record) => record.country)).size) : "–"]] : []),
     ["Leading policy theme", stats[0]?.count ? stats[0].label : "–", prevThemes[0]?.[1] ? THEME[prevThemes[0][0]].label : "–"],
   ];
-  out.keyTable = exhibit("table", `Key indicators, ${s.kind === "event" ? s.label : one ? name(one) : "GCC States and Yemen"}`, POLICY_SOURCE, ["Indicator", s.kind === "monthly" ? "This month" : "This period", prevLabel ? `Previous (${prevLabel})` : "Previous period"], keyRows);
+  out.keyTable = tag(exhibit("table", `Key indicators, ${s.kind === "event" ? s.label : one ? name(one) : "GCC States and Yemen"}`, POLICY_SOURCE, ["Indicator", s.kind === "monthly" ? "This month" : "This period", prevLabel ? `Previous (${prevLabel})` : "Previous period"], keyRows));
   // Monthly activity over the 13 months to the end of the period (the partial month hatched).
   const endKey = s.effectiveTo.slice(0, 7);
   const months = Array.from({ length: 13 }, (_, i) => { const [y, m] = endKey.split("-").map(Number); const d = new Date(Date.UTC(y, m - 13 + i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; });
@@ -230,12 +234,27 @@ function buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w }
   const [ty, tm, td] = s.through.split("-").map(Number);
   const partialKey = td < new Date(Date.UTC(ty, tm, 0)).getUTCDate() ? s.through.slice(0, 7) : null;
   const monthly = months.map((key) => ({ label: shortMonthName(key), value: scopeRows.filter((record) => record.date.startsWith(key)).length, partial: key === partialKey }));
-  out.monthly = exhibit("figure", `Policy measures per month, ${shortMonthName(months[0])} to ${shortMonthName(endKey)}${monthly.at(-1).partial ? " (latest month partial, hatched)" : ""}`, POLICY_SOURCE, ["Month", "Measures"], monthly.map((row) => [row.label, fmt(row.value)]), columns(monthly));
+  out.monthly = tag(exhibit("figure", `Policy measures per month, ${shortMonthName(months[0])} to ${shortMonthName(endKey)}${monthly.at(-1).partial ? " (latest month partial, hatched)" : ""}`, POLICY_SOURCE, ["Month", "Measures"], monthly.map((row) => [row.label, fmt(row.value)]), columns(monthly)));
+  // A reading of the chart, not a recount of it: direction of travel and where the pulse was strongest.
+  const whole = monthly.filter((row) => !row.partial);
+  if (whole.length >= 6) {
+    const recentPace = whole.slice(-3).reduce((sum, row) => sum + row.value, 0) / 3;
+    const earlierPace = whole.slice(0, 3).reduce((sum, row) => sum + row.value, 0) / 3;
+    const peak = [...whole].sort((a, b) => b.value - a.value)[0];
+    const direction = recentPace > earlierPace * 1.3 ? "The recent pace of policy-making is well above its level of a year earlier"
+      : recentPace < earlierPace * .7 ? "The recent pace of policy-making has slowed markedly from a year earlier"
+      : "The pace of policy-making is broadly steady on a year earlier";
+    out.monthlyNote = p(`${w.note(out.monthly.label)} sets the period against the preceding year. ${direction}; the strongest month of the window was ${w.note(peak.label)}. Reporting intensity varies by source, so the shape of the curve matters more than any single bar.`);
+  }
   // Food price inflation, latest month available in the period, all countries covered (scope country highlighted).
   const cpi = food && cpiSummary(food);
   if (cpi) {
     const rows = COUNTRIES.map((country) => ({ country, cpi: cpiFor(food, country, s.from, s.to) })).filter((item) => item.cpi).map(({ country, cpi: c }) => { const month = c.inPeriod.at(-1) || c.latest; return { label: `${country === "United Arab Emirates" ? "UAE" : country} (${shortMonthName(month)})`, value: c.value(month), highlight: country === one }; }).filter((row) => row.value !== undefined).sort((a, b) => b.value - a.value);
-    out.inflation = exhibit("figure", "Food price inflation, latest month available (% change on the same month a year earlier)", "FAOSTAT consumer price indices (CP). Yemen is not covered; months that only repeat the previous year are excluded.", ["Country (month)", "Food price inflation (%)"], rows.map((row) => [row.label, fmt(row.value, 1)]), hbars(rows, { digits: 1, suffix: "%" }));
+    out.inflation = tag(exhibit("figure", "Food price inflation, latest month available (% change on the same month a year earlier)", "FAOSTAT consumer price indices (CP). Yemen is not covered; months that only repeat the previous year are excluded.", ["Country (month)", "Food price inflation (%)"], rows.map((row) => [row.label, fmt(row.value, 1)]), hbars(rows, { digits: 1, suffix: "%" })));
+    if (rows.length >= 3) {
+      const spread = rows[0].value - rows.at(-1).value;
+      out.inflationNote = p(`${w.note(out.inflation.label)} shows the dispersion that matters for policy: ${w.num(spread, 1)} percentage points separate the fastest and slowest markets. A common regional response would fit this picture poorly; the exposure is country-specific. Where inflation runs highest, the test is whether trade and household-support measures respond, and the coherence section returns to this.`);
+    }
   }
   // Farm-gate prices of GCC strategic commodities.
   if (food?.prices) {
@@ -248,19 +267,37 @@ function buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w }
       const up = summary.filter((group) => group.median > 0.5).sort((a, b) => b.median - a.median), down = summary.filter((group) => group.median < -0.5);
       out.basketText = p(`Since ${w.note(String(from))}, farm-gate prices of the GCC strategic commodities${one ? ` in ${name(one)}` : ""} ${up.length ? `rose most for ${list(up.slice(0, 2).map((group) => `${group.group.toLowerCase()} (median ${w.pct(group.median, 0)})`))}` : "changed little"}${down.length ? `, while ${list(down.map((group) => group.group.toLowerCase()))} fell (median ${w.pct(Math.abs(down[0].median), 0)})` : ""}. Producer prices are annual and run to ${w.note(String(food.prices.years.at(-1)))}.`);
       const rows = basket.flatMap((section) => [[{ group: section.group }], ...section.rows.map((row) => [row.name.replace(/, fresh( or chilled)?| in shell| \(excluding dehydrated\)|, dry/g, ""), ...countries.map((country) => { const cell = row.cells[country]; return cell ? `${formatLocal(cell.lcu, country)}${cell.change !== null ? ` (${cell.change > 0 ? "+" : ""}${fmt(cell.change)}%)` : ""}` : "–"; })])]);
-      out.basketTable = exhibit("table", `Farm-gate prices of GCC strategic commodities: latest price per kg (change since ${from})`, "FAOSTAT producer prices (PP), local currency. The UAE does not report producer prices; Yemen is excluded because rial depreciation dominates its local prices.", ["Commodity", ...countries.map((country) => country === "Saudi Arabia" ? "Saudi Arabia" : country)], rows);
+      out.basketTable = tag(exhibit("table", `Farm-gate prices of GCC strategic commodities: latest price per kg (change since ${from})`, "FAOSTAT producer prices (PP), local currency. The UAE does not report producer prices; Yemen is excluded because rial depreciation dominates its local prices.", ["Commodity", ...countries.map((country) => country === "Saudi Arabia" ? "Saudi Arabia" : country)], rows));
     } else out.basketText = p(`${one === "United Arab Emirates" ? "The UAE does not report producer prices to FAOSTAT" : "Yemen's farm-gate prices are not compared here because rial depreciation dominates its local prices"}, so the GCC strategic commodities table is not shown for ${name(one)}.`);
   }
   // Measures by theme, this period and the previous one.
   const themeRows = stats.filter((theme) => theme.count || (prevStats && prevStats[theme.key])).slice(0, 7).map((theme) => ({ label: theme.short.charAt(0).toUpperCase() + theme.short.slice(1), value: theme.count, ...(prevStats ? { previous: prevStats[theme.key] || 0 } : {}) }));
-  out.themes = exhibit("figure", `Policy measures by theme${prevStats ? `, this period and ${prevLabel}` : ""} (a measure can address several themes)`, POLICY_SOURCE, ["Theme", "This period", ...(prevStats ? ["Previous"] : [])], themeRows.map((row) => [row.label, fmt(row.value), ...(prevStats ? [fmt(row.previous)] : [])]), hbars(themeRows, { series: prevStats ? [["This period", "#116aab"], [`Previous (${prevLabel})`, "#b8c5ce"]] : null }));
+  out.themes = tag(exhibit("figure", `Policy measures by theme${prevStats ? `, this period and ${prevLabel}` : ""} (a measure can address several themes)`, POLICY_SOURCE, ["Theme", "This period", ...(prevStats ? ["Previous"] : [])], themeRows.map((row) => [row.label, fmt(row.value), ...(prevStats ? [fmt(row.previous)] : [])]), hbars(themeRows, { series: prevStats ? [["This period", "#116aab"], [`Previous (${prevLabel})`, "#b8c5ce"]] : null })));
+  // What the theme profile implies, rather than what it counts.
+  if (s.rows.length >= 8 && stats[0]?.count) {
+    const topShare = stats[0].count / s.rows.length * 100;
+    const breadth = stats.filter((theme) => theme.count >= 2).length;
+    const reading = topShare >= 45 ? `The agenda is concentrated: ${stats[0].short} absorbs ${w.pct(topShare, 0)} of recorded effort, so outcomes in that area will define the period`
+      : topShare >= 28 ? `${stats[0].short.charAt(0).toUpperCase()}${stats[0].short.slice(1)} leads with ${w.pct(topShare, 0)} of recorded effort, but the tail is broad`
+      : `No single theme dominates; effort is spread across the agenda`;
+    out.themesNote = p(`${w.note(out.themes.label)} shows where attention went. ${reading}. With ${w.num(breadth)} themes in active use, sequencing and coordination across portfolios matter as much as any single measure.`);
+  }
   // Who acted: countries for regional scopes, instruments for a single country.
   if (one) {
     const instrumentRows = INSTRUMENTS.map((item) => ({ label: item.label.charAt(0).toUpperCase() + item.label.slice(1), value: s.rows.filter((record) => instrumentOf(record) === item.key).length })).filter((row) => row.value).sort((a, b) => b.value - a.value);
-    out.actors = exhibit("figure", `Policy measures by instrument, ${name(one)}`, POLICY_SOURCE, ["Instrument", "Measures"], instrumentRows.map((row) => [row.label, fmt(row.value)]), hbars(instrumentRows));
+    out.actors = tag(exhibit("figure", `Policy measures by instrument, ${name(one)}`, POLICY_SOURCE, ["Instrument", "Measures"], instrumentRows.map((row) => [row.label, fmt(row.value)]), hbars(instrumentRows)));
+    if (instrumentRows.length >= 3 && s.rows.length >= 8) {
+      const lean = instrumentRows[0].value / s.rows.length * 100;
+      out.actorsNote = p(`${w.note(out.actors.label)} profiles how ${name(one)} works: ${instrumentRows[0].label.toLowerCase()} carry ${w.pct(lean, 0)} of the effort. An instrument profile this ${lean >= 40 ? "narrow concentrates delivery risk in one channel" : "mixed spreads delivery risk across channels"}, which shapes where implementation can stall.`);
+    }
   } else {
     const countryRows = COUNTRIES.map((country) => ({ label: country, value: s.rows.filter((record) => record.country === country).length })).sort((a, b) => b.value - a.value);
-    out.actors = exhibit("figure", "Policy measures by country", POLICY_SOURCE, ["Country", "Measures"], countryRows.map((row) => [row.label, fmt(row.value)]), hbars(countryRows));
+    out.actors = tag(exhibit("figure", "Policy measures by country", POLICY_SOURCE, ["Country", "Measures"], countryRows.map((row) => [row.label, fmt(row.value)]), hbars(countryRows)));
+    if (s.rows.length >= 8 && countryRows[0].value) {
+      const lead = countryRows[0], second = countryRows[1];
+      const leadShare = lead.value / s.rows.length * 100;
+      out.actorsNote = p(`${w.note(out.actors.label)} shows who is driving the agenda. ${Name(lead.label)} accounts for ${w.pct(leadShare, 0)} of recorded activity${second?.value && lead.value / second.value >= 1.8 ? `, roughly ${w.num(Math.round(lead.value / second.value))} times the next most active country` : ""}. Part of this is reporting coverage, but the asymmetry is consistent across periods and shapes what "regional" policy means in practice.`);
+    }
   }
   return out;
 }
@@ -335,11 +372,28 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
       const g = cpi.general[month] && cpi.general[yearAgo] ? (cpi.general[month] / cpi.general[yearAgo] - 1) * 100 : null;
       context.push(p(`Food price inflation in ${name(one)} was ${w.pct(cpi.value(month))} in ${w.month(month)}${g !== null ? `, against ${w.pct(g)} for all consumer prices` : ""} (FAOSTAT consumer price indices).${month < s.to.slice(0, 7) ? ` Later months are not yet published.` : ""}`));
       if (cpi.row.peakMonth !== month && cpi.row.peak > cpi.value(month) + 1) context.push(p(`It had peaked at ${w.pct(cpi.row.peak)} in ${w.month(cpi.row.peakMonth)}.`));
+      const firstInPeriod = cpi.inPeriod[0];
+      if (firstInPeriod && firstInPeriod !== month && cpi.value(firstInPeriod) !== undefined) {
+        const delta = cpi.value(month) - cpi.value(firstInPeriod);
+        if (delta >= 1) context.push(p(`Within the period it accelerated by ${w.num(delta, 1)} percentage points. Momentum of that kind usually outlasts the period that produced it.`));
+        else if (delta <= -1) context.push(p(`Within the period it eased by ${w.num(Math.abs(delta), 1)} percentage points, which relieves some pressure on household budgets.`));
+      }
     } else if (hot.length) {
       const low = hot.at(-1);
       context.push(p(`Food price inflation ranged from ${w.pct(low.value)} in ${name(low.country)} (${w.month(low.month)}) to ${w.pct(hot[0].value)} in ${name(hot[0].country)} (${w.month(hot[0].month)}), according to FAOSTAT consumer price indices.`));
       const marked = hot.filter((item) => item.value >= 3).map((item) => name(item.country));
       if (marked.length) context.push(p(`Food prices were rising by ${w.pct(3, 0)} a year or more in ${list(marked)}. Yemen is not covered by this series.`));
+      // Trajectory and food-vs-general gap for the most exposed market: level, momentum and incidence.
+      const h0 = hot[0];
+      const firstInPeriod = h0.cpi.inPeriod[0];
+      if (firstInPeriod && firstInPeriod !== h0.month && h0.cpi.value(firstInPeriod) !== undefined) {
+        const delta = h0.value - h0.cpi.value(firstInPeriod);
+        if (delta >= 1) context.push(p(`In ${name(h0.country)}, the pressure is building: inflation rose from ${w.pct(h0.cpi.value(firstInPeriod))} in ${w.month(firstInPeriod)} to ${w.pct(h0.value)} by ${w.month(h0.month)}. Momentum of that kind usually outlasts the period that produced it.`));
+        else if (delta <= -1) context.push(p(`In ${name(h0.country)}, the worst may have passed: inflation eased from ${w.pct(h0.cpi.value(firstInPeriod))} in ${w.month(firstInPeriod)} to ${w.pct(h0.value)} by ${w.month(h0.month)}.`));
+      }
+      const yearAgo = `${Number(h0.month.slice(0, 4)) - 1}${h0.month.slice(4)}`;
+      const general = h0.cpi.general?.[h0.month] && h0.cpi.general?.[yearAgo] ? (h0.cpi.general[h0.month] / h0.cpi.general[yearAgo] - 1) * 100 : null;
+      if (general !== null && h0.value - general >= 1.5) context.push(p(`Food prices there are outpacing the general price level by ${w.num(h0.value - general, 1)} percentage points. Because poorer households spend proportionally more on food, the incidence of this gap is regressive.`));
     }
   } else if (one === "Yemen") context.push(p(`FAOSTAT consumer price indices and healthy diet cost estimates are not available for Yemen, so price pressure cannot be assessed from these sources.`));
   const diet = food && dietSummary(food).rows.find((row) => one && row.country === one && row.latest !== undefined);
@@ -361,15 +415,15 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
     const direction = now > before * 1.15 ? `higher than in ${prevLabel}` : now < before * .85 ? `lower than in ${prevLabel}` : `similar to ${prevLabel}`;
     context.push(p(`Policy activity was ${direction} (${w.num(now)} measures against ${w.num(before)})${s.partial ? `, although this month is covered only to ${w.date(s.effectiveTo)}` : ""}.`));
   }
-  // Composition of the record: binding frameworks against day-to-day decisions, and the instruments used.
+  // Composition of the record, read as shares rather than tallies: how strategic the mix is, and
+  // through which instruments governments chose to act.
   if (s.rows.length >= 8) {
-    const profile = [`Of the ${w.num(s.rows.length)} measures in scope, ${w.num(frameworks.length)} set long-term frameworks; the rest are short-term decisions.`];
-    const mix = countBy(s.rows, instrumentOf).filter(([key]) => !["other", "event"].includes(key)).slice(0, 3);
-    if (mix.length) profile.push(`The most used instruments were ${list(mix.map(([key, count]) => `${INSTRUMENT[key].label} (${w.num(count)})`))}.`);
-    if (!["monthly", "event"].includes(s.kind)) {
-      const byMonth = countBy(s.rows, (record) => record.date.slice(0, 7));
-      if (byMonth.length > 2 && byMonth[0][1] >= 3) profile.push(`Within the period, activity peaked in ${w.month(byMonth[0][0])}, with ${w.num(byMonth[0][1])} measures.`);
-    }
+    const fwShare = frameworks.length / s.rows.length * 100;
+    const profile = [fwShare >= 15 ? `Long-term frameworks make up ${w.pct(fwShare, 0)} of the record, an unusually strategic mix for a period of this length.`
+      : fwShare >= 4 ? `Long-term frameworks make up ${w.pct(fwShare, 0)} of the record; the rest is day-to-day decision-making.`
+      : `Almost all of the record is day-to-day decision-making; long-term frameworks are ${w.pct(fwShare, 0)} of it.`];
+    const mix = countBy(s.rows, instrumentOf).filter(([key]) => !["other", "event"].includes(key)).slice(0, 2);
+    if (mix.length) profile.push(`${INSTRUMENT[mix[0][0]].label.charAt(0).toUpperCase()}${INSTRUMENT[mix[0][0]].label.slice(1)} lead the instrument mix (${w.pct(mix[0][1] / s.rows.length * 100, 0)} of measures)${mix[1] ? `, ahead of ${INSTRUMENT[mix[1][0]].label} (${w.pct(mix[1][1] / s.rows.length * 100, 0)})` : ""}.`);
     context.push(p(profile.join(" ")));
   }
 
@@ -506,9 +560,9 @@ export function buildBrief({ records, food = null, events = [], scope, preparedB
   const ex = buildExhibits({ records, s, one, stats, prevStats, food, prevLabel, w });
   const sections = [
     { title: "Key messages", blocks: [bullets(keyMessages.map((block) => block.parts))] },
-    { title: "Context", blocks: [ex.keyTable, ...context, ex.monthly, ex.inflation, ex.basketText, ex.basketTable].filter(Boolean) },
-    { title: "Policy developments and analysis", blocks: [ex.themes, ...(themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")])].filter(Boolean) },
-    { title: "Instruments and institutions", blocks: [ex.actors, ...actorBlocks].filter(Boolean) },
+    { title: "Context", blocks: [ex.keyTable, ...context, ex.monthly, ex.monthlyNote, ex.inflation, ex.inflationNote, ex.basketText, ex.basketTable].filter(Boolean) },
+    { title: "Policy developments and analysis", blocks: [ex.themes, ex.themesNote, ...(themeBlocks.length ? themeBlocks : [p("Too few measures were recorded to analyse by theme.")])].filter(Boolean) },
+    { title: "Instruments and institutions", blocks: [ex.actors, ex.actorsNote, ...actorBlocks].filter(Boolean) },
     { title: "Policy coherence and gaps", blocks: [bullets(coherence)] },
     { title: "Implications", blocks: [bullets(implications)] },
     { title: "Outlook", blocks: [bullets(outlook)] },
