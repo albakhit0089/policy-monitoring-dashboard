@@ -93,14 +93,31 @@ for (const commitment of tracker.commitments) {
   if (commitment.recordId) check(records.has(commitment.recordId), `commitment ${commitment.id}: record ${commitment.recordId} not found`);
   commitment.outsideEvidence.forEach((item) => check(/^https:\/\//.test(item.source?.url || ''), `commitment ${commitment.id}: outside evidence without a link`));
 }
-// Brief: cited records are sourced; it carries the draft disclaimer.
-check(tracker.brief.annex.every((row) => /^https?:\/\//.test(row.source || '')), 'brief cites a record without a source');
-check(/not an official FAO or UAE Government assessment/.test(JSON.stringify(tracker.brief.annexNote)), 'brief lacks the draft disclaimer');
+// Government use: every decision has a suggested lead that is a real UAE entity in the record, a timeframe
+// and an indicator; English and Arabic carry the same decisions and the not-official disclaimer; every alert
+// and commitment has its Arabic text.
+const institutions = new Set([...records.values()].filter((record) => record.country === 'United Arab Emirates').map((record) => record.institution));
+const note = tracker.decisionNote;
+check(note.en.decisions.length >= 1 && note.en.decisions.length === note.ar.decisions.length, 'decision note: English and Arabic decisions differ');
+for (const [lang, version] of Object.entries({ en: note.en, ar: note.ar })) {
+  version.decisions.forEach((item) => check(item.issue && item.decision && item.lead && item.timeframe && item.indicator, `decision note (${lang}): ${item.id} incomplete`));
+  check(version.disclaimer && version.situation.length === 2, `decision note (${lang}): disclaimer or situation missing`);
+}
+check(/not an official assessment/.test(note.en.disclaimer) && /ليس تقييماً رسمياً/.test(note.ar.disclaimer), 'decision note lacks the not-official disclaimer');
+for (const alert of tracker.alerts) {
+  check(institutions.has(alert.leadEntity?.en), `alert ${alert.id}: suggested lead is not an entity in the UAE record`);
+  alert.alsoEntities.forEach((entity) => check(institutions.has(entity.en), `alert ${alert.id}: ${entity.en} not in the UAE record`));
+  check(alert.ar && alert.ar.title && alert.ar.facts.length === alert.facts.length && alert.ar.response && alert.ar.watch && alert.ar.decision, `alert ${alert.id}: Arabic text incomplete`);
+  check(alert.exposureText_ar.length === alert.exposureText.length, `alert ${alert.id}: Arabic exposure text incomplete`);
+}
+tracker.commitments.forEach((c) => check(c.name_ar && c.statusText_ar && c.basis_ar, `commitment ${c.id}: Arabic text missing`));
+check(tracker.essentials.length === 8 && tracker.essentials.every((e) => tracker.diversification.categories.some((c) => c.id === e.id)), 'essential goods mapping incomplete');
 
-// 5. Every number in computed text (findings, alerts, commitments, brief) is traceable to the data (allowing rounding).
-const findingsText = JSON.stringify([tracker.findings, tracker.alerts.map((alert) => alert.exposureText), tracker.commitments.map((c) => c.statusText), tracker.brief.sections]);
+// 5. Every number in computed text (findings, alerts, commitments, decision note; English and Arabic) is
+// traceable to the data (allowing rounding).
+const findingsText = JSON.stringify([tracker.findings, tracker.alerts.map((alert) => [alert.exposureText, alert.exposureText_ar]), tracker.commitments.map((c) => [c.statusText, c.statusText_ar]), note.en.situation, note.ar.situation, note.en.decisions.map((d) => d.issue), note.ar.decisions.map((d) => d.issue), note.en.commitments, note.ar.commitments]);
 check(!/NaN|undefined|null%/.test(findingsText), 'findings text contains NaN/undefined');
-const data = JSON.stringify({ ...tracker, findings: undefined, brief: undefined, commitments: tracker.commitments.map((c) => ({ ...c, statusText: undefined })), alerts: tracker.alerts.map((a) => ({ ...a, exposureText: undefined })) }) + JSON.stringify(register) + JSON.stringify(basket) + JSON.stringify(read('data/strategy/uae-alerts.json')) + JSON.stringify(read('data/forecasts/context.json').commodities);
+const data = JSON.stringify({ ...tracker, findings: undefined, decisionNote: undefined, commitments: tracker.commitments.map((c) => ({ ...c, statusText: undefined, statusText_ar: undefined })), alerts: tracker.alerts.map((a) => ({ ...a, exposureText: undefined, exposureText_ar: undefined })) }) + JSON.stringify(register) + JSON.stringify(basket) + JSON.stringify(read('data/strategy/uae-alerts.json')) + JSON.stringify(read('data/forecasts/context.json').commodities);
 const allowed = new Set();
 for (const token of data.match(/-?\d+(?:\.\d+)?/g) || []) {
   const n = Number(token);

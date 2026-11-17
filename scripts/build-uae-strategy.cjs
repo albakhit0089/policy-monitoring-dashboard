@@ -372,63 +372,116 @@ const commitments = (register.commitments || []).map((commitment) => {
   return { ...commitment, pattern: undefined, outsideEvidence: commitment.evidenceOutsideRecord || [], measures: rows.length, stages, status, statusText, followThrough: rows.length ? round(advanced / rows.length * 100, 0) : null, latestDelivery: pick(delivering), latestStep: pick(rows) };
 });
 
-// ---------- 10. Decision brief (draft, 1-2 pages; same structure as the dashboard's Word export) ----------
-const top3 = alerts.filter((alert) => alert.level !== 'clear').slice(0, 3);
-const stalled = commitments.filter((c) => ['stalled', 'announcements', 'no-action'].includes(c.status));
-const deliveringC = commitments.filter((c) => c.status === 'delivering');
-const movingC = commitments.filter((c) => c.status === 'moving');
-const briefCited = new Map();
-const cite = (id) => { const record = allRecords.get(id); if (record) briefCited.set(id, { id, title: record.title, country: record.country, date: record.date, source: record.source, institution: record.institution || '' }); return { cite: id }; };
-const p = (...parts) => ({ type: 'p', parts });
-const items = (rows) => ({ type: 'list', items: rows });
-const hormuz = alerts.find((alert) => alert.id === 'hormuz');
-const sugarA = alerts.find((alert) => alert.id === 'sugar');
-const brief = {
-  title: 'UAE food security: decision brief',
-  subtitle: `Draft for FAO analyst review · ${monthLabel(today.slice(0, 7))}`,
-  countriesLine: UAE,
-  preparedBy: 'Policy Intelligence pilot (FAO Subregional Office for the GCC States and Yemen) - draft, not an official assessment',
-  date: today,
-  version: 'Pilot draft 0.2',
-  sections: [
-    { title: 'Situation', blocks: [
-      p(`Day ${crisisDay} of the Strait of Hormuz disruption, which began on ${dayLabel(alertLog.crisis.start)}. About 70% of Gulf food imports normally pass through the strait; cargo is being rerouted through Fujairah, Khor Fakkan and Sohar at higher cost. Only ${pct(overlandTotal)} of the UAE's staple imports came from neighbours reachable by road in ${latestTradeYear}.`),
-      p(`Food inflation in Dubai reached 8.05% in September 2026. World prices have risen since ${monthLabel(RULES.baselineMonth)}: ${list(['Sugar, world', 'Wheat, US HRW', 'Rice, Thai 5%'].map((name) => priceSignal(name)).filter(Boolean).map((s) => `${(BENCHMARK_NAME[s.benchmark] || s.benchmark).replace(/ \(.*\)$/, '')} ${s.sinceBaseline >= 0 ? '+' : ''}${s.sinceBaseline}%`))}. The government reported strategic reserves of up to six months in March; replenishment through bypass routes is now the decisive unknown.`),
-    ] },
-    { title: 'Top risks', blocks: [items(top3.map((alert) => [`${alert.title} (${alert.level}). ${alert.exposureText[0] || ''}`]))] },
-    { title: 'Recommended actions (draft options)', blocks: [items([
-      [`Set up a weekly supply-and-reserve monitor for the nine price-approved staples: days of cover, bypass-port throughput and prices from the Essential Goods Prices Platform. FAO can support the design and indicators.`],
-      [`Secure second origins and forward supply for the staples with the fewest suppliers (${list(concentrated.filter((c) => c.role === 'food').slice(0, 3).map((c) => nameIn(c)))}), routed through bypass ports.`],
-      [`Protect affordability for lower-income households as food inflation reaches 8%: the price-approval rule caps shelf prices but shifts rerouting costs onto suppliers, which is hard to sustain for months.`],
-    ])] },
-    { title: 'Are commitments being delivered?', blocks: [
-      p(`${deliveringC.length ? `${cap(list(deliveringC.map((c) => nameIn(c))))} ${deliveringC.length === 1 ? 'shows' : 'show'} delivery in the last six months.` : 'No commitment shows operations or results in the last six months.'}${movingC.length ? ` ${cap(list(movingC.map((c) => nameIn(c))))} ${movingC.length === 1 ? 'is' : 'are'} moving: agreements, rules or financing, but no operations or results reported in six months.` : ''}${stalled.length ? ` ${cap(list(stalled.map((c) => nameIn(c))))} ${stalled.length === 1 ? 'shows' : 'show'} no agreement, financing, operation or result in that time.` : ''}`),
-      ...(commitments.find((c) => c.id === 'c-resilience')?.latestStep ? [p('The National Programme to Strengthen Supply Chain Resilience was approved in April 2026; latest related step: ', cite(commitments.find((c) => c.id === 'c-resilience').latestStep.id), '.')] : []),
-    ] },
-    { title: 'What FAO can offer', blocks: [items([
-      ['Market and price monitoring methods and indicators for staples under supply stress.'],
-      ['Trade-policy analysis of supplier-country restrictions and their exposure for the UAE.'],
-      ['Food loss and waste measurement aligned with SDG 12.3, to give the 2030 target a baseline.'],
-      ['Food balance and data-system support so that strategy indicators can be tracked between crises.'],
-    ])] },
-  ],
-  annexNote: [
-    'Draft prepared for FAO analyst review. It is not an official FAO or UAE Government assessment.',
-    `Sources: FAOSTAT trade matrix (to ${latestTradeYear}), World Bank commodity prices (to ${monthLabel(commodities.items['Sugar, world'] ? Object.keys(commodities.items['Sugar, world'].monthly).sort().at(-1) : RULES.baselineMonth)}), the monitored policy record, and press and official sources listed in the pilot's alert log.`,
-    'Exposure figures are based on UAE-reported import tonnes, which include re-exports.',
-  ],
+// ---------- 11. Government use: Arabic text, supplier lists for the planner, decision note ----------
+// Arabic is generated from templates with Western digits, so every number stays traceable; it is a draft
+// translation for native-speaker review.
+const COUNTRY_AR = { Brazil: 'البرازيل', India: 'الهند', 'Russian Federation': 'روسيا', Australia: 'أستراليا', 'Saudi Arabia': 'السعودية', Oman: 'عُمان', Thailand: 'تايلاند', Pakistan: 'باكستان', 'Viet Nam': 'فيتنام', Canada: 'كندا', Romania: 'رومانيا', 'United States of America': 'الولايات المتحدة', Ukraine: 'أوكرانيا', 'Türkiye': 'تركيا', Argentina: 'الأرجنتين', Indonesia: 'إندونيسيا', Malaysia: 'ماليزيا', 'New Zealand': 'نيوزيلندا', Egypt: 'مصر', 'South Africa': 'جنوب أفريقيا', Kazakhstan: 'كازاخستان', France: 'فرنسا', Germany: 'ألمانيا', China: 'الصين', 'Netherlands (Kingdom of the)': 'هولندا', Spain: 'إسبانيا', Italy: 'إيطاليا', Poland: 'بولندا', Belgium: 'بلجيكا', Ireland: 'أيرلندا', 'United Kingdom of Great Britain and Northern Ireland': 'المملكة المتحدة', 'Iran (Islamic Republic of)': 'إيران', Kenya: 'كينيا', Ethiopia: 'إثيوبيا', Sudan: 'السودان', Jordan: 'الأردن', Lebanon: 'لبنان', Yemen: 'اليمن', Qatar: 'قطر', Kuwait: 'الكويت', Bahrain: 'البحرين', Philippines: 'الفلبين', 'Sri Lanka': 'سريلانكا', Bangladesh: 'بنغلاديش', Myanmar: 'ميانمار', Mexico: 'المكسيك', Chile: 'تشيلي', Uruguay: 'الأوروغواي', Paraguay: 'باراغواي', Colombia: 'كولومبيا', Ecuador: 'الإكوادور', Peru: 'بيرو', Morocco: 'المغرب', Tunisia: 'تونس', Japan: 'اليابان', Denmark: 'الدنمارك', Bulgaria: 'بلغاريا', Hungary: 'المجر', Serbia: 'صربيا', 'Republic of Moldova': 'مولدوفا', Lithuania: 'ليتوانيا', Latvia: 'لاتفيا', Belarus: 'بيلاروس', Georgia: 'جورجيا', Uzbekistan: 'أوزبكستان', Singapore: 'سنغافورة', 'United Republic of Tanzania': 'تنزانيا', Uganda: 'أوغندا', 'Syrian Arab Republic': 'سوريا', Iraq: 'العراق', Austria: 'النمسا', Switzerland: 'سويسرا', Greece: 'اليونان', Portugal: 'البرتغال', Sweden: 'السويد', Norway: 'النرويج', Finland: 'فنلندا', Estonia: 'إستونيا', Croatia: 'كرواتيا', Slovenia: 'سلوفينيا', Czechia: 'التشيك', Slovakia: 'سلوفاكيا', Mongolia: 'منغوليا', 'Republic of Korea': 'كوريا الجنوبية', Cambodia: 'كمبوديا', Somalia: 'الصومال', Djibouti: 'جيبوتي', Eritrea: 'إريتريا', Nigeria: 'نيجيريا', Ghana: 'غانا', "Côte d'Ivoire": 'ساحل العاج', Cameroon: 'الكاميرون', 'Russian Federation ': 'روسيا' };
+const BASKET_AR = { wheat: 'القمح', rice: 'الأرز', maize: 'الذرة', barley: 'الشعير', sugar: 'السكر', vegoil: 'الزيوت النباتية', chicken: 'لحم الدجاج', beef: 'لحم البقر', smallrum: 'لحم الضأن والماعز', milkpowder: 'الحليب المجفف', eggs: 'البيض', pulses: 'البقوليات', potatoes: 'البطاطس', onions: 'البصل', fruit: 'الفواكه', soymeal: 'كسب فول الصويا', rapeseed: 'بذور اللفت (الكانولا)' };
+const MONTH_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const monthAr = (key) => `${MONTH_AR[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
+const dayAr = (iso) => `${Number(iso.slice(8, 10))} ${MONTH_AR[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+const BENCHMARK_AR = { 'Sugar, world': 'السكر', 'Wheat, US HRW': 'القمح (الأمريكي الأحمر الشتوي الصلب)', 'Rice, Thai 5%': 'الأرز (التايلندي 5% كسر)', DAP: 'سماد فوسفات ثنائي الأمونيوم' };
+const countryAr = (name) => COUNTRY_AR[name] || name;
+const UNIT_AR = { '$/mt': 'دولار للطن', '$/kg': 'دولار للكيلوغرام', '$/bbl': 'دولار للبرميل' };
+const listAr = (items) => items.length <= 1 ? items.join('') : `${items.slice(0, -1).join('، ')} و${items.at(-1)}`;
+categories.forEach((c) => { c.name_ar = BASKET_AR[c.id] || c.name; });
+const exposureAr = (alert) => {
+  const out = [];
+  alert.exposure.forEach((e) => {
+    const name = BASKET_AR[e.id];
+    if (e.supplierShare !== null && e.supplierCountry === e.top.partner) out.push(`وفّرت ${countryAr(e.supplierCountry)} ${pct(e.supplierShare)} من واردات الإمارات من ${name} في ${e.year}، ويبلغ العدد الفعلي للموردين ${e.effective}.`);
+    else if (e.supplierShare !== null) out.push(`وفّرت ${countryAr(e.supplierCountry)} ${pct(e.supplierShare)} من واردات الإمارات من ${name} في ${e.year}، فيما كان المصدر الرئيسي ${countryAr(e.top.partner)} (${pct(e.top.share)}).`);
+    else out.push(`كان المصدر الرئيسي لواردات الإمارات من ${name} في ${e.year} هو ${countryAr(e.top.partner)} (${pct(e.top.share)})، ويبلغ العدد الفعلي للموردين ${e.effective}.`);
+  });
+  if (alert.price) out.push(`بلغ المؤشر العالمي لسعر ${BENCHMARK_AR[alert.price.benchmark] || alert.price.benchmark} ${alert.price.value} ${UNIT_AR[alert.price.unit] || alert.price.unit} في ${monthAr(alert.price.latest)}: ${alert.price.sinceBaseline >= 0 ? 'بارتفاع' : 'بانخفاض'} ${pct(Math.abs(alert.price.sinceBaseline))} منذ ${monthAr(RULES.baselineMonth)}، و${alert.price.twelveMonth >= 0 ? 'بارتفاع' : 'بانخفاض'} ${pct(Math.abs(alert.price.twelveMonth))} مقارنة بالعام السابق.`);
+  if (alert.id === 'hormuz') out.push(`جاءت ${pct(overlandTotal)} فقط من أطنان واردات السلة في ${latestTradeYear} من دول مجاورة يمكن الوصول إليها براً (السعودية وعُمان)، ووصل الباقي عادةً بحراً، ومعظمه عبر المضيق.`);
+  return out;
 };
-brief.annex = [...briefCited.values()];
-if (sugarA && hormuz) brief.sources = [...new Map([...hormuz.sources, ...sugarA.sources].map((s) => [s.url, s])).values()];
+const ENTITIES = alertLog.entities;
+const TIMEFRAME = { critical: { en: 'This week', ar: 'هذا الأسبوع' }, high: { en: 'Within two weeks', ar: 'خلال أسبوعين' }, watch: { en: 'This month', ar: 'هذا الشهر' }, clear: { en: 'Routine monitoring', ar: 'متابعة اعتيادية' } };
+alerts.forEach((alert) => {
+  alert.exposureText_ar = exposureAr(alert);
+  alert.leadEntity = ENTITIES[alert.lead];
+  alert.alsoEntities = (alert.also || []).map((key) => ENTITIES[key]);
+  alert.timeframe = TIMEFRAME[alert.level];
+  alert.sources.forEach((source) => { source.type_ar = { official: 'رسمي', press: 'صحافة', tracker: 'أداة تتبع', reference: 'مرجع', record: 'سجل السياسات' }[source.type] || source.type; });
+});
+// Full supplier list per category (latest year) for the "what if we lose a supplier?" planner.
+categories.forEach((c) => {
+  const codes = new Set(c.codes.map(String));
+  const byPartner = new Map();
+  trade.rows.filter((row) => codes.has(row.item_code) && row.year === c.latest && Number(row.qty_t) > 0).forEach((row) => byPartner.set(row.partner, (byPartner.get(row.partner) || 0) + Number(row.qty_t)));
+  const total = [...byPartner.values()].reduce((sum, value) => sum + value, 0);
+  c.partners = [...byPartner.entries()].map(([partner, t]) => ({ partner, partner_ar: countryAr(partner), t: Math.round(t), share: round(t / total * 100, 2) })).sort((a, b) => b.t - a.t);
+});
+// The nine price-approved essential goods, mapped to basket categories (bread and wheat share one).
+const essentials = [
+  { id: 'wheat', en: 'Wheat and bread', ar: 'القمح والخبز' }, { id: 'rice', en: 'Rice', ar: 'الأرز' }, { id: 'sugar', en: 'Sugar', ar: 'السكر' },
+  { id: 'vegoil', en: 'Cooking oil', ar: 'زيت الطهي' }, { id: 'chicken', en: 'Poultry', ar: 'الدواجن' }, { id: 'eggs', en: 'Eggs', ar: 'البيض' },
+  { id: 'milkpowder', en: 'Dairy (milk powder)', ar: 'الألبان (الحليب المجفف)' }, { id: 'pulses', en: 'Legumes', ar: 'البقوليات' },
+];
+const STATUS_AR = {
+  delivering: (c) => `تنفيذ فعلي: ${c.recentDelivery === 1 ? 'إجراء واحد يُظهر' : `${c.recentDelivery} إجراءات تُظهر`} تشغيلاً أو نتائج معلنة خلال الأشهر الستة الماضية${c.outsideEvidence.length ? ' (بما في ذلك أدلة من خارج السجل)' : ''}.`,
+  moving: () => 'في طور التقدم: اتفاقيات أو قواعد أو تمويل خلال الأشهر الستة الماضية، دون تشغيل أو نتائج معلنة بعد.',
+  announcements: () => 'إعلانات فقط خلال الأشهر الستة الماضية: لم يُسجَّل اتفاق أو تمويل أو تشغيل أو نتائج.',
+  stalled: (c) => `متوقف: لم يُسجَّل أي إجراء خلال الأشهر الستة الماضية؛ آخر إجراء بتاريخ ${c.latestStep ? dayAr(c.latestStep.date) : '-'}.`,
+  'no-action': () => 'لم يُعثر على إجراء تنفيذي في السجل.',
+};
+commitments.forEach((c) => { c.recentDelivery = Number((c.statusText.match(/^Delivering: (\d+)/) || [])[1] || 0); c.statusText_ar = STATUS_AR[c.status](c); });
+
+const decisionAlerts = alerts.filter((alert) => alert.level !== 'clear' && !/^No (new )?decision/.test(alert.decision));
+const priceList = ['Sugar, world', 'Wheat, US HRW', 'Rice, Thai 5%'].map((name) => priceSignal(name)).filter(Boolean);
+const sourcesUsed = [...new Map(alerts.flatMap((alert) => alert.sources).map((source) => [source.url, source])).values()];
+const deliveringNames = (lang) => commitments.filter((c) => c.status === 'delivering').map((c) => lang === 'ar' ? c.name_ar : nameIn(c));
+const movingNames = (lang) => commitments.filter((c) => c.status === 'moving').map((c) => lang === 'ar' ? c.name_ar : nameIn(c));
+const decisionNote = {
+  en: {
+    dir: 'ltr',
+    title: 'UAE food security: decision note',
+    subtitle: `${monthLabel(today.slice(0, 7))} · draft for decision support`,
+    date: today,
+    headings: { situation: 'Situation', decisions: 'Decisions required', commitments: 'Are commitments being delivered?', support: 'Technical support available', columns: ['Issue', 'Decision required', 'Suggested lead', 'Timeframe', 'Indicator to watch'] },
+    situation: [
+      `Day ${crisisDay} of the Strait of Hormuz disruption, which began on ${dayLabel(alertLog.crisis.start)}. About 70% of Gulf food imports normally pass through the strait; cargo is being rerouted through Fujairah, Khor Fakkan and Sohar at higher cost. Only ${pct(overlandTotal)} of the UAE's staple imports came from neighbours reachable by road in ${latestTradeYear}.`,
+      `Food inflation in Dubai reached 8.05% in September 2026. World prices have risen since ${monthLabel(RULES.baselineMonth)}: ${list(priceList.map((s) => `${(BENCHMARK_NAME[s.benchmark] || s.benchmark).replace(/ \(.*\)$/, '')} ${s.sinceBaseline >= 0 ? '+' : ''}${s.sinceBaseline}%`))}. The government stated strategic reserves of up to six months in March; replenishment through bypass routes is now the decisive unknown.`,
+    ],
+    decisions: decisionAlerts.map((alert) => ({ id: alert.id, level: alert.level, issue: `${alert.title}. ${alert.exposureText[0] || ''}`, decision: alert.decision, lead: alert.leadEntity.en, also: alert.alsoEntities.map((e) => e.en), timeframe: alert.timeframe.en, indicator: alert.watch })),
+    leadNote: alertLog.leadNote.en,
+    commitments: `${deliveringNames('en').length ? `${cap(list(deliveringNames('en')))} show delivery in the last six months.` : 'No commitment shows delivery in the last six months.'}${movingNames('en').length ? ` ${cap(list(movingNames('en')))} ${movingNames('en').length === 1 ? 'is' : 'are'} moving: agreements or financing, but no operations or results reported yet.` : ''}`,
+    support: ['Market and price monitoring methods and indicators for staples under supply stress.', 'Trade-policy analysis of supplier-country restrictions and the UAE\'s exposure to them.', 'Food loss and waste measurement aligned with SDG 12.3, to give the 2030 target a baseline.', 'Food balance and data-system support, so that strategy indicators can be tracked between crises.'],
+    supportNote: 'International organisations, including FAO, can provide this support on request.',
+    disclaimer: 'Draft analysis from public data for decision support; not an official assessment. Figures should be confirmed with the responsible authorities.',
+  },
+  ar: {
+    dir: 'rtl',
+    title: 'الأمن الغذائي في دولة الإمارات: مذكرة قرار',
+    subtitle: `${monthAr(today.slice(0, 7))} · مسودة لدعم القرار`,
+    date: today,
+    headings: { situation: 'الوضع الراهن', decisions: 'القرارات المطلوبة', commitments: 'هل يجري تنفيذ الالتزامات؟', support: 'الدعم الفني المتاح', columns: ['المسألة', 'القرار المطلوب', 'الجهة المقترحة للقيادة', 'الإطار الزمني', 'مؤشر المتابعة'] },
+    situation: [
+      `اليوم ${crisisDay} من اضطراب مضيق هرمز الذي بدأ في ${dayAr(alertLog.crisis.start)}. يمر نحو 70% من واردات الخليج الغذائية عادةً عبر المضيق، ويجري تحويل الشحنات عبر الفجيرة وخورفكان وصحار بتكلفة أعلى. ولم تأتِ سوى ${pct(overlandTotal)} من واردات الإمارات من السلع الأساسية في ${latestTradeYear} من دول مجاورة يمكن الوصول إليها براً.`,
+      `بلغ تضخم أسعار الغذاء في دبي 8.05% في سبتمبر 2026. وارتفعت الأسعار العالمية منذ ${monthAr(RULES.baselineMonth)}: ${listAr(priceList.map((s) => `${(BENCHMARK_AR[s.benchmark] || s.benchmark).replace(/ \(.*\)$/, '')} ${s.sinceBaseline >= 0 ? '+' : ''}${s.sinceBaseline}%`))}. وأعلنت الحكومة في مارس أن المخزون الاستراتيجي يكفي لمدة تصل إلى ستة أشهر، ويبقى تجديده عبر طرق الالتفاف العامل الحاسم غير المعروف.`,
+    ],
+    decisions: decisionAlerts.map((alert) => ({ id: alert.id, level: alert.level, issue: `${alert.ar.title}. ${alert.exposureText_ar[0] || ''}`, decision: alert.ar.decision, lead: alert.leadEntity.ar, also: alert.alsoEntities.map((e) => e.ar), timeframe: alert.timeframe.ar, indicator: alert.ar.watch })),
+    leadNote: alertLog.leadNote.ar,
+    commitments: `${deliveringNames('ar').length ? `تُظهر الالتزامات التالية تنفيذاً فعلياً خلال الأشهر الستة الماضية: ${listAr(deliveringNames('ar'))}.` : 'لا يُظهر أي التزام تنفيذاً فعلياً خلال الأشهر الستة الماضية.'}${movingNames('ar').length ? ` وفي طور التقدم (اتفاقيات أو تمويل دون تشغيل أو نتائج بعد): ${listAr(movingNames('ar'))}.` : ''}`,
+    support: ['أساليب ومؤشرات لرصد الأسواق والأسعار للسلع الأساسية تحت ضغط الإمداد.', 'تحليل سياسات التجارة لقيود الدول المورّدة ومدى تعرّض الإمارات لها.', 'قياس الفاقد والهدر الغذائي وفق هدف التنمية المستدامة 12.3، لوضع خط أساس لهدف 2030.', 'دعم موازين الأغذية وأنظمة البيانات لتتبع مؤشرات الاستراتيجية بين الأزمات.'],
+    supportNote: 'يمكن للمنظمات الدولية، ومنها منظمة الأغذية والزراعة للأمم المتحدة (الفاو)، تقديم هذا الدعم عند الطلب.',
+    disclaimer: 'تحليل أولي مستند إلى بيانات عامة لدعم القرار، وليس تقييماً رسمياً؛ ينبغي تأكيد الأرقام مع الجهات المختصة. النص العربي ترجمة أولية تحتاج إلى مراجعة لغوية.',
+  },
+  sources: sourcesUsed.map((source) => ({ label: source.label, url: source.url, type: source.type })),
+};
 
 const output = {
   generatedAt: new Date().toISOString().slice(0, 10),
+  essentials,
+  decisionNote,
+  kpisAr: alertLog.crisis.kpis.map((kpi) => kpi.ar),
   situation,
   alerts,
   commitments,
-  brief,
   status: register.status,
-  sources: { trade: trade.meta, balances: fbs.meta, foodSecurity: fsx.meta, records: `FAO policy monitoring record, data through ${through}`, prices: 'FAOSTAT consumer price indices (CP), as on the dashboard' },
+  sources: { trade: trade.meta, balances: fbs.meta, foodSecurity: fsx.meta, records: `Monitored policy record (summaries of public reporting), data through ${through}`, prices: 'FAOSTAT consumer price indices (CP)' },
   benchmark: BENCHMARK,
   basketNote: basket.note,
   diversification: { latestYear: latestTradeYear, categories },
