@@ -76,10 +76,31 @@ for (const signal of register.signals || []) {
   check(signal.verification !== 'official', `signal ${signal.recordId}: a record-derived signal cannot be labelled official`);
 }
 
-// 5. Every number in the findings text is traceable to the data (allowing rounding).
-const findingsText = JSON.stringify(tracker.findings);
+// Alerts: every fact sourced with a link; a level never below its computed price signal.
+const RANK = { clear: 0, none: 0, watch: 1, high: 2, critical: 3 };
+for (const alert of tracker.alerts) {
+  check(['critical', 'high', 'watch', 'clear'].includes(alert.level), `alert ${alert.id}: unknown level`);
+  check(alert.facts.length && alert.facts.every((fact) => fact.src.length), `alert ${alert.id}: a fact has no source`);
+  check(alert.sources.every((source) => /^https?:\/\//.test(source.url || '')), `alert ${alert.id}: a source has no link`);
+  check(alert.sources.every((source) => !source.recordId || records.get(source.recordId)?.source === source.url), `alert ${alert.id}: record source mismatch`);
+  if (alert.price) check(RANK[alert.level] >= RANK[alert.price.level], `alert ${alert.id}: level ${alert.level} is below its price signal (${alert.price.level})`);
+  check(alert.response && alert.watch, `alert ${alert.id}: response or indicator missing`);
+}
+check(tracker.situation.day > 0, 'crisis day count missing');
+// Commitments: sourced basis; outside-record evidence carries its own link.
+for (const commitment of tracker.commitments) {
+  check(commitment.basis && LEVELS.includes(commitment.verification), `commitment ${commitment.id}: basis or verification missing`);
+  if (commitment.recordId) check(records.has(commitment.recordId), `commitment ${commitment.id}: record ${commitment.recordId} not found`);
+  commitment.outsideEvidence.forEach((item) => check(/^https:\/\//.test(item.source?.url || ''), `commitment ${commitment.id}: outside evidence without a link`));
+}
+// Brief: cited records are sourced; it carries the draft disclaimer.
+check(tracker.brief.annex.every((row) => /^https?:\/\//.test(row.source || '')), 'brief cites a record without a source');
+check(/not an official FAO or UAE Government assessment/.test(JSON.stringify(tracker.brief.annexNote)), 'brief lacks the draft disclaimer');
+
+// 5. Every number in computed text (findings, alerts, commitments, brief) is traceable to the data (allowing rounding).
+const findingsText = JSON.stringify([tracker.findings, tracker.alerts.map((alert) => alert.exposureText), tracker.commitments.map((c) => c.statusText), tracker.brief.sections]);
 check(!/NaN|undefined|null%/.test(findingsText), 'findings text contains NaN/undefined');
-const data = JSON.stringify({ ...tracker, findings: undefined }) + JSON.stringify(register) + JSON.stringify(basket);
+const data = JSON.stringify({ ...tracker, findings: undefined, brief: undefined, commitments: tracker.commitments.map((c) => ({ ...c, statusText: undefined })), alerts: tracker.alerts.map((a) => ({ ...a, exposureText: undefined })) }) + JSON.stringify(register) + JSON.stringify(basket) + JSON.stringify(read('data/strategy/uae-alerts.json')) + JSON.stringify(read('data/forecasts/context.json').commodities);
 const allowed = new Set();
 for (const token of data.match(/-?\d+(?:\.\d+)?/g) || []) {
   const n = Number(token);

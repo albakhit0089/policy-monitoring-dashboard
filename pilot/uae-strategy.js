@@ -18,7 +18,9 @@ const VERIFY_LABEL = { official: "Official", press: "Press-reported", pending: "
 async function main() {
   const host = $("#pilot");
   try {
-    const [tracker, register] = await Promise.all(["../data/strategy/uae-tracker.json", "../data/strategy/uae-register.json"].map(async (url) => {
+    // The double-click version (uae-strategy-standalone.html) carries its data inline.
+    const inline = window.__UAE_PILOT__;
+    const [tracker, register] = inline ? [inline.tracker, inline.register] : await Promise.all(["../data/strategy/uae-tracker.json", "../data/strategy/uae-register.json"].map(async (url) => {
       const response = await fetch(url, { cache: "no-store" });
       if (!response.ok) throw new Error(`${url} could not be loaded (${response.status}).`);
       return response.json();
@@ -35,12 +37,17 @@ function render(host, t, register) {
   const nfss = register.strategies.find((s) => s.id === "nfss2051");
   host.innerHTML = `
     <div class="page-heading"><div>
-      <div class="eyebrow">National strategy tracker · Pilot · United Arab Emirates</div>
-      <h1 class="page-title">Is the UAE on course for its food security strategy?</h1>
-      <p class="page-subtitle">Five strategic pillars drawn from the National Food Security Strategy 2051, the Ne'ma food loss and waste roadmap and the Dubai Food Security Strategy. Each pillar is read against public FAO data and the monitored policy record: are we on track, where are we exposed, and what should be done next.</p>
-    </div></div>
+      <div class="eyebrow">Food security monitor · Pilot · United Arab Emirates</div>
+      <h1 class="page-title">What needs attention now, and are commitments being delivered?</h1>
+      <p class="page-subtitle">Supplier-risk alerts matched to the UAE's own import dependence, a short decision brief, and a commitment-to-action tracker that separates announcements from delivery. The strategy pillars below give the longer-term reading.</p>
+    </div><div class="heading-actions"><a class="button button-outline" href="#brief">Decision brief</a></div></div>
 
     <div class="content-grid">
+      ${situationCard(t)}
+      ${alertsSection(t)}
+      ${briefSection(t)}
+      ${commitmentsSection(t)}
+      <div class="span-12 section-divider"><h2>Strategy pillars in depth</h2><p>The longer-term reading of each strategy pillar against FAO data. Trade data run to ${esc(t.diversification.latestYear)}.</p></div>
       <section class="card span-12"><div class="card-header"><div><h2 class="card-title">Strategic reading at a glance</h2><p class="card-subtitle">Status of each pillar. Select one to read the analysis.</p></div></div>
         <div class="card-body"><nav class="glance" aria-label="Pillars">${pillars.map((pillar) => `<a href="#p-${pillar.id}"><h3>${esc(pillar.name)}</h3>${chip(f[pillar.id].status, f[pillar.id].statusLabel)}<p>${esc(pillar.question)}</p></a>`).join("")}</nav></div>
       </section>
@@ -75,9 +82,76 @@ function render(host, t, register) {
       </section>
     </div>
     <p class="pilot-foot">Pilot generated ${esc(day(t.generatedAt))} · Policy Intelligence, GCC States &amp; Yemen</p>`;
+  $("#brief-word")?.addEventListener("click", () => downloadBrief(t.brief));
+  $("#brief-print")?.addEventListener("click", () => { document.body.classList.add("print-brief"); window.print(); setTimeout(() => document.body.classList.remove("print-brief"), 500); });
   drawDiversification($("#chart-supply"), t);
   drawProduction($("#chart-production"), t);
   window.addEventListener("resize", debounce(() => { drawDiversification($("#chart-supply"), t); drawProduction($("#chart-production"), t); }, 150));
+}
+
+// ---------- situation, alerts, brief, commitments ----------
+const LEVEL = { critical: ["bad", "Critical"], high: ["bad", "High"], watch: ["mid", "Watch"], clear: ["good", "Clear"] };
+const COMMIT = { delivering: ["good", "Delivering"], moving: ["mid", "Moving"], announcements: ["mid", "Announcements only"], stalled: ["bad", "Stalled"], "no-action": ["none", "No action found"] };
+const toneChip = ([tone, label]) => `<span class="st-chip st-${tone}">${esc(label)}</span>`;
+const sourceLink = (source) => source?.url ? `<a href="${esc(safeUrl(source.url))}" target="_blank" rel="noopener noreferrer">${esc(source.label)}</a>` : esc(source?.label || "");
+const signed = (value) => `${value >= 0 ? "+" : ""}${fmt(value, 0)}%`;
+
+function situationCard(t) {
+  const s = t.situation;
+  return `<section class="card span-12 situation"><div class="card-header"><div><h2 class="card-title">Situation: day ${s.day} of the Strait of Hormuz disruption</h2><p class="card-subtitle">Since ${esc(s.startLabel)}. The single largest risk to UAE food supply today; the alerts below are read against it.</p></div>${toneChip(LEVEL.critical)}</div>
+    <div class="card-body"><div class="kpi-strip">${s.kpis.map((kpi) => `<div class="kpi-tile"><span>${esc(kpi.label)}</span><strong>${esc(kpi.value)}</strong><small>${kpi.source ? sourceLink(kpi.source) : esc(kpi.period)}${kpi.source ? ` · ${esc(kpi.period)}` : ""}${kpi.computed ? " · computed" : ""}</small></div>`).join("")}</div></div></section>`;
+}
+
+function alertsSection(t) {
+  return `<section class="card span-12" id="alerts"><div class="card-header"><div><h2 class="card-title">Supplier-risk alerts</h2><p class="card-subtitle">Events in supplier countries and world markets, matched to how much the UAE depends on each origin. Every fact links to its source; exposure and price signals are computed.</p></div></div>
+    <div class="card-body"><div class="alert-list">${t.alerts.map(alertCard).join("")}</div>
+    <p class="method"><strong>Levels.</strong> Critical and high need a response now; watch means monitor; clear means checked with no current restriction found. Price signals compare the latest World Bank month with ${esc(t.alerts.find((a) => a.price)?.price.baselineLabel || "the month before the crisis")}, three months and a year earlier; an alert is never rated below its price signal.</p></div></section>`;
+}
+function alertCard(alert) {
+  const refs = Object.fromEntries(alert.sources.map((source, i) => [source.key, i + 1]));
+  const suppliers = alert.exposure.map((e) => `<div class="supplier-bar" role="img" aria-label="${esc(e.name)} import origins ${esc(e.year)}">${e.leading.map((item, i) => `<i style="width:${item.share}%;background:${i === 0 ? "#19455f" : ["#5f90b8", "#8fb3cf", "#b7cfe1"][i - 1]}" title="${esc(item.partner)} ${fmt(item.share, 0)}%"></i>`).join("")}</div><p class="supplier-legend">${esc(e.name)} imports ${esc(e.year)}: ${e.leading.map((item) => `${esc(item.partner)} ${fmt(item.share, 0)}%`).join(" · ")}</p>`).join("");
+  const price = alert.price ? `<div class="price-tiles"><div><span>Since ${esc(alert.price.baselineLabel)}</span><strong>${signed(alert.price.sinceBaseline)}</strong></div><div><span>3 months</span><strong>${signed(alert.price.threeMonth)}</strong></div><div><span>12 months</span><strong>${signed(alert.price.twelveMonth)}</strong></div></div>` : "";
+  return `<article class="alert-card alert-${alert.level}"><header>${toneChip(LEVEL[alert.level])}<h3>${esc(alert.title)}</h3></header>
+    <div class="alert-grid"><div>
+      <h4>What happened</h4><ul class="fact-list">${alert.facts.map((fact) => `<li>${esc(fact.text)} <sup>${fact.src.map((key) => `<a href="#src-${esc(alert.id)}-${refs[key]}">${refs[key]}</a>`).join(",")}</sup></li>`).join("")}</ul>
+      <h4>UAE exposure</h4>${alert.exposureText.map((text) => `<p>${esc(text)}</p>`).join("")}${suppliers}${price}
+    </div><div class="alert-action">
+      <h4>Suggested response (draft)</h4><p>${esc(alert.response)}</p>
+      <h4>Indicator to watch</h4><p class="watch">${esc(alert.watch)}</p>
+      <ol class="src-mini">${alert.sources.map((source, i) => `<li id="src-${esc(alert.id)}-${i + 1}">${sourceLink(source)} <span class="src-type">${esc(source.type)}</span></li>`).join("")}</ol>
+    </div></div></article>`;
+}
+
+function briefSection(t) {
+  return `<section class="card span-12" id="brief"><div class="card-header"><div><h2 class="card-title">Decision brief</h2><p class="card-subtitle">One to two pages for officials and FAO meetings. Draft for analyst review.</p></div><div class="brief-actions"><button class="button button-primary" id="brief-word" type="button">Download Word</button><button class="button button-outline" id="brief-print" type="button">Print / PDF</button></div></div>
+    <div class="card-body"><article class="brief-doc"><h3>${esc(t.brief.title)}</h3><p class="brief-sub">${esc(t.brief.subtitle)}</p>${t.brief.sections.map((section, i) => `<h4>${i + 1}. ${esc(section.title)}</h4>${section.blocks.map((block) => block.type === "list" ? `<ul>${block.items.map((item) => `<li>${partsHtml(item, t.brief)}</li>`).join("")}</ul>` : `<p>${partsHtml(block.parts, t.brief)}</p>`).join("")}`).join("")}<p class="brief-note">${t.brief.annexNote.map(esc).join(" ")}</p></article></div></section>`;
+}
+function partsHtml(parts, brief) {
+  return parts.map((part) => { if (typeof part === "string") return esc(part); const record = brief.annex.find((row) => row.id === part.cite); return record ? `“<a href="${esc(safeUrl(record.source))}" target="_blank" rel="noopener noreferrer">${esc(record.title)}</a>” (${esc(day(record.date))})` : ""; }).join("");
+}
+async function downloadBrief(brief) {
+  try {
+    const { buildDocx } = window.PilotDocx || await import("../docx.js");
+    const report = { ...brief, partial: false, cited: new Map(brief.annex.map((row) => [row.id, row])) };
+    const blob = new Blob([buildDocx(report)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `uae-food-security-decision-brief-${brief.date}.docx` });
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  } catch (error) { alert(`The Word file could not be created: ${error.message}`); }
+}
+
+const STAGES = [["preparatory", "Preparatory", "#dbe7f0"], ["announced", "Announced", "#b7cfe1"], ["adopted", "Agreed or adopted", "#8fb3cf"], ["financed", "Financed", "#5f90b8"], ["operational", "Operational", "#2f6b9e"], ["results", "Results reported", "#133f63"]];
+function commitmentsSection(t) {
+  return `<section class="card span-12" id="commitments"><div class="card-header"><div><h2 class="card-title">Commitments: from announcement to delivery</h2><p class="card-subtitle">Each commitment with the measures that implement it, sorted by how far they have moved: from preparatory activity and announcements to agreements, financing, operations and reported results.</p></div></div>
+    <div class="card-body"><div class="st-legend">${STAGES.map(([, label, color]) => `<span><i style="background:${color}"></i>${esc(label)}</span>`).join("")}</div>
+    <div class="commit-list">${t.commitments.map((c) => {
+      const total = Object.values(c.stages).reduce((sum, value) => sum + value, 0) || 1;
+      return `<article class="commit"><div class="commit-head"><div><h3>${esc(c.name)}</h3><p class="reg-level"><span class="ver ver-${c.verification}">${VERIFY_LABEL[c.verification]}</span> ${esc(c.basis)}</p></div>${toneChip(COMMIT[c.status])}</div>
+        <div class="stage-bar" role="img" aria-label="${esc(c.name)}: ${STAGES.map(([id, label]) => `${label} ${c.stages[id]}`).join(", ")}">${STAGES.map(([id, label, color]) => c.stages[id] ? `<i style="width:${(c.stages[id] / total * 100).toFixed(1)}%;background:${color}" title="${esc(label)}: ${c.stages[id]}"></i>` : "").join("")}</div>
+        <p class="commit-status">${esc(c.statusText)}${c.followThrough !== null && c.measures >= 5 ? ` ${fmt(c.followThrough, 0)}% of the ${c.measures} related measures since ${esc(day(c.since))} went beyond an announcement.` : ""}</p>
+        ${c.latestDelivery ? `<p class="commit-latest"><strong>Latest delivery:</strong> <a href="${esc(safeUrl(c.latestDelivery.source))}" target="_blank" rel="noopener noreferrer">${esc(c.latestDelivery.title)}</a> <small>${esc(day(c.latestDelivery.date))} · ${esc(c.latestDelivery.stage)}</small></p>` : ""}
+        ${c.outsideEvidence.map((item) => `<p class="commit-latest"><strong>Outside the record:</strong> ${esc(item.text)} <small>${sourceLink(item.source)}</small></p>`).join("")}
+      </article>`; }).join("")}</div>
+    <p class="method"><strong>Method.</strong> Measures are matched to each commitment from their wording and staged by keywords (for example "inaugurated" = operational, "approved" or "signed" = agreed or adopted). Statements of intent ("will", "plans to", a memorandum "to explore") never count as operations or results. Indicative: an analyst should review the matches.</p></div></section>`;
 }
 
 function registerCard(strategy) {

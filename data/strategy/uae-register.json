@@ -80,6 +80,14 @@
       "implication": "The Dubai aims listed on the federal portal predate this update; the register will follow the 2030 strategy once its document is available."
     }
   ],
+  "commitments": [
+    { "id": "c-supply", "name": "Diversify food import sources and build alternative supply", "basis": "National Food Security Strategy 2051, goals 1-3", "verification": "official", "pillar": "supply", "since": "2024-11-01" },
+    { "id": "c-resilience", "name": "National Programme to Strengthen Supply Chain Resilience", "basis": "Approved 29 Apr 2026 (policy record, The National)", "verification": "press", "recordId": "2b5c3e2a01a1b0cc", "pillar": "preparedness", "since": "2026-04-29", "pattern": "supply chain resilien|National Programme to Strengthen|logistics corridors?|rerout\\w*|Fujairah port|Khor Fakkan|chartered vessels?|air freight|strategic (reserves?|stocks?)|stockpil\\w*" },
+    { "id": "c-prices", "name": "Keep essential food prices stable", "basis": "Ministry of Economy and Tourism: approval rule for nine staples; Essential Goods Prices Platform (Apr 2026)", "verification": "press", "recordId": "0a9e42ad109bd8c5", "pillar": "preparedness", "since": "2026-02-28", "evidenceOutsideRecord": [{ "date": "2026-10-23", "stage": "operational", "text": "The Essential Goods Prices Platform, launched in April 2026 and expanded in August, tracks 8,343 products at 525 shops; more than 7,000 inspections were carried out in the two weeks after the conflict began.", "source": { "label": "The National, 23 Oct 2026", "url": "https://www.thenationalnews.com/news/uae/2026/10/23/we-had-a-plan-b-c-and-d-uae-retailers-pledge-to-keep-food-prices-stable-amid-iran-war-disruption/" } }], "pattern": "price (stabil\\w*|monitor\\w*|hikes?|increases?|controls?|caps?)|prices? of essential|Essential Goods|consumer protection|field inspections?|market inspections?" },
+    { "id": "c-production", "name": "Enhance local production", "basis": "Dubai Food Security Strategy; NFSS update toward 50% of crop needs (reported Oct 2026)", "verification": "official", "pillar": "production", "since": "2024-11-01" },
+    { "id": "c-waste", "name": "Halve food loss and waste by 2030", "basis": "Ne'ma roadmap (press-reported target)", "verification": "press", "pillar": "waste", "since": "2024-11-01" },
+    { "id": "c-safety", "name": "Enhance food safety and quality", "basis": "Dubai Food Security Strategy", "verification": "official", "pillar": "safety", "since": "2024-11-01" }
+  ],
   "pillars": [
     { "id": "supply", "name": "Trade and import diversification", "question": "Does each staple come from enough suppliers to absorb a disruption?" },
     { "id": "production", "name": "Local production", "question": "Is domestic output covering a growing share of what the country eats?" },
