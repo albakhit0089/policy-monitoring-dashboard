@@ -16,7 +16,9 @@
     "build-forecasts": "node scripts/build-forecasts.cjs",
     "fetch-cp": "node scripts/fetch-faostat-cp.cjs",
     "build-context": "node scripts/build-context.cjs",
-    "fetch-context": "node scripts/fetch-context.cjs"
+    "fetch-context": "node scripts/fetch-context.cjs",
+    "pilot-uae": "node scripts/build-uae-strategy.cjs && node scripts/validate-uae-strategy.cjs && node scripts/build-uae-standalone.cjs",
+    "fetch-uae": "node scripts/fetch-uae-strategy.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

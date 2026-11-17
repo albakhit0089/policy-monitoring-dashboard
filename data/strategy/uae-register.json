@@ -1,0 +1,331 @@
+{
+  "country": "United Arab Emirates",
+  "status": "PILOT - draft for FAO analyst review; not part of the published dashboard",
+  "compiledAt": "2026-11-17",
+  "verificationLevels": {
+    "official": "Quoted from an official UAE government portal page, checked on the date shown.",
+    "press": "Reported by the press only. Shown with a label and never used to set a status until an official source confirms it.",
+    "pending": "Not published in any source checked. Requires the full strategy document."
+  },
+  "strategies": [
+    {
+      "id": "nfss2051",
+      "name": "National Food Security Strategy 2051",
+      "level": "Federal",
+      "source": {
+        "url": "https://u.ae/en/about-the-uae/strategies-initiatives-and-awards/strategies-plans-and-visions/environment-and-energy/national-food-security-strategy-2051",
+        "publisher": "UAE government portal (u.ae)",
+        "checked": "2026-11-17"
+      },
+      "headline": {
+        "text": "Make the UAE the world's best in the Global Food Security Index by 2051",
+        "quote": "make the UAE the world's best in the Global Food Security Index by 2051",
+        "verification": "official",
+        "measurability": "instrument-unavailable",
+        "analystNote": "The latest Global Food Security Index edition found is 2022. In March 2026 Economist Impact published a different index, the Resilient Food Systems Index (60 countries); no UAE result was found. The headline target therefore has no current scoreboard. This tracker shows the same four dimensions from official FAO data as an independent proxy, not as the index itself.",
+        "analystSources": [
+          {
+            "label": "Global Food Security Index, editions to 2022",
+            "url": "https://en.wikipedia.org/wiki/Global_Food_Security_Index"
+          },
+          {
+            "label": "Resilient Food Systems Index 2026",
+            "url": "https://www.global-agriculture.com/global-agriculture/resilient-food-systems-index-rfsi-2026-60-country-ranking-highlights-infrastructure-gaps-and-climate-vulnerabilities/"
+          }
+        ]
+      },
+      "structure": [
+        {
+          "text": "5 strategic goals",
+          "quote": "5 strategic goals",
+          "verification": "official"
+        },
+        {
+          "text": "38 short- and long-term key initiatives",
+          "quote": "38 short- and long-term key initiatives",
+          "verification": "official"
+        },
+        {
+          "text": "A national food basket of 18 main types of food",
+          "quote": "18 main types",
+          "verification": "official",
+          "analystNote": "The 18 items are not listed on the portal. Until the official list is available, the tracker uses a stand-in basket of major staples, labelled as such."
+        }
+      ],
+      "goals": [
+        {
+          "id": "g1",
+          "text": "Facilitate the global food trade",
+          "quote": "facilitating the global food trade",
+          "verification": "official",
+          "pillar": "supply"
+        },
+        {
+          "id": "g2",
+          "text": "Diversify food import sources",
+          "quote": "diversifying food import sources",
+          "verification": "official",
+          "pillar": "supply"
+        },
+        {
+          "id": "g3",
+          "text": "Identify alternative supply schemes, covering three to five sources for each major food category",
+          "quote": "identifying alternative supply schemes, covering three to five sources for each major food category",
+          "verification": "official",
+          "pillar": "supply",
+          "benchmark": {
+            "metric": "supplier sources per major food category",
+            "min": 3,
+            "max": 5
+          }
+        },
+        {
+          "id": "g4",
+          "text": "Strategic goal 4 - not listed on the official portal",
+          "verification": "pending"
+        },
+        {
+          "id": "g5",
+          "text": "Strategic goal 5 - not listed on the official portal",
+          "verification": "pending"
+        }
+      ]
+    },
+    {
+      "id": "nema",
+      "name": "Ne'ma Food Loss and Waste Reduction Roadmap",
+      "level": "Federal (Ne'ma, the National Food Loss and Waste Initiative, with the Ministry of Climate Change and Environment)",
+      "source": {
+        "url": "https://gulfnews.com/uae/environment/uae-unveils-roadmap-to-target-of-halving-food-waste-by-2030-1.99492918",
+        "publisher": "Gulf News (press), last updated 20 Nov 2023",
+        "checked": "2026-11-17"
+      },
+      "goals": [
+        {
+          "id": "n1",
+          "text": "Cut food loss and waste by 50% by 2030",
+          "quote": "cut food loss and waste by 50 per cent by 2030",
+          "verification": "press",
+          "pillar": "waste",
+          "target": {
+            "value": -50,
+            "unit": "% change",
+            "year": 2030,
+            "baseline": null
+          },
+          "analystNote": "No baseline is published. The national baseline study (about 3,000 participants across all seven emirates; household fieldwork in September 2025) was due to report in the first half of 2026; no published results were found as of 17 Nov 2026. Progress cannot be measured until the baseline is released."
+        }
+      ]
+    },
+    {
+      "id": "dubaifss",
+      "name": "Dubai Food Security Strategy",
+      "level": "Emirate (Dubai)",
+      "source": {
+        "url": "https://u.ae/en/about-the-uae/strategies-initiatives-and-awards/strategies-plans-and-visions/environment-and-energy/food-security-strategy",
+        "publisher": "UAE government portal (u.ae)",
+        "checked": "2026-11-17"
+      },
+      "analystNote": "Press reports from October 2026 describe an updated Dubai Food Security Strategy 2030 with numeric targets; those figures could not be confirmed on an official page and are not used.",
+      "goals": [
+        {
+          "id": "d1",
+          "text": "Diversify sources of food import",
+          "quote": "diversify sources of food import",
+          "verification": "official",
+          "pillar": "supply"
+        },
+        {
+          "id": "d2",
+          "text": "Enhance local production",
+          "quote": "enhance local production",
+          "verification": "official",
+          "pillar": "production"
+        },
+        {
+          "id": "d3",
+          "text": "Reduce food wastage",
+          "quote": "reduce food wastage",
+          "verification": "official",
+          "pillar": "waste"
+        },
+        {
+          "id": "d4",
+          "text": "Enhance food safety and quality",
+          "quote": "enhance food safety and quality",
+          "verification": "official",
+          "pillar": "safety"
+        },
+        {
+          "id": "d5",
+          "text": "Build the emirate's preparedness to face crises",
+          "quote": "build the emirate's preparedness to face crises",
+          "verification": "official",
+          "pillar": "preparedness"
+        }
+      ]
+    }
+  ],
+  "signals": [
+    {
+      "date": "2026-10-16",
+      "recordId": "1e79d501abe239b9",
+      "text": "The Ministry of Climate Change and Environment is updating the National Food Security Strategy 2051 with the private sector, aiming for domestic production to meet 50% of the country's crop needs.",
+      "verification": "press",
+      "source": {
+        "url": "https://www.agbi.com/agriculture/2026/10/uae-to-grow-more-food-locally-under-strategy-update/",
+        "publisher": "AGBI (press), via the monitored policy record"
+      },
+      "target": {
+        "pillar": "production",
+        "value": 50,
+        "unit": "% of crop needs from domestic production",
+        "definitionKnown": false
+      },
+      "implication": "When the updated strategy is published, the tracker must be re-baselined to its goals. A 50% crop target would give the local-production pillar its first numeric benchmark; how 'crop needs' is defined (with or without cereals) decides how far away it is."
+    },
+    {
+      "date": "2026-10-25",
+      "recordId": "1792bf7cbef6b89a",
+      "text": "Dubai Food Security Strategy 2030 unveiled by the Dubai Environment and Climate Change Authority, aligned with the National Food Security Strategy 2051, with five pillars: food availability, affordability, quality and safety, sustainability and resilience, and industry empowerment.",
+      "verification": "press",
+      "source": {
+        "url": "https://www.wam.ae/en/article/c2x5vg0-dubai-environment-and-climate-change-authority",
+        "publisher": "WAM (state news agency), via the monitored policy record; not checked directly"
+      },
+      "implication": "The Dubai aims listed on the federal portal predate this update; the register will follow the 2030 strategy once its document is available."
+    }
+  ],
+  "commitments": [
+    {
+      "id": "c-supply",
+      "name": "Diversify food import sources and build alternative supply",
+      "basis": "National Food Security Strategy 2051, goals 1-3",
+      "verification": "official",
+      "pillar": "supply",
+      "since": "2024-11-01",
+      "name_ar": "تنويع مصادر استيراد الغذاء وبناء بدائل للإمداد",
+      "basis_ar": "الاستراتيجية الوطنية للأمن الغذائي 2051، الأهداف 1-3"
+    },
+    {
+      "id": "c-resilience",
+      "name": "National Programme to Strengthen Supply Chain Resilience",
+      "basis": "Approved 29 Apr 2026 (policy record, The National)",
+      "verification": "press",
+      "recordId": "2b5c3e2a01a1b0cc",
+      "pillar": "preparedness",
+      "since": "2026-04-29",
+      "pattern": "supply chain resilien|National Programme to Strengthen|logistics corridors?|rerout\\w*|Fujairah port|Khor Fakkan|chartered vessels?|air freight|strategic (reserves?|stocks?)|stockpil\\w*",
+      "name_ar": "البرنامج الوطني لتعزيز مرونة سلاسل الإمداد",
+      "basis_ar": "اعتُمد في 29 أبريل 2026 (سجل السياسات، ذا ناشونال)"
+    },
+    {
+      "id": "c-prices",
+      "name": "Keep essential food prices stable",
+      "basis": "Ministry of Economy and Tourism: approval rule for nine staples; Essential Goods Prices Platform (Apr 2026)",
+      "verification": "press",
+      "recordId": "0a9e42ad109bd8c5",
+      "pillar": "preparedness",
+      "since": "2026-02-28",
+      "evidenceOutsideRecord": [
+        {
+          "date": "2026-10-23",
+          "stage": "operational",
+          "text": "The Essential Goods Prices Platform, launched in April 2026 and expanded in August, tracks 8,343 products at 525 shops; more than 7,000 inspections were carried out in the two weeks after the conflict began.",
+          "source": {
+            "label": "The National, 23 Oct 2026",
+            "url": "https://www.thenationalnews.com/news/uae/2026/10/23/we-had-a-plan-b-c-and-d-uae-retailers-pledge-to-keep-food-prices-stable-amid-iran-war-disruption/"
+          },
+          "text_ar": "أُطلقت منصة أسعار السلع الأساسية في أبريل 2026 ووُسّعت في أغسطس، وهي تتابع 8,343 منتجاً في 525 متجراً، ونُفّذت أكثر من 7,000 جولة تفتيش في الأسبوعين التاليين لبدء النزاع."
+        }
+      ],
+      "pattern": "price (stabil\\w*|monitor\\w*|hikes?|increases?|controls?|caps?)|prices? of essential|Essential Goods|consumer protection|field inspections?|market inspections?",
+      "name_ar": "الحفاظ على استقرار أسعار السلع الغذائية الأساسية",
+      "basis_ar": "وزارة الاقتصاد والسياحة: قاعدة الموافقة على أسعار تسع سلع أساسية؛ منصة أسعار السلع الأساسية (أبريل 2026)"
+    },
+    {
+      "id": "c-production",
+      "name": "Enhance local production",
+      "basis": "Dubai Food Security Strategy; NFSS update toward 50% of crop needs (reported Oct 2026)",
+      "verification": "official",
+      "pillar": "production",
+      "since": "2024-11-01",
+      "name_ar": "تعزيز الإنتاج المحلي",
+      "basis_ar": "استراتيجية دبي للأمن الغذائي؛ تحديث الاستراتيجية الوطنية نحو 50% من الاحتياجات من المحاصيل (أكتوبر 2026)"
+    },
+    {
+      "id": "c-waste",
+      "name": "Halve food loss and waste by 2030",
+      "basis": "Ne'ma roadmap (press-reported target)",
+      "verification": "press",
+      "pillar": "waste",
+      "since": "2024-11-01",
+      "name_ar": "خفض الفاقد والهدر الغذائي إلى النصف بحلول 2030",
+      "basis_ar": "خارطة طريق \"نعمة\" (هدف وارد في الصحافة)"
+    },
+    {
+      "id": "c-safety",
+      "name": "Enhance food safety and quality",
+      "basis": "Dubai Food Security Strategy",
+      "verification": "official",
+      "pillar": "safety",
+      "since": "2024-11-01",
+      "name_ar": "تعزيز سلامة الغذاء وجودته",
+      "basis_ar": "استراتيجية دبي للأمن الغذائي"
+    }
+  ],
+  "pillars": [
+    {
+      "id": "supply",
+      "name": "Trade and import diversification",
+      "question": "Does each staple come from enough suppliers to absorb a disruption?"
+    },
+    {
+      "id": "production",
+      "name": "Local production",
+      "question": "Is domestic output covering a growing share of what the country eats?"
+    },
+    {
+      "id": "preparedness",
+      "name": "Crisis preparedness",
+      "question": "How exposed is supply to an import shock, and is that exposure falling?"
+    },
+    {
+      "id": "waste",
+      "name": "Food loss and waste",
+      "question": "Is food loss and waste falling towards the 2030 target?"
+    },
+    {
+      "id": "safety",
+      "name": "Food safety and quality",
+      "question": "Are safety and quality systems being strengthened?"
+    }
+  ],
+  "governmentDataNeeded": [
+    {
+      "item": "Full National Food Security Strategy 2051 document: all five goals, the 38 initiatives, the 18-item basket and KPIs",
+      "holder": "Ministry / Emirates Food Security Council",
+      "unlocks": "Goals 4-5, the official basket, official KPI targets"
+    },
+    {
+      "item": "Monthly imports by origin and commodity",
+      "holder": "Federal customs / FCSC",
+      "unlocks": "Monthly (rather than annual, lagged) diversification tracking"
+    },
+    {
+      "item": "Strategic reserve levels (days of cover by staple)",
+      "holder": "Government (usually confidential)",
+      "unlocks": "Crisis-preparedness status; requires restricted hosting"
+    },
+    {
+      "item": "Ne'ma national baseline study results",
+      "holder": "Ne'ma / MOCCAE",
+      "unlocks": "Progress against the 50% food loss and waste target"
+    },
+    {
+      "item": "Programme budgets and spending by initiative",
+      "holder": "Ministry of Finance / line ministries",
+      "unlocks": "Implementation follow-through beyond announcements"
+    }
+  ]
+}

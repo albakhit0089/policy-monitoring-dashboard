@@ -1,0 +1,481 @@
+{
+  "asOf": "2026-11-17",
+  "note": "Analyst-maintained alert log. Every fact carries its source and source type; exposure and price signals are computed by scripts/build-uae-strategy.cjs from FAOSTAT trade data and World Bank prices. Levels: critical, high, watch, clear (checked, no current restriction found). An alert's level may not be lower than its computed price signal.",
+  "crisis": {
+    "name": "Strait of Hormuz disruption",
+    "start": "2026-02-28",
+    "kpis": [
+      {
+        "label": "Dubai food inflation",
+        "value": "8.05%",
+        "period": "September 2026 (7.39% in August)",
+        "src": "national",
+        "ar": {
+          "label": "تضخم أسعار الغذاء في دبي",
+          "value": "8.05%",
+          "period": "سبتمبر 2026 (7.39% في أغسطس)"
+        }
+      },
+      {
+        "label": "Gulf food imports normally through Hormuz",
+        "value": "about 70%",
+        "period": "Reuters, March 2026",
+        "src": "reuters",
+        "ar": {
+          "label": "واردات الخليج الغذائية التي تمر عادةً عبر هرمز",
+          "value": "نحو 70%",
+          "period": "رويترز، مارس 2026"
+        }
+      },
+      {
+        "label": "Strategic reserve cover stated by the government",
+        "value": "up to 6 months",
+        "period": "stated March 2026",
+        "src": "rec-reserve",
+        "ar": {
+          "label": "تغطية المخزون الاستراتيجي المعلنة",
+          "value": "حتى 6 أشهر",
+          "period": "أُعلنت في مارس 2026"
+        }
+      }
+    ]
+  },
+  "priceRules": {
+    "baselineMonth": "2026-02",
+    "high": {
+      "threeMonth": 20,
+      "sinceBaseline": 35
+    },
+    "watch": {
+      "threeMonth": 10,
+      "sinceBaseline": 20,
+      "twelveMonth": 25
+    }
+  },
+  "alerts": [
+    {
+      "id": "hormuz",
+      "level": "critical",
+      "title": "Strait of Hormuz disrupted since 28 February 2026",
+      "kind": "route",
+      "facts": [
+        {
+          "text": "The crisis began on 28 February 2026, when Iran's Revolutionary Guard warned ships off the strait after US and Israeli strikes; Iran announced the closure on 4 March. Reopening arrangements in April and June did not hold.",
+          "src": [
+            "wiki"
+          ]
+        },
+        {
+          "text": "Trackers report the strait effectively closed to commercial shipping in November (3 transits on 8 November against about 85 a day before the crisis), while other estimates show oil flows partly restored. Traffic levels are contested.",
+          "src": [
+            "straits",
+            "wiki"
+          ]
+        },
+        {
+          "text": "About 70% of the Gulf's food imports normally pass through the strait. Importers have rerouted cargo through Fujairah, Khor Fakkan and Oman's Sohar, with onward trucking costing several times the ocean freight; Saudi Arabia has added Red Sea logistics corridors.",
+          "src": [
+            "reuters",
+            "rec-saudi"
+          ]
+        },
+        {
+          "text": "In March the UAE said its strategic reserve covers essential needs for up to six months. Retailers report using Fujairah, Saudi and neighbouring suppliers, chartered vessels and air freight.",
+          "src": [
+            "rec-reserve",
+            "national"
+          ]
+        },
+        {
+          "text": "Food inflation in Dubai reached 8.05% in September 2026, up from 7.39% in August. Prices of nine essential goods (cooking oil, eggs, dairy, rice, sugar, poultry, legumes, bread and wheat) cannot rise without ministry and national committee approval.",
+          "src": [
+            "national"
+          ]
+        }
+      ],
+      "response": "Monitor reserve cover and bypass-port throughput weekly for the nine price-approved staples, and give bypass capacity priority to the staples with the fewest supplier origins.",
+      "watch": "Days of cover for the nine essential goods; throughput at Fujairah and Khor Fakkan; Dubai food inflation",
+      "lead": "MOCCAE",
+      "also": [
+        "MOET"
+      ],
+      "decision": "Approve a weekly inter-agency supply-and-reserve report for the nine essential goods: days of cover, bypass-port throughput and shelf prices.",
+      "ar": {
+        "title": "اضطراب مضيق هرمز منذ 28 فبراير 2026",
+        "facts": [
+          "بدأت الأزمة في 28 فبراير 2026 عندما حذّر الحرس الثوري الإيراني السفن من عبور المضيق عقب ضربات أمريكية وإسرائيلية، وأعلنت إيران إغلاقه في 4 مارس. ولم تصمد ترتيبات إعادة الفتح في أبريل ويونيو.",
+          "تشير أدوات التتبع إلى أن المضيق ظل مغلقاً فعلياً أمام الشحن التجاري في نوفمبر (3 عبورات في 8 نوفمبر مقابل نحو 85 يومياً قبل الأزمة)، بينما تُظهر تقديرات أخرى استعادة جزئية لتدفقات النفط. ومستويات الحركة محل خلاف.",
+          "يمر نحو 70% من واردات الخليج الغذائية عادةً عبر المضيق. وقد حوّل المستوردون الشحنات عبر الفجيرة وخورفكان وميناء صحار العُماني، مع تكلفة نقل بري تفوق أجرة الشحن البحري بأضعاف، كما أضافت المملكة العربية السعودية ممرات لوجستية عبر البحر الأحمر.",
+          "أعلنت دولة الإمارات في مارس أن مخزونها الاستراتيجي يغطي الاحتياجات الأساسية لمدة تصل إلى ستة أشهر. ويفيد تجار التجزئة باستخدام ميناء الفجيرة وموردين من السعودية والدول المجاورة وسفن مستأجرة والشحن الجوي.",
+          "بلغ تضخم أسعار الغذاء في دبي 8.05% في سبتمبر 2026 مقارنة بـ7.39% في أغسطس. ولا يجوز رفع أسعار تسع سلع أساسية (زيت الطهي، البيض، الألبان، الأرز، السكر، الدواجن، البقوليات، الخبز، القمح) دون موافقة الوزارة ولجنة وطنية."
+        ],
+        "response": "رصد أيام التغطية من المخزون وحجم المناولة في موانئ الالتفاف أسبوعياً للسلع التسع الخاضعة لموافقة الأسعار، وإعطاء الأولوية في سعة هذه الموانئ للسلع الأقل تنوعاً في مصادر التوريد.",
+        "watch": "أيام التغطية للسلع الأساسية التسع؛ المناولة في الفجيرة وخورفكان؛ تضخم أسعار الغذاء في دبي",
+        "decision": "اعتماد تقرير أسبوعي مشترك بين الجهات عن الإمدادات والمخزون للسلع الأساسية التسع: أيام التغطية، والمناولة في موانئ الالتفاف، وأسعار الرفوف."
+      }
+    },
+    {
+      "id": "sugar",
+      "level": "high",
+      "title": "Sugar: world price surge and Indian export ban",
+      "kind": "supplier",
+      "categories": [
+        "sugar"
+      ],
+      "benchmark": "Sugar, world",
+      "supplierCountry": "India",
+      "facts": [
+        {
+          "text": "India moved raw, white and refined sugar exports to 'prohibited' in May 2026 until 30 September 2026, with limited quota carve-outs.",
+          "src": [
+            "sugar-ban",
+            "sugar-ban2"
+          ]
+        },
+        {
+          "text": "For the 2026-27 season only a 5,841-tonne EU quota has been confirmed (DGFT, October 2026); whether the general ban continues is unconfirmed. India imposed domestic stock limits from 15 October to 30 November 2026 as ex-mill prices rose.",
+          "src": [
+            "sugar-eu",
+            "sugar-domestic"
+          ]
+        }
+      ],
+      "response": "Secure forward supply from the main origin and qualify a second origin; watch retailer margins under the price-approval rule, since sugar is one of the nine controlled staples.",
+      "watch": "Effective suppliers of sugar; world sugar price; Indian export policy for 2026-27",
+      "lead": "MOCCAE",
+      "also": [
+        "MOET"
+      ],
+      "decision": "Secure forward purchases of sugar from Brazil and qualify a second origin; review retailer margins under the price-approval rule.",
+      "ar": {
+        "title": "السكر: ارتفاع حاد في السعر العالمي وحظر تصدير هندي",
+        "facts": [
+          "نقلت الهند صادرات السكر الخام والأبيض والمكرر إلى فئة \"محظور\" في مايو 2026 حتى 30 سبتمبر 2026، مع استثناءات محدودة ضمن حصص.",
+          "لم تُؤكَّد لموسم 2026-27 سوى حصة قدرها 5,841 طناً للاتحاد الأوروبي (المديرية العامة للتجارة الخارجية في الهند، أكتوبر 2026)، ولم يتأكد استمرار الحظر العام. وفرضت الهند حدوداً على المخزون المحلي من 15 أكتوبر إلى 30 نوفمبر 2026 مع ارتفاع أسعار المصانع."
+        ],
+        "response": "تأمين توريد آجل من المصدر الرئيسي واعتماد مصدر ثانٍ، ومتابعة هوامش تجار التجزئة في ظل قاعدة الموافقة على الأسعار، إذ إن السكر من السلع التسع الخاضعة للرقابة.",
+        "watch": "العدد الفعلي لموردي السكر؛ السعر العالمي للسكر؛ سياسة التصدير الهندية لموسم 2026-27",
+        "decision": "تأمين مشتريات آجلة من السكر من البرازيل واعتماد مصدر ثانٍ، ومراجعة هوامش تجار التجزئة في ظل قاعدة الموافقة على الأسعار."
+      }
+    },
+    {
+      "id": "chicken",
+      "level": "watch",
+      "title": "Chicken: Newcastle disease in Brazil's Santa Catarina",
+      "kind": "supplier",
+      "categories": [
+        "chicken"
+      ],
+      "supplierCountry": "Brazil",
+      "facts": [
+        {
+          "text": "Brazil confirmed Newcastle disease on a commercial farm in Santa Catarina on 18 October 2026. Mexico suspended all Brazilian poultry, then narrowed the ban to Santa Catarina; Saudi Arabia, China and Chile restricted Santa Catarina only.",
+          "src": [
+            "ncd-five",
+            "ncd-china",
+            "ncd-mexico"
+          ]
+        },
+        {
+          "text": "No UAE restriction was reported in the sources checked.",
+          "src": [
+            "ncd-five"
+          ]
+        }
+      ],
+      "response": "Confirm which Brazilian states supply UAE chicken and prepare state-level (regionalised) acceptance, as Saudi Arabia applied, so that a nationwide suspension is not needed.",
+      "watch": "UAE veterinary notices; Brazilian chicken shipments to the UAE",
+      "lead": "MOCCAE",
+      "also": [
+        "ADAFSA"
+      ],
+      "decision": "Decide on state-level (regionalised) acceptance of Brazilian poultry, so that an outbreak in one state does not stop all imports.",
+      "ar": {
+        "title": "الدجاج: مرض نيوكاسل في ولاية سانتا كاتارينا البرازيلية",
+        "facts": [
+          "أكدت البرازيل في 18 أكتوبر 2026 إصابة مزرعة تجارية في ولاية سانتا كاتارينا بمرض نيوكاسل. وعلّقت المكسيك جميع واردات الدواجن البرازيلية ثم قصرت الحظر على سانتا كاتارينا، فيما قيّدت السعودية والصين وتشيلي الواردات من سانتا كاتارينا فقط.",
+          "لم تُرصد في المصادر التي جرى التحقق منها أي قيود من جانب دولة الإمارات."
+        ],
+        "response": "التحقق من الولايات البرازيلية التي تورّد الدجاج إلى الإمارات، والاستعداد لاعتماد القبول على مستوى الولاية (التقسيم الإقليمي) كما فعلت السعودية، تفادياً لتعليق شامل.",
+        "watch": "الإشعارات البيطرية في الإمارات؛ شحنات الدجاج البرازيلية إلى الإمارات",
+        "decision": "البت في قبول الدواجن البرازيلية على مستوى الولاية (التقسيم الإقليمي)، حتى لا يوقف تفشٍّ في ولاية واحدة جميع الواردات."
+      }
+    },
+    {
+      "id": "wheat",
+      "level": "watch",
+      "title": "Wheat: higher world prices, supply diversified",
+      "kind": "price",
+      "categories": [
+        "wheat"
+      ],
+      "benchmark": "Wheat, US HRW",
+      "supplierCountry": "Russian Federation",
+      "facts": [
+        {
+          "text": "Russia's floating wheat export duty has been held at or near zero for much of 2026, easing supply from the UAE's largest wheat origin.",
+          "src": [
+            "ru-duty"
+          ]
+        }
+      ],
+      "response": "Treat wheat as a cost risk rather than an availability risk; keep the current spread of origins.",
+      "watch": "World wheat price; Russian export duty and quota",
+      "lead": "MOCCAE",
+      "also": [],
+      "decision": "No new decision; keep wheat on the cost-monitoring list.",
+      "ar": {
+        "title": "القمح: ارتفاع الأسعار العالمية مع تنوع جيد في المصادر",
+        "facts": [
+          "حافظت روسيا على رسوم تصدير القمح المتغيرة عند الصفر أو قريباً منه خلال معظم عام 2026، ما يسهّل التوريد من أكبر مصدر للقمح إلى الإمارات."
+        ],
+        "response": "التعامل مع القمح باعتباره خطر تكلفة لا خطر توافر، والإبقاء على التوزيع الحالي لمصادر التوريد.",
+        "watch": "السعر العالمي للقمح؛ رسوم وحصص التصدير الروسية",
+        "decision": "لا يلزم قرار جديد؛ إبقاء القمح ضمن قائمة رصد التكاليف."
+      }
+    },
+    {
+      "id": "rice",
+      "level": "watch",
+      "title": "Rice: price up sharply, one dominant origin",
+      "kind": "price",
+      "categories": [
+        "rice"
+      ],
+      "benchmark": "Rice, Thai 5%",
+      "supplierCountry": "India",
+      "facts": [
+        {
+          "text": "India lifted its non-basmati white rice export ban in late 2024 and its broken-rice ban in March 2025; non-basmati exports now require contract registration, a procedural condition rather than a restriction.",
+          "src": [
+            "rice-usda"
+          ]
+        },
+        {
+          "text": "India restricted rice exports in 2023-2024, so dependence on one origin has already been tested.",
+          "src": [
+            "rice-2023"
+          ]
+        }
+      ],
+      "response": "Diversify part of rice demand to a second origin while Indian exports are open; include rice in the weekly reserve-cover monitor.",
+      "watch": "Effective suppliers of rice; Indian export policy; world rice price",
+      "lead": "MOCCAE",
+      "also": [
+        "MOFT"
+      ],
+      "decision": "Approve sourcing a share of rice imports from a second origin while Indian exports are open.",
+      "ar": {
+        "title": "الأرز: ارتفاع حاد في السعر واعتماد على مصدر رئيسي واحد",
+        "facts": [
+          "رفعت الهند حظر تصدير الأرز الأبيض غير البسمتي أواخر 2024 وحظر الأرز المكسور في مارس 2025، ويتطلب تصدير الأرز غير البسمتي الآن تسجيل العقود، وهو شرط إجرائي لا قيد.",
+          "قيّدت الهند صادرات الأرز في 2023-2024، أي أن الاعتماد على مصدر واحد قد اختُبر من قبل."
+        ],
+        "response": "تنويع جزء من الطلب على الأرز نحو مصدر ثانٍ ما دامت الصادرات الهندية مفتوحة، وإدراج الأرز في الرصد الأسبوعي لتغطية المخزون.",
+        "watch": "العدد الفعلي لموردي الأرز؛ سياسة التصدير الهندية؛ السعر العالمي للأرز",
+        "decision": "الموافقة على توريد حصة من واردات الأرز من مصدر ثانٍ ما دامت الصادرات الهندية مفتوحة."
+      }
+    },
+    {
+      "id": "fertilizer",
+      "level": "watch",
+      "title": "Fertilizer: inputs for local production",
+      "kind": "input",
+      "benchmark": "DAP",
+      "facts": [
+        {
+          "text": "Up to 30% of internationally traded fertilizers normally transit the Strait of Hormuz.",
+          "src": [
+            "wiki"
+          ]
+        },
+        {
+          "text": "SABIC Agri-Nutrients reported a 62% fall in third-quarter net earnings, mainly from logistics disruption linked to the closure of the strait.",
+          "src": [
+            "rec-sabic"
+          ]
+        }
+      ],
+      "response": "Check input stocks of greenhouse and fodder producers; local production targets depend on fertilizer that is itself disrupted.",
+      "watch": "DAP and urea prices; input stocks reported by producers",
+      "lead": "MOCCAE",
+      "also": [
+        "ADAFSA"
+      ],
+      "decision": "Request an input-stock survey of greenhouse and fodder producers.",
+      "ar": {
+        "title": "الأسمدة: مدخلات الإنتاج المحلي",
+        "facts": [
+          "يمر عادةً ما يصل إلى 30% من تجارة الأسمدة الدولية عبر مضيق هرمز.",
+          "أعلنت شركة سابك للمغذيات الزراعية انخفاض صافي أرباح الربع الثالث بنسبة 62%، ويعود ذلك أساساً إلى اضطراب الخدمات اللوجستية المرتبط بإغلاق المضيق."
+        ],
+        "response": "التحقق من مخزون المدخلات لدى منتجي البيوت المحمية والأعلاف، فأهداف الإنتاج المحلي تعتمد على أسمدة تعاني هي الأخرى من الاضطراب.",
+        "watch": "أسعار سماد فوسفات ثنائي الأمونيوم واليوريا؛ مخزون المدخلات لدى المنتجين",
+        "decision": "طلب مسح لمخزون المدخلات لدى منتجي البيوت المحمية والأعلاف."
+      }
+    },
+    {
+      "id": "onions",
+      "level": "clear",
+      "title": "Onions: no current Indian restriction found",
+      "kind": "supplier",
+      "categories": [
+        "onions"
+      ],
+      "supplierCountry": "India",
+      "facts": [
+        {
+          "text": "India withdrew its 20% onion export duty from 1 April 2025; no 2026 restriction was found in the sources checked.",
+          "src": [
+            "onion-duty"
+          ]
+        },
+        {
+          "text": "India resumed onion exports to the UAE in March 2024 after an earlier ban, so the dependence has been tested before.",
+          "src": [
+            "rec-onion"
+          ]
+        }
+      ],
+      "response": "No action needed now; keep onions on the watchlist given the concentration on one origin.",
+      "watch": "Indian onion export policy; effective suppliers of onions",
+      "lead": "MOCCAE",
+      "also": [],
+      "decision": "No decision needed now.",
+      "ar": {
+        "title": "البصل: لا قيود هندية حالية",
+        "facts": [
+          "ألغت الهند رسوم تصدير البصل البالغة 20% اعتباراً من 1 أبريل 2025، ولم يُعثر على أي قيود في 2026 في المصادر التي جرى التحقق منها.",
+          "استأنفت الهند تصدير البصل إلى الإمارات في مارس 2024 بعد حظر سابق، أي أن هذا الاعتماد قد اختُبر من قبل."
+        ],
+        "response": "لا يلزم إجراء حالياً، مع إبقاء البصل على قائمة المتابعة نظراً لتركّز التوريد في مصدر واحد.",
+        "watch": "سياسة تصدير البصل الهندية؛ العدد الفعلي لموردي البصل",
+        "decision": "لا يلزم قرار حالياً."
+      }
+    }
+  ],
+  "sources": {
+    "wiki": {
+      "label": "Wikipedia, 2026 Strait of Hormuz crisis",
+      "url": "https://en.wikipedia.org/wiki/2026_Strait_of_Hormuz_crisis",
+      "type": "reference"
+    },
+    "straits": {
+      "label": "Straits.live tracker (IMF PortWatch counts)",
+      "url": "https://straits.live/",
+      "type": "tracker"
+    },
+    "reuters": {
+      "label": "Reuters via Claims Journal, 17 Mar 2026",
+      "url": "https://www.claimsjournal.com/news/national/2026/03/17/336292.htm",
+      "type": "press"
+    },
+    "national": {
+      "label": "The National, 23 Oct 2026",
+      "url": "https://www.thenationalnews.com/news/uae/2026/10/23/we-had-a-plan-b-c-and-d-uae-retailers-pledge-to-keep-food-prices-stable-amid-iran-war-disruption/",
+      "type": "press"
+    },
+    "rec-reserve": {
+      "label": "Policy record: Ministry of Economy and Tourism on prices and reserves, 10 Mar 2026",
+      "recordId": "0a9e42ad109bd8c5",
+      "url": "https://www.freshplaza.com/asia/article/9818339/uae-says-tomato-and-onion-price-increases-are-temporary/",
+      "type": "record"
+    },
+    "rec-saudi": {
+      "label": "Policy record: Saudi Ports Authority logistics corridors, 28 Mar 2026",
+      "recordId": "0c55285d408eb8aa",
+      "url": "https://www.foodbusinessmea.com/saudi-ports-add-five-shipping-services-bahrain-link-to-bypass-strait-of-hormuz/",
+      "type": "record"
+    },
+    "rec-sabic": {
+      "label": "Policy record: SABIC Agri-Nutrients results, 20 Oct 2026",
+      "recordId": "3f87078638273e8b",
+      "url": "https://www.agbi.com/industry/2026/10/sabic-an-profit-hit-by-lower-sales-and-higher-shipping-costs/",
+      "type": "record"
+    },
+    "rec-onion": {
+      "label": "Policy record: India resumes onion exports to the UAE, 15 Mar 2024",
+      "recordId": "90443d6486cea4da",
+      "url": "",
+      "type": "record"
+    },
+    "sugar-ban": {
+      "label": "The Hitavada, 15 May 2026",
+      "url": "https://www.thehitavada.com//Encyc/2026/5/15/india-bans-sugar-exports-till-sept-30.html",
+      "type": "press"
+    },
+    "sugar-ban2": {
+      "label": "Food Business MEA",
+      "url": "https://www.foodbusinessmea.com/india-bans-sugar-exports-until-september-2026/",
+      "type": "press"
+    },
+    "sugar-eu": {
+      "label": "DGFT notice reported by Bizsol, 12 Oct 2026",
+      "url": "https://www.bizsolindia.com/dgftindias-export-quota-for-sugar-to-the-eu-under-trq-for-2026-27-october-2026-to-september-2027-is-set-at-5841-mt-12-10-2026/",
+      "type": "press"
+    },
+    "sugar-domestic": {
+      "label": "Business Standard, Oct 2026",
+      "url": "https://www.business-standard.com/industry/news/centre-releases-sugar-quota-prices-rise-diwali-festive-season-stock-limits-126101400376_1.html",
+      "type": "press"
+    },
+    "ncd-five": {
+      "label": "Global Agriculture: five countries restrict Brazilian poultry",
+      "url": "https://www.global-agriculture.com/animal-health-welfare/brazil-poultry-exports-hit-as-five-countries-restrict-imports-over-newcastle-disease/",
+      "type": "press"
+    },
+    "ncd-china": {
+      "label": "CP24 (Reuters), 20 Oct 2026",
+      "url": "https://www.cp24.com/news/world/2026/10/20/brazil-avoids-nationwide-china-poultry-ban-after-newcastle-disease-case/",
+      "type": "press"
+    },
+    "ncd-mexico": {
+      "label": "Global Agriculture: Mexico narrows ban",
+      "url": "https://www.global-agriculture.com/latam-agriculture/mexico-narrows-brazil-poultry-ban-to-santa-catarina-over-newcastle-disease/",
+      "type": "press"
+    },
+    "ru-duty": {
+      "label": "Global Trade Alert: Russia zero export duties",
+      "url": "https://globaltradealert.org/state-act/98927-russia-extension-of-zero-export-duties-on-certain-agricultural-products-1-to-7-july-2026",
+      "type": "reference"
+    },
+    "rice-usda": {
+      "label": "USDA FAS GAIN, India Grain and Feed Annual 2025",
+      "url": "https://apps.fas.usda.gov/newgainapi/api/Report/DownloadReportByFileName?fileName=Grain+and+Feed+Annual_New+Delhi_India_IN2025-0023.pdf",
+      "type": "official"
+    },
+    "rice-2023": {
+      "label": "Gulf News: India prohibits non-basmati white rice exports (2023)",
+      "url": "https://gulfnews.com/world/asia/india/india-prohibits-export-of-non-basmati-white-rice-1.97085919",
+      "type": "press"
+    },
+    "onion-duty": {
+      "label": "News Arena (PTI): onion export duty withdrawn",
+      "url": "https://newsarenaindia.com/nation/govt-lifts-20-pc-onion-export-duty-to-aid-farmers/39642",
+      "type": "press"
+    }
+  },
+  "translationNote": "Arabic text is a draft translation for review by a native speaker before official use.",
+  "entities": {
+    "MOCCAE": {
+      "en": "Ministry of Climate Change and Environment (MOCCAE)",
+      "ar": "وزارة التغير المناخي والبيئة"
+    },
+    "MOET": {
+      "en": "Ministry of Economy and Tourism",
+      "ar": "وزارة الاقتصاد والسياحة"
+    },
+    "MOFT": {
+      "en": "Ministry of State for Foreign Trade",
+      "ar": "وزارة الدولة للتجارة الخارجية"
+    },
+    "ADAFSA": {
+      "en": "Abu Dhabi Agriculture and Food Safety Authority (ADAFSA)",
+      "ar": "هيئة أبوظبي للزراعة والسلامة الغذائية"
+    }
+  },
+  "leadNote": {
+    "en": "Suggested from each entity's mandate and its activity in the policy record; to be confirmed by the government.",
+    "ar": "مقترحة بناءً على اختصاص كل جهة ونشاطها في سجل السياسات؛ ويُرجى تأكيدها من الحكومة."
+  }
+}

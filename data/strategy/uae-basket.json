@@ -1,0 +1,275 @@
+{
+  "label": "Stand-in basket of major staples and feed inputs",
+  "note": "The official 18-item national food basket is not published. This stand-in covers the UAE's largest staple imports by value in FAOSTAT trade data (2023), grouped into categories, plus two feed and crushing inputs on which local poultry, dairy and edible-oil production depend. It will be replaced by the official list when available.",
+  "tradeCategories": [
+    {
+      "id": "wheat",
+      "name": "Wheat",
+      "group": "Cereals",
+      "role": "food",
+      "codes": [
+        15
+      ]
+    },
+    {
+      "id": "rice",
+      "name": "Rice",
+      "group": "Cereals",
+      "role": "food",
+      "codes": [
+        31
+      ],
+      "detail": "milled"
+    },
+    {
+      "id": "maize",
+      "name": "Maize",
+      "group": "Cereals",
+      "role": "food and feed",
+      "codes": [
+        56
+      ]
+    },
+    {
+      "id": "barley",
+      "name": "Barley",
+      "group": "Cereals",
+      "role": "feed",
+      "codes": [
+        44
+      ]
+    },
+    {
+      "id": "sugar",
+      "name": "Sugar",
+      "group": "Sugar",
+      "role": "food",
+      "codes": [
+        162,
+        164
+      ],
+      "detail": "raw and refined"
+    },
+    {
+      "id": "vegoil",
+      "name": "Vegetable oils",
+      "group": "Oils",
+      "role": "food",
+      "codes": [
+        257,
+        268,
+        237
+      ],
+      "detail": "palm, sunflower and soybean"
+    },
+    {
+      "id": "chicken",
+      "name": "Chicken meat",
+      "group": "Meat",
+      "role": "food",
+      "codes": [
+        1058
+      ]
+    },
+    {
+      "id": "beef",
+      "name": "Beef",
+      "group": "Meat",
+      "role": "food",
+      "codes": [
+        867,
+        870
+      ]
+    },
+    {
+      "id": "smallrum",
+      "name": "Sheep and goat meat",
+      "group": "Meat",
+      "role": "food",
+      "codes": [
+        977,
+        1017
+      ]
+    },
+    {
+      "id": "milkpowder",
+      "name": "Milk powder",
+      "group": "Dairy and eggs",
+      "role": "food",
+      "codes": [
+        897,
+        898
+      ]
+    },
+    {
+      "id": "eggs",
+      "name": "Eggs",
+      "group": "Dairy and eggs",
+      "role": "food",
+      "codes": [
+        1062
+      ]
+    },
+    {
+      "id": "pulses",
+      "name": "Pulses",
+      "group": "Pulses",
+      "role": "food",
+      "codes": [
+        201,
+        191
+      ],
+      "detail": "lentils and chickpeas"
+    },
+    {
+      "id": "potatoes",
+      "name": "Potatoes",
+      "group": "Vegetables",
+      "role": "food",
+      "codes": [
+        116
+      ]
+    },
+    {
+      "id": "onions",
+      "name": "Onions",
+      "group": "Vegetables",
+      "role": "food",
+      "codes": [
+        403
+      ]
+    },
+    {
+      "id": "fruit",
+      "name": "Fruit",
+      "group": "Fruit",
+      "role": "food",
+      "codes": [
+        515,
+        486,
+        490
+      ],
+      "detail": "apples, bananas and oranges"
+    },
+    {
+      "id": "soymeal",
+      "name": "Soybean meal",
+      "group": "Inputs",
+      "role": "feed input",
+      "codes": [
+        238
+      ],
+      "dependents": "local poultry and dairy feed"
+    },
+    {
+      "id": "rapeseed",
+      "name": "Rapeseed",
+      "group": "Inputs",
+      "role": "crushing input",
+      "codes": [
+        270
+      ],
+      "dependents": "local edible-oil crushing"
+    }
+  ],
+  "balanceItems": [
+    {
+      "code": 2511,
+      "name": "Wheat"
+    },
+    {
+      "code": 2514,
+      "name": "Maize"
+    },
+    {
+      "code": 2531,
+      "name": "Potatoes"
+    },
+    {
+      "code": 2601,
+      "name": "Tomatoes"
+    },
+    {
+      "code": 2605,
+      "name": "Other vegetables"
+    },
+    {
+      "code": 2619,
+      "name": "Dates"
+    },
+    {
+      "code": 2731,
+      "name": "Beef"
+    },
+    {
+      "code": 2732,
+      "name": "Sheep and goat meat"
+    },
+    {
+      "code": 2734,
+      "name": "Poultry meat"
+    },
+    {
+      "code": 2744,
+      "name": "Eggs"
+    },
+    {
+      "code": 2848,
+      "name": "Milk"
+    },
+    {
+      "code": 2960,
+      "name": "Fish and seafood"
+    }
+  ],
+  "foodSecurityItems": [
+    {
+      "code": "21035",
+      "name": "Cereal import dependency ratio",
+      "unit": "%",
+      "dimension": "availability"
+    },
+    {
+      "code": "21033",
+      "name": "Value of food imports in total merchandise exports",
+      "unit": "%",
+      "dimension": "affordability"
+    },
+    {
+      "code": "210091",
+      "name": "Prevalence of moderate or severe food insecurity",
+      "unit": "%",
+      "dimension": "affordability"
+    },
+    {
+      "code": "210401",
+      "name": "Prevalence of severe food insecurity",
+      "unit": "%",
+      "dimension": "affordability"
+    },
+    {
+      "code": "21013",
+      "name": "Average protein supply",
+      "unit": "g/person/day",
+      "dimension": "quality"
+    },
+    {
+      "code": "21012",
+      "name": "Share of dietary energy from cereals, roots and tubers",
+      "unit": "%",
+      "dimension": "quality"
+    },
+    {
+      "code": "21042",
+      "name": "Adult obesity prevalence",
+      "unit": "%",
+      "dimension": "quality"
+    },
+    {
+      "code": "21043",
+      "name": "Anaemia among women of reproductive age",
+      "unit": "%",
+      "dimension": "quality"
+    }
+  ]
+}
